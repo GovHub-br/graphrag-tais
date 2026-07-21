@@ -46,6 +46,7 @@ inclusive o próprio autor daqui a seis meses — entenda *por que* o sistema é
 | [0003](./0003-qdrant-como-vector-store.md) | Qdrant como vector store da camada semântica | Proposto |
 | [0004](./0004-openmetadata-como-fonte-de-metadados.md) | OpenMetadata como fonte de metadados e ingestão determinística | Proposto |
 | [0005](./0005-ingestao-openmetadata-para-neo4j-e-qdrant.md) | Ingestão do OpenMetadata para Neo4j e Qdrant | Proposto |
+| [0006](./0006-interpretacao-da-pergunta-em-representacao-estruturada.md) | Interpretação da pergunta em uma representação estruturada (IR) | Proposto |
 
 ### Temas candidatos a ADR (backlog)
 
@@ -53,6 +54,7 @@ Sub-decisões que merecem seu próprio ADR conforme o projeto evolui:
 
 - Recuperação **híbrida** (denso + esparso/SPLADE) — *como* o Qdrant é consultado.
 - Modelo detalhado do grafo (labels, propriedades e arestas derivadas `CAN_JOIN`).
+- **Normalização de valores** (linguagem → valores de domínio) via glossário.
 - Validação de **granularidade (grain)** para evitar fan-out no SQL.
 - Detecção de **comunidades (Leiden/GDS)** como camada de expansão semântica.
 - Estratégia de **vetorização** (cards por tipo, quotas por tipo na recuperação).
