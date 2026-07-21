@@ -1,0 +1,78 @@
+# ------------------------------------
+# Projeto de referência (clonado, não versionar)
+# ------------------------------------
+rag-thinkads/
+
+# ------------------------------------
+# Hayhooks
+# ------------------------------------
+.hayhooks/
+.hayhooks_pipelines/
+
+# ------------------------------------
+# Dados de stores locais
+# ------------------------------------
+qdrant_data/
+neo4j_data/
+redis_data/
+
+# ------------------------------------
+# Python / Build artifacts
+# ------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.build/
+build/
+dist/
+.eggs/
+*.egg-info/
+.python-version
+
+# ------------------------------------
+# Virtual environments
+# ------------------------------------
+.venv/
+venv/
+ENV/
+env/
+.env
+.env.*
+!.env.example
+
+# ------------------------------------
+# Tooling / Caches
+# ------------------------------------
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+.cache/
+
+# ------------------------------------
+# IDEs / Editors
+# ------------------------------------
+.vscode/
+.idea/
+*.iml
+
+# ------------------------------------
+# OS files
+# ------------------------------------
+.DS_Store
+Thumbs.db
+
+# ------------------------------------
+# Data / Logs
+# ------------------------------------
+data/**
+!data/.gitkeep
+logs/
+*.log
+tmp/
+temp/
+*.tmp

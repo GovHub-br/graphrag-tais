@@ -1,0 +1,37 @@
+# ------------------------------------------------------------------ #
+# Haystack core + serving
+# ------------------------------------------------------------------ #
+haystack-ai==3.0.0
+hayhooks==1.22.0
+
+# ------------------------------------------------------------------ #
+# Integrações Haystack
+# ------------------------------------------------------------------ #
+ollama-haystack==6.8.0
+# Retrieval híbrido: embedder esparso (SPLADE) via fastembed
+fastembed-haystack==2.3.0
+# Driver oficial do Neo4j — usado pelos componentes custom de grafo (Cypher).
+# Para o GraphRAG de metadados (OpenMetadata), o Neo4j é grafo puro percorrido
+# por Cypher, então NÃO usamos neo4j-haystack (que trata Neo4j como vector store).
+neo4j==6.2.0
+
+# ------------------------------------------------------------------ #
+# Qdrant — propositalmente NÃO pinado.
+# Escolha a versão do qdrant-client compatível com o seu Qdrant de PRODUÇÃO
+# (um client novo demais pode usar APIs que o servidor antigo não expõe).
+# qdrant-haystack acompanha o client; fixe ambos quando souber a versão do prod,
+# ex.:  qdrant-client==1.12.*
+# ------------------------------------------------------------------ #
+qdrant-haystack
+qdrant-client
+
+# ------------------------------------------------------------------ #
+# Config / infra
+# ------------------------------------------------------------------ #
+pydantic==2.13.4
+pydantic-settings==2.14.2
+python-dotenv==1.2.2
+uvicorn[standard]==0.51.0
+redis==8.0.1
+loguru==0.7.3
+httpx==0.28.1        # cliente REST do OpenMetadataSource

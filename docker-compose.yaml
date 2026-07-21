@@ -1,0 +1,115 @@
+services:
+
+  qdrant:
+    image: qdrant/qdrant:v1.15.0
+    container_name: qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      - QDRANT__SERVICE__API_KEY=${QDRANT_API_KEY:-}
+    networks:
+      - default
+
+  neo4j:
+    image: neo4j:5-community
+    container_name: neo4j
+    ports:
+      - "7474:7474"   # HTTP browser
+      - "7687:7687"   # Bolt
+    environment:
+      - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:-password123}
+      - NEO4J_PLUGINS=["apoc"]
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    networks:
+      - default
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_password}
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - default
+
+  hayhooks:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: graphrag-tais/hayhooks:latest
+    container_name: hayhooks
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app/src:rw
+    command: [
+      "hayhooks",
+      "run",
+      "--host", "0.0.0.0",
+      "--port", "8000",
+      "--pipelines-dir", "/app/src/rag/pipelines",
+      "--additional-python-path", "/app/src/",
+      "--reload"
+    ]
+    env_file:
+      - .env
+    depends_on:
+      - qdrant
+      - neo4j
+      - redis
+    healthcheck:
+      test: ["CMD", "bash", "-lc", "curl -fsS http://localhost:8000/docs || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - default
+
+  webui:
+    image: ghcr.io/open-webui/open-webui:${WEBUI_DOCKER_TAG:-main}
+    container_name: open-webui
+    ports:
+      - "${OPEN_WEBUI_PORT:-3000}:8080"
+    volumes:
+      - open-webui:/app/backend/data
+    environment:
+      - WEBUI_AUTH=false
+      - OPENAI_API_BASE_URL=http://hayhooks:8000
+      - OPENAI_API_KEY=dummy
+      - ENABLE_TAGS_GENERATION=true
+    depends_on:
+      - hayhooks
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - default
+
+volumes:
+  qdrant_data:
+    driver: local
+  neo4j_data:
+    driver: local
+  neo4j_logs:
+    driver: local
+  redis_data:
+    driver: local
+  open-webui:
+    driver: local
+
+networks:
+  default:
+    driver: bridge
