@@ -48,12 +48,14 @@ inclusive o próprio autor daqui a seis meses — entenda *por que* o sistema é
 | [0005](./0005-ingestao-openmetadata-para-neo4j-e-qdrant.md) | Ingestão do OpenMetadata para Neo4j e Qdrant | Proposto |
 | [0006](./0006-interpretacao-da-pergunta-em-representacao-estruturada.md) | Interpretação da pergunta em uma representação estruturada (IR) | Proposto |
 | [0007](./0007-fechamento-dos-gaps-de-correcao-e-consistencia-do-v1.md) | Fechamento dos gaps de correção e consistência do v1 | Proposto |
+| [0008](./0008-execucao-do-sql-e-visualizacao-no-v1.md) | Execução do SQL e visualização no v1 (conexão read-only + matplotlib) | Proposto |
+| [0009](./0009-modelo-de-embedding-e-composicao-do-retrieval-hibrido.md) | Modelo de embedding (OpenAI) e composição do retrieval híbrido | Proposto |
+| [0010](./0010-camada-de-entrega-tabelas-grafico-explicacao-relatorio.md) | Camada de entrega — tabelas, gráfico, explicação e relatório | Proposto |
 
 ### Temas candidatos a ADR (backlog)
 
 Sub-decisões que merecem seu próprio ADR conforme o projeto evolui:
 
-- Recuperação **híbrida** (denso + esparso/SPLADE) — *como* o Qdrant é consultado.
 - Modelo detalhado do grafo (labels, propriedades e arestas derivadas `CAN_JOIN`).
 - **Normalização de valores** (linguagem → valores de domínio) via glossário.
 - Validação de **granularidade (grain)** para evitar fan-out no SQL.
