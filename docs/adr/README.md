@@ -45,21 +45,25 @@ inclusive o próprio autor daqui a seis meses — entenda *por que* o sistema é
 | [0002](./0002-neo4j-como-banco-de-grafo.md) | Neo4j como banco da camada de grafo | Proposto |
 | [0003](./0003-qdrant-como-vector-store.md) | Qdrant como vector store da camada semântica | Proposto |
 | [0004](./0004-openmetadata-como-fonte-de-metadados.md) | OpenMetadata como fonte de metadados e ingestão determinística | Proposto |
-| [0005](./0005-ingestao-openmetadata-para-neo4j-e-qdrant.md) | Ingestão do OpenMetadata para Neo4j e Qdrant | Proposto |
+| [0005](./0005-ingestao-openmetadata-para-neo4j-e-qdrant.md) | Ingestão do OpenMetadata para Neo4j e Qdrant | Substituído por ADR-0011 |
 | [0006](./0006-interpretacao-da-pergunta-em-representacao-estruturada.md) | Interpretação da pergunta em uma representação estruturada (IR) | Proposto |
 | [0007](./0007-fechamento-dos-gaps-de-correcao-e-consistencia-do-v1.md) | Fechamento dos gaps de correção e consistência do v1 | Proposto |
 | [0008](./0008-execucao-do-sql-e-visualizacao-no-v1.md) | Execução do SQL e visualização no v1 (conexão read-only + matplotlib) | Proposto |
 | [0009](./0009-modelo-de-embedding-e-composicao-do-retrieval-hibrido.md) | Modelo de embedding (OpenAI) e composição do retrieval híbrido | Proposto |
 | [0010](./0010-camada-de-entrega-tabelas-grafico-explicacao-relatorio.md) | Camada de entrega — tabelas, gráfico, explicação e relatório | Proposto |
+| [0011](./0011-contrato-detalhado-da-ingestao-openmetadata-neo4j-qdrant.md) | Contrato detalhado da ingestão OpenMetadata → Neo4j e Qdrant | Proposto |
+| [0012](./0012-desenvolvimento-orientado-a-metricas-no-retrieval.md) | Desenvolvimento orientado a métricas no retrieval | Proposto |
 
 ### Temas candidatos a ADR (backlog)
 
 Sub-decisões que merecem seu próprio ADR conforme o projeto evolui:
 
 - Modelo detalhado do grafo (labels, propriedades e arestas derivadas `CAN_JOIN`).
+- Fusão e ranking da recuperação **híbrida** (RRF, pesos, quotas por tipo e
+  reranking).
+- Arestas derivadas além do contrato v1, como `CAN_JOIN`.
 - **Normalização de valores** (linguagem → valores de domínio) via glossário.
 - Validação de **granularidade (grain)** para evitar fan-out no SQL.
 - Detecção de **comunidades (Leiden/GDS)** como camada de expansão semântica.
-- Estratégia de **vetorização** (cards por tipo, quotas por tipo na recuperação).
 - **Ingestão incremental** de catálogos grandes (a reconciliação de nós órfãos
   entre Neo4j e Qdrant passou a ser coberta pelo [ADR-0007](./0007-fechamento-dos-gaps-de-correcao-e-consistencia-do-v1.md)).

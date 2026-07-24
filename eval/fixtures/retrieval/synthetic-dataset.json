@@ -1,0 +1,104 @@
+{
+  "schema_version": "1",
+  "name": "synthetic-retrieval-contract",
+  "version": "1.0.0",
+  "status": "accepted",
+  "metadata": {
+    "scope_id": "synthetic",
+    "description": "Fixture exclusivamente para testar o motor de avaliação."
+  },
+  "cases": [
+    {
+      "id": "synthetic-join-001",
+      "question": "Relacione a tabela de fatos à dimensão pela chave.",
+      "critical": true,
+      "slices": [
+        "synthetic",
+        "multi_table",
+        "foreign_key"
+      ],
+      "seed_relevance": {
+        "db.schema.fact": 3,
+        "db.schema.fact.dimension_id": 3
+      },
+      "gold_subgraphs": [
+        {
+          "id": "direct-foreign-key",
+          "nodes": [
+            {
+              "id": "db.schema.fact",
+              "type": "Table",
+              "weight": 3,
+              "required": true
+            },
+            {
+              "id": "db.schema.fact.dimension_id",
+              "type": "Column",
+              "weight": 3,
+              "required": true
+            },
+            {
+              "id": "db.schema.dimension",
+              "type": "Table",
+              "weight": 3,
+              "required": true
+            },
+            {
+              "id": "db.schema.dimension.id",
+              "type": "Column",
+              "weight": 3,
+              "required": true
+            }
+          ],
+          "relationships": [
+            {
+              "id": "rel-has-fact-column",
+              "type": "HAS_COLUMN",
+              "source": "db.schema.fact",
+              "target": "db.schema.fact.dimension_id",
+              "direction": "forward",
+              "sql_join_eligible": false,
+              "weight": 1,
+              "required": true
+            },
+            {
+              "id": "rel-has-dimension-column",
+              "type": "HAS_COLUMN",
+              "source": "db.schema.dimension",
+              "target": "db.schema.dimension.id",
+              "direction": "forward",
+              "sql_join_eligible": false,
+              "weight": 1,
+              "required": true
+            },
+            {
+              "id": "rel-fact-dimension",
+              "type": "FOREIGN_KEY",
+              "source": "db.schema.fact.dimension_id",
+              "target": "db.schema.dimension.id",
+              "direction": "forward",
+              "sql_join_eligible": true,
+              "weight": 3,
+              "required": true
+            }
+          ],
+          "paths": [
+            {
+              "id": "join-fact-dimension",
+              "relationship_ids": [
+                "rel-fact-dimension"
+              ],
+              "join_path": true,
+              "weight": 3,
+              "required": true
+            }
+          ]
+        }
+      ],
+      "metadata": {
+        "annotation_status": "synthetic_fixture",
+        "reviewer": "evaluation-test-suite"
+      }
+    }
+  ]
+}

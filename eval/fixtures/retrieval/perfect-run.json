@@ -1,0 +1,116 @@
+{
+  "run_id": "synthetic-perfect-v1",
+  "dataset_name": "synthetic-retrieval-contract",
+  "dataset_version": "1.0.0",
+  "dataset_hash": "b53cd218b4eb7661c32a0bbd66d97227f4d47869972f1eb8a2e0b8183250da4b",
+  "fingerprint": "synthetic-perfect-fingerprint-v1",
+  "created_at": "2026-07-24T00:00:00Z",
+  "metadata": {
+    "scope_id": "synthetic",
+    "source_snapshot_hash": "synthetic-source-v1",
+    "graph_snapshot_hash": "synthetic-graph-v1",
+    "retrieval_profile": "perfect-fixture",
+    "environment_class": "offline-fixture"
+  },
+  "traces": [
+    {
+      "trace_schema_version": "1",
+      "case_id": "synthetic-join-001",
+      "scope_id": "synthetic",
+      "fingerprint": "synthetic-perfect-fingerprint-v1",
+      "seeds": [
+        {
+          "node_id": "db.schema.fact",
+          "card_type": "Table",
+          "rank": 1,
+          "score": 0.99,
+          "dense_rank": 1,
+          "sparse_rank": 2
+        },
+        {
+          "node_id": "db.schema.fact.dimension_id",
+          "card_type": "Column",
+          "rank": 2,
+          "score": 0.95,
+          "dense_rank": 2,
+          "sparse_rank": 1
+        }
+      ],
+      "selected_seed_node_ids": [
+        "db.schema.fact",
+        "db.schema.fact.dimension_id"
+      ],
+      "final_nodes": [
+        {
+          "id": "db.schema.fact",
+          "type": "Table"
+        },
+        {
+          "id": "db.schema.fact.dimension_id",
+          "type": "Column"
+        },
+        {
+          "id": "db.schema.dimension",
+          "type": "Table"
+        },
+        {
+          "id": "db.schema.dimension.id",
+          "type": "Column"
+        }
+      ],
+      "relationships": [
+        {
+          "id": "rel-has-fact-column",
+          "type": "HAS_COLUMN",
+          "source": "db.schema.fact",
+          "target": "db.schema.fact.dimension_id",
+          "direction": "forward",
+          "sql_join_eligible": false
+        },
+        {
+          "id": "rel-has-dimension-column",
+          "type": "HAS_COLUMN",
+          "source": "db.schema.dimension",
+          "target": "db.schema.dimension.id",
+          "direction": "forward",
+          "sql_join_eligible": false
+        },
+        {
+          "id": "rel-fact-dimension",
+          "type": "FOREIGN_KEY",
+          "source": "db.schema.fact.dimension_id",
+          "target": "db.schema.dimension.id",
+          "direction": "forward",
+          "sql_join_eligible": true
+        }
+      ],
+      "paths": [
+        {
+          "id": "join-fact-dimension",
+          "relationship_ids": [
+            "rel-fact-dimension"
+          ],
+          "join_path": true
+        }
+      ],
+      "authorized_join_relationship_ids": [
+        "rel-fact-dimension"
+      ],
+      "serialized_context_node_ids": [
+        "db.schema.fact",
+        "db.schema.fact.dimension_id",
+        "db.schema.dimension",
+        "db.schema.dimension.id"
+      ],
+      "timings_ms": {
+        "embedding": 2,
+        "vector": 3,
+        "graph": 4,
+        "total": 9
+      },
+      "metadata": {
+        "fixture": "perfect"
+      }
+    }
+  ]
+}

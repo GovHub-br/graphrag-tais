@@ -1,0 +1,47 @@
+{
+  "experiment_id": "20260724-mdd-bootstrap",
+  "status": "completed",
+  "hypothesis": "O avaliador determinístico deve distinguir recuperação estrutural completa, perda de JOIN e excesso de contexto sem depender da infraestrutura de retrieval.",
+  "change_scope": [
+    "evaluation_framework"
+  ],
+  "primary_metrics": [
+    {
+      "metric": "structural_sufficiency",
+      "expectation": "perfect=1 e degraded=0"
+    },
+    {
+      "metric": "eligible_join_relationship_recall",
+      "expectation": "perfect=1 e degraded=0"
+    },
+    {
+      "metric": "overexpansion",
+      "expectation": "noisy > perfect"
+    }
+  ],
+  "guardrails": [
+    "dataset draft não pode passar pelo gate",
+    "snapshot de origem incompatível deve bloquear a comparação",
+    "relação inelegível não pode ser autorizada como JOIN",
+    "tipo e direção do relacionamento fazem parte do matching"
+  ],
+  "dataset": {
+    "name": "synthetic-retrieval-contract",
+    "version": "1.0.0",
+    "hash": "b53cd218b4eb7661c32a0bbd66d97227f4d47869972f1eb8a2e0b8183250da4b",
+    "purpose": "fixture do motor; não representa qualidade do MCid"
+  },
+  "commands": [
+    "make eval-quick",
+    "python3 -m unittest tests.test_retrieval_eval -v"
+  ],
+  "result": {
+    "local_tests": "10/10 passed",
+    "container_full_suite": "18/18 passed",
+    "synthetic_smoke_gate": "passed",
+    "degraded_candidate_gate": "failed as expected",
+    "real_retrieval_quality": "not_evaluated"
+  },
+  "decision": "Aceitar o scaffold de avaliação e manter o gate real bloqueado até gold revisado, RetrievalTrace de produção e baseline aceita.",
+  "reviewer": null
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Avaliar mudança de retrieval"
+  short_description: "Aplique MDD às mudanças de retrieval"
+  default_prompt: "Use $evaluate-retrieval-change para medir esta mudança de retrieval contra a baseline aceita."

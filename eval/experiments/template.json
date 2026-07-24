@@ -1,0 +1,28 @@
+{
+  "experiment_id": "YYYYMMDD-short-description",
+  "status": "planned",
+  "hypothesis": "Descreva a mudança causal e a melhoria esperada.",
+  "change_scope": [
+    "seed_retrieval"
+  ],
+  "primary_metrics": [
+    {
+      "metric": "seed_recall_at_10",
+      "expected_direction": "higher",
+      "target_slices": []
+    }
+  ],
+  "guardrails": [
+    "structural_sufficiency",
+    "overexpansion"
+  ],
+  "dataset": {
+    "name": "mcid-retrieval",
+    "version": "0.1.0",
+    "hash": "preencher após validate"
+  },
+  "baseline_report": "preencher antes da implementação",
+  "candidate_report": "preencher após a implementação",
+  "decision": null,
+  "reviewer": null
+}

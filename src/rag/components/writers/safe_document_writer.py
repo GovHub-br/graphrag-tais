@@ -17,10 +17,18 @@ class SafeDocumentWriter(DocumentWriter):
     def run(self, documents: list[Document], policy: Optional[DuplicatePolicy] = None, **kwargs):
         if kwargs:
             print(f"SafeDocumentWriter received unexpected kwargs: {kwargs}")
-        return DocumentWriter.run(self, documents=documents, policy=policy)
+        return DocumentWriter.run(
+            self,
+            documents=documents,
+            policy=policy or DuplicatePolicy.OVERWRITE,
+        )
 
     @component.output_types(documents_written=int)
     async def run_async(self, documents: list[Document], policy: Optional[DuplicatePolicy] = None, **kwargs):
         if kwargs:
             print(f"SafeDocumentWriter received unexpected kwargs in async: {kwargs}")
-        return await DocumentWriter.run_async(self, documents=documents, policy=policy)
+        return await DocumentWriter.run_async(
+            self,
+            documents=documents,
+            policy=policy or DuplicatePolicy.OVERWRITE,
+        )

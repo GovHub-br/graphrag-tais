@@ -79,6 +79,22 @@ services:
     networks:
       - default
 
+  postgres-mcp:
+    image: crystaldba/postgres-mcp
+    container_name: postgres-mcp
+    environment:
+      DATABASE_URI: "postgresql://${ANALYTICS_DB_USER}:${ANALYTICS_DB_PASSWORD}@${ANALYTICS_DB_HOST}:${ANALYTICS_DB_PORT:-5432}/${ANALYTICS_DB_NAME}"
+    command:
+      - "--access-mode=restricted"
+      - "--transport=sse"
+    ports:
+      - "127.0.0.1:${POSTGRES_MCP_PORT:-8001}:8000"
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - default
+
   webui:
     image: ghcr.io/open-webui/open-webui:${WEBUI_DOCKER_TAG:-main}
     container_name: open-webui

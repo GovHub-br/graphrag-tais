@@ -24,10 +24,10 @@ class Settings(BaseSettings):
     QDRANT_EMBEDDING_DIM: int = Field(768, description="Embedding dimension")
     QDRANT_SIMILARITY: str = Field("cosine", description="Similarity metric")
     QDRANT_TIMEOUT: int = Field(30, description="Request timeout in seconds")
-    QDRANT_USE_SPARSE: bool = Field(True, description="Enable SPLADE sparse embeddings (retrieval híbrido)")
+    QDRANT_USE_SPARSE: bool = Field(True, description="Enable sparse embeddings (retrieval híbrido)")
     QDRANT_SPARSE_MODEL: str = Field(
-        "prithivida/Splade_PP_en_v1",
-        description="Modelo esparso (SPLADE) do fastembed para o retrieval híbrido",
+        "Qdrant/bm25",
+        description="Modelo esparso do FastEmbed para o retrieval híbrido",
     )
 
     # ------------------------------------------------------------------ #
@@ -74,8 +74,41 @@ class Settings(BaseSettings):
     OM_HOST: str = Field("http://localhost:8585", description="OpenMetadata base URL")
     OM_API_PATH: str = Field("/api/v1", description="Prefixo da API do OpenMetadata")
     OM_JWT_TOKEN: Optional[str] = Field(None, description="OpenMetadata JWT (Bearer) token")
+    OM_EXPECTED_VERSION: str = Field("1.12.1", description="Versão esperada da API OpenMetadata")
+    OM_SCOPE_ID: str = Field("mcid", description="Identificador estável do escopo de ingestão")
+    OM_SERVICE: Optional[str] = Field(None, description="FQN/nome do Database Service permitido")
+    OM_DATABASE: Optional[str] = Field(None, description="FQN/nome do database permitido")
+    OM_SCHEMAS: Optional[str] = Field(
+        None,
+        description="Allowlist de FQNs de schemas, separada por vírgula",
+    )
+    OM_RELATIONSHIP_ADAPTER: str = Field(
+        "mcid_markdown_v1",
+        description="Adapter configurável para relações semânticas",
+    )
+    OM_SEMANTIC_RELATIONSHIPS_PROPERTY: str = Field(
+        "mcidSemanticRelationships",
+        description="Custom Property com relações semânticas documentadas",
+    )
+    OM_RELATED_TABLES_PROPERTY: str = Field(
+        "mcidRelatedTables",
+        description="Custom Property com referências para tabelas relacionadas",
+    )
+    OM_REQUIRE_DOCUMENTED_TABLES: bool = Field(
+        True,
+        description=(
+            "Aceita somente tabelas que tenham a Custom Property documental "
+            "configurada em OM_SEMANTIC_RELATIONSHIPS_PROPERTY"
+        ),
+    )
+    OM_CARD_SCHEMA_VERSION: str = Field("v1", description="Versão do contrato dos cards")
+    OM_EMBEDDING_PROFILE: str = Field(
+        "dev-nomic-embed-text__qdrant-bm25-v1",
+        description="Identificador imutável do perfil de embeddings desta collection",
+    )
     OM_PAGE_SIZE: int = Field(100, description="Tamanho de página da API do OpenMetadata")
     OM_TIMEOUT: int = Field(60, description="Timeout (s) das chamadas ao OpenMetadata")
+    OM_MAX_RETRIES: int = Field(3, description="Retries para timeout, HTTP 429 e HTTP 5xx")
 
     # ------------------------------------------------------------------ #
     # Ingest / batching / splitting

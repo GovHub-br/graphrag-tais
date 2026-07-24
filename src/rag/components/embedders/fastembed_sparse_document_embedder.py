@@ -6,7 +6,7 @@ from rag.settings.configs import settings
 
 class FastembedSparseDocumentEmbedderFactory(ComponentFactory):
     """
-    Factory para o embedder ESPARSO (SPLADE via fastembed) usado na ingestão.
+    Factory para o embedder ESPARSO via FastEmbed usado na ingestão.
 
     Roda local em CPU (baixa o modelo na 1ª vez), sem servidor. Complementa o
     embedder denso do Ollama: o esparso casa termos/identificadores exatos

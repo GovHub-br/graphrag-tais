@@ -8,7 +8,7 @@ hayhooks==1.22.0
 # Integrações Haystack
 # ------------------------------------------------------------------ #
 ollama-haystack==6.8.0
-# Retrieval híbrido: embedder esparso (SPLADE) via fastembed
+# Retrieval híbrido: embedder esparso via FastEmbed
 fastembed-haystack==2.3.0
 # Driver oficial do Neo4j — usado pelos componentes custom de grafo (Cypher).
 # Para o GraphRAG de metadados (OpenMetadata), o Neo4j é grafo puro percorrido
@@ -16,14 +16,10 @@ fastembed-haystack==2.3.0
 neo4j==6.2.0
 
 # ------------------------------------------------------------------ #
-# Qdrant — propositalmente NÃO pinado.
-# Escolha a versão do qdrant-client compatível com o seu Qdrant de PRODUÇÃO
-# (um client novo demais pode usar APIs que o servidor antigo não expõe).
-# qdrant-haystack acompanha o client; fixe ambos quando souber a versão do prod,
-# ex.:  qdrant-client==1.12.*
+# Qdrant 1.15 — o client deve acompanhar a minor do servidor.
 # ------------------------------------------------------------------ #
-qdrant-haystack
-qdrant-client
+qdrant-haystack==10.3.1
+qdrant-client==1.15.1
 
 # ------------------------------------------------------------------ #
 # Config / infra
