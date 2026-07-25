@@ -1,0 +1,113 @@
+{
+  "schema_version": "1",
+  "name": "mcid-retrieval",
+  "version": "0.1.0",
+  "status": "draft",
+  "metadata": {
+    "scope_id": "mcid",
+    "language": "pt-BR",
+    "review_status": "pending_domain_review",
+    "description": "Primeiro caso de bootstrap. Não pode ser usado como gold aceito ou baseline de qualidade."
+  },
+  "cases": [
+    {
+      "id": "mcid-semantic-join-apf-001",
+      "question": "Qual coluna permite relacionar os dados de trabalho social ao cadastro da pessoa jurídica do empreendimento?",
+      "critical": true,
+      "slices": [
+        "pt_br",
+        "acronym",
+        "multi_table",
+        "column_discovery",
+        "semantic_join_exact",
+        "one_hop"
+      ],
+      "seed_relevance": {
+        "Cidades.cidades.entidades_fds.fds_trabalho_social": 3,
+        "Cidades.cidades.entidades_fds.fds_trabalho_social.apf": 3,
+        "Cidades.cidades.entidades_fds.fds_cadastro_pj": 2,
+        "Cidades.cidades.entidades_fds.fds_cadastro_pj.apf": 2
+      },
+      "gold_subgraphs": [
+        {
+          "id": "apf-exact-dbt",
+          "nodes": [
+            {
+              "id": "Cidades.cidades.entidades_fds.fds_trabalho_social",
+              "type": "Table",
+              "weight": 3,
+              "required": true
+            },
+            {
+              "id": "Cidades.cidades.entidades_fds.fds_trabalho_social.apf",
+              "type": "Column",
+              "weight": 3,
+              "required": true
+            },
+            {
+              "id": "Cidades.cidades.entidades_fds.fds_cadastro_pj",
+              "type": "Table",
+              "weight": 3,
+              "required": true
+            },
+            {
+              "id": "Cidades.cidades.entidades_fds.fds_cadastro_pj.apf",
+              "type": "Column",
+              "weight": 3,
+              "required": true
+            }
+          ],
+          "relationships": [
+            {
+              "id": "f78af4f3a27947ef4f8357f213845625ec0f71d75b96cb5844672376efb0cecc",
+              "type": "HAS_COLUMN",
+              "source": "Cidades.cidades.entidades_fds.fds_trabalho_social",
+              "target": "Cidades.cidades.entidades_fds.fds_trabalho_social.apf",
+              "direction": "forward",
+              "sql_join_eligible": false,
+              "weight": 1,
+              "required": true
+            },
+            {
+              "id": "bb9d0125c4c21390b66b67761964608f290ba55eb38e0a92734eccc9dfcc33a9",
+              "type": "HAS_COLUMN",
+              "source": "Cidades.cidades.entidades_fds.fds_cadastro_pj",
+              "target": "Cidades.cidades.entidades_fds.fds_cadastro_pj.apf",
+              "direction": "forward",
+              "sql_join_eligible": false,
+              "weight": 1,
+              "required": true
+            },
+            {
+              "id": "87dca86a7da8a1129139485ef925f741681a134b3f1d288721248861883a7bb5",
+              "type": "SEMANTIC_JOIN",
+              "source": "Cidades.cidades.entidades_fds.fds_trabalho_social.apf",
+              "target": "Cidades.cidades.entidades_fds.fds_cadastro_pj.apf",
+              "direction": "forward",
+              "sql_join_eligible": true,
+              "weight": 3,
+              "required": true
+            }
+          ],
+          "paths": [
+            {
+              "id": "join-apf",
+              "relationship_ids": [
+                "87dca86a7da8a1129139485ef925f741681a134b3f1d288721248861883a7bb5"
+              ],
+              "join_path": true,
+              "weight": 3,
+              "required": true
+            }
+          ]
+        }
+      ],
+      "metadata": {
+        "annotation_status": "draft",
+        "evidence": "OpenMetadata mcidSemanticRelationships; validação dbt_relationships_test",
+        "reviewer": null,
+        "contains_row_values": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,99 @@
+{
+  "schema_version": "1",
+  "name": "retrieval-non-regression-v0.1.0",
+  "require_accepted_dataset": true,
+  "reject_errors": true,
+  "reject_failed_invariants": true,
+  "reject_critical_regressions": true,
+  "required_matching_run_metadata": [
+    "scope_id",
+    "source_snapshot_hash"
+  ],
+  "critical_metrics": [
+    "structural_sufficiency",
+    "weighted_dependency_recall",
+    "node_recall",
+    "relationship_recall",
+    "eligible_join_relationship_recall",
+    "join_path_recall"
+  ],
+  "rules": [
+    {
+      "metric": "seed_recall_at_10",
+      "direction": "higher",
+      "absolute_tolerance": 0.02,
+      "relative_tolerance": 0
+    },
+    {
+      "metric": "ndcg_at_10",
+      "direction": "higher",
+      "absolute_tolerance": 0.02,
+      "relative_tolerance": 0
+    },
+    {
+      "metric": "node_recall",
+      "direction": "higher",
+      "absolute_tolerance": 0.02,
+      "relative_tolerance": 0
+    },
+    {
+      "metric": "relationship_recall",
+      "direction": "higher",
+      "absolute_tolerance": 0.02,
+      "relative_tolerance": 0
+    },
+    {
+      "metric": "eligible_join_relationship_recall",
+      "direction": "higher",
+      "absolute_tolerance": 0,
+      "relative_tolerance": 0
+    },
+    {
+      "metric": "join_path_recall",
+      "direction": "higher",
+      "absolute_tolerance": 0,
+      "relative_tolerance": 0
+    },
+    {
+      "metric": "structural_sufficiency",
+      "direction": "higher",
+      "absolute_tolerance": 0,
+      "relative_tolerance": 0,
+      "slices": [
+        "multi_table"
+      ]
+    },
+    {
+      "metric": "weighted_dependency_recall",
+      "direction": "higher",
+      "absolute_tolerance": 0.02,
+      "relative_tolerance": 0
+    },
+    {
+      "metric": "overexpansion",
+      "direction": "lower",
+      "absolute_tolerance": 0,
+      "relative_tolerance": 0.1
+    },
+    {
+      "metric": "disconnected_rate",
+      "direction": "lower",
+      "absolute_tolerance": 0.02,
+      "relative_tolerance": 0
+    },
+    {
+      "metric": "error_rate",
+      "direction": "lower",
+      "absolute_tolerance": 0,
+      "relative_tolerance": 0,
+      "maximum": 0
+    },
+    {
+      "metric": "unauthorized_join_rate",
+      "direction": "lower",
+      "absolute_tolerance": 0,
+      "relative_tolerance": 0,
+      "maximum": 0
+    }
+  ]
+}

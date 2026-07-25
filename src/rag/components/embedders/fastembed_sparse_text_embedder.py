@@ -6,7 +6,7 @@ from rag.settings.configs import settings
 
 class FastembedSparseTextEmbedderFactory(ComponentFactory):
     """
-    Factory para o embedder ESPARSO (SPLADE via fastembed) da query.
+    Factory para o embedder ESPARSO via FastEmbed da query.
     Par do FastembedSparseDocumentEmbedderFactory, mas para uma única string.
     Alimenta o `query_sparse_embedding` do QdrantHybridRetriever.
     """

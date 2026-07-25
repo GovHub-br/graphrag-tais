@@ -1,0 +1,149 @@
+# Avaliação do retrieval
+
+Esta pasta é a fonte executável do desenvolvimento orientado a métricas
+(*Metric-Driven Development*, MDD) do retrieval. A decisão completa está na
+[ADR-0012](../docs/adr/0012-desenvolvimento-orientado-a-metricas-no-retrieval.md).
+
+O escopo termina na produção do subgrafo recuperado:
+
+```text
+pergunta
+  -> ranking de sementes no Qdrant
+  -> expansão e poda no Neo4j
+  -> nós, relacionamentos e caminhos recuperados
+```
+
+Geração e execução de SQL, resposta do LLM, MetricFlow, glossário, granularidade
+e lineage não fazem parte deste benchmark.
+
+## Estado atual
+
+O projeto está em **bootstrap**:
+
+- o motor de métricas e o gate podem ser exercitados offline;
+- fixtures sintéticas comprovam as fórmulas sem Qdrant, Neo4j ou Ollama;
+- o primeiro caso MCid está em estado `draft` e ainda precisa de revisão humana;
+- o retrieval atual ainda não emite o `RetrievalTrace` completo;
+- não existe baseline real aceita.
+
+Portanto, unitários e smoke tests podem passar agora, mas isso **não significa**
+que a qualidade do retrieval foi aprovada. O gate real só será habilitado depois
+de um gold revisado, um trace completo e uma baseline promovida manualmente.
+
+## Contratos
+
+### Dataset gold
+
+Cada caso contém:
+
+- pergunta, slices e indicação de criticidade;
+- relevância graduada dos possíveis nós-semente;
+- um ou mais subgrafos gold alternativos;
+- nós `Table` e `Column`;
+- relacionamentos direcionados `HAS_COLUMN`, `FOREIGN_KEY` ou `SEMANTIC_JOIN`;
+- caminhos expressos por IDs estáveis de relacionamento;
+- evidência e estado da revisão humana.
+
+O gold representa o **subgrafo mínimo suficiente**, não todo metadado que possa
+ter alguma relação com a pergunta. Alternativas permitem registrar mais de um
+caminho correto sem penalizar a implementação.
+
+### RetrievalTrace
+
+O retriever deve exportar o trace antes do prompt/LLM, contendo:
+
+- sementes ordenadas, tipo do card, rank e score;
+- nós finais tipados;
+- relacionamentos finais com ID, tipo, direção e `sql_join_eligible`;
+- caminhos candidatos;
+- IDs efetivamente serializados no contexto;
+- latência por etapa;
+- fingerprint do código, corpus, embeddings, cards e configuração de retrieval.
+
+Não extraia arestas ou caminhos do texto DDL entregue ao LLM. O texto é uma
+representação de apresentação e perde informação necessária para a avaliação.
+
+O contrato executável completo está em `eval/retrieval/models.py`. Use como
+exemplos:
+
+- `eval/fixtures/retrieval/synthetic-dataset.json`;
+- `eval/fixtures/retrieval/perfect-run.json`;
+- `eval/fixtures/retrieval/degraded-run.json`;
+- `eval/fixtures/retrieval/noisy-run.json`.
+
+Um `RetrievalRun` agrupa todos os traces do dataset e precisa declarar
+`dataset_name`, `dataset_version`, `dataset_hash`, `fingerprint` e `metadata`.
+A policy inicial exige em `metadata` pelo menos `scope_id` e
+`source_snapshot_hash`. O snapshot do grafo e parâmetros variáveis como modelo,
+card schema, collection física, `top_k`, fusão, hops e pruning também devem ser
+registrados, mas podem diferir da baseline porque são justamente o objeto do
+experimento.
+
+## Métricas
+
+O relatório mantém eixos separados, sem produzir um score composto:
+
+- sementes: Recall/Precision@5 e @10, MRR@10 e nDCG@10;
+- expansão: ganho de recall e precisão marginal;
+- subgrafo: precision, recall e F1 de nós e relacionamentos;
+- estrutura: recall de caminhos e suficiência estrutural;
+- dependências: recall ponderado;
+- ruído: sobre-expansão e nós desconectados;
+- operação: taxa de erro e latência p50/p95.
+
+`SEMANTIC_JOIN` com `sql_join_eligible=false` pode ser contexto semântico, mas
+não satisfaz um caminho de JOIN.
+
+## Comandos
+
+Execute a partir da raiz do repositório:
+
+```bash
+make eval-quick
+make eval-score EVAL_TRACE=/caminho/para/retrieval-trace.json
+make eval-full \
+  EVAL_TRACE=/caminho/para/retrieval-trace.json \
+  EVAL_BASELINE=eval/baselines/mcid-retrieval-v1.json
+```
+
+Ou diretamente nesta pasta:
+
+```bash
+make -C eval quick
+make -C eval score TRACE=/caminho/para/retrieval-trace.json
+make -C eval full \
+  TRACE=/caminho/para/retrieval-trace.json \
+  BASELINE=baselines/mcid-retrieval-v1.json
+```
+
+`quick` valida contratos, executa os unitários do motor e roda um smoke offline.
+`score` mede um trace sem afirmar aprovação. `full` compara o relatório candidato
+com uma baseline aceita e retorna código diferente de zero quando o gate falha.
+
+A policy `retrieval-policy-v0.1.0.json` contém tolerâncias conservadoras de
+bootstrap para não regressão. Ela não define um piso absoluto de qualidade e
+deve ser revisada junto da primeira baseline real aceita.
+
+## Ciclo de uma mudança
+
+1. Registre a hipótese, a métrica primária, os guardrails e os slices afetados.
+2. Execute `quick` e preserve o relatório anterior.
+3. Implemente a menor mudança que teste a hipótese.
+4. Execute novamente `quick` e examine deltas agregados e por caso.
+5. Execute `full` antes de concluir a mudança.
+6. Corrija a regressão ou leve o tradeoff para revisão.
+
+Use `skills/evaluate-retrieval-change/SKILL.md` para orquestrar esse ciclo.
+
+## Integridade da avaliação
+
+- Nunca atualize gold, policy ou baseline automaticamente.
+- Uma mudança no gold exige revisão humana e versionamento.
+- Uma baseline só pode ser promovida a partir de um relatório preservado e
+  revisado.
+- Compare resultados apenas quando dataset e fingerprints obrigatórios forem
+  compatíveis.
+- Mantenha relatórios candidatos como artefatos locais/CI; versione somente
+  baselines aceitas.
+- Um dataset `draft`, trace incompleto ou baseline ausente deve produzir estado
+  de bootstrap/bloqueio, nunca um falso resultado verde.

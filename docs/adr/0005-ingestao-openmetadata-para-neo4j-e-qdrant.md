@@ -1,6 +1,6 @@
 # ADR-0005: Ingestão do OpenMetadata para Neo4j e Qdrant
 
-- **Status**: Proposto
+- **Status**: Substituído por ADR-0011
 - **Data**: 2026-07-21
 - **Autores**: arthrok (graphrag-tais)
 - **Revisores**: -

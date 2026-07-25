@@ -1,158 +1,295 @@
-"""
-GraphCardBuilder — componente Haystack custom que converte entidades cruas do
-OpenMetadata em:
+"""Projeção do modelo canônico em nós Neo4j e cards Qdrant.
 
-  - documents:      1 Document por card pesquisável (Table/Column/Metric/Term).
-                    content = descrição em linguagem natural; meta = {node_id,
-                    label, fqn}. Vai para os embedders → Qdrant.
-  - nodes:          [{label, key, props}]        → Neo4jGraphWriter
-  - relationships:  [{type, start, end, props}]  → Neo4jGraphWriter
-
-Convenção: `node_id` = fullyQualifiedName (fqn) da entidade — estável e legível,
-e é a chave que costura Qdrant (payload) ↔ Neo4j (nós).
+O componente recebe somente os records normalizados da ingestão. Não conhece o
+JSON bruto do OpenMetadata e não consulta valores de linha.
 """
+
+from __future__ import annotations
+
+import hashlib
+from collections import defaultdict
 from typing import Any, Dict, List
+from uuid import NAMESPACE_URL, uuid5
 
 from haystack import Document, component
+
+from rag.settings.configs import settings
 
 
 @component
 class GraphCardBuilder:
+    """Gera um TableCard e um ColumnCard determinístico por entidade."""
+
+    def __init__(
+        self,
+        card_schema_version: str | None = None,
+        embedding_profile: str | None = None,
+    ) -> None:
+        self.card_schema_version = (
+            card_schema_version or settings.OM_CARD_SCHEMA_VERSION
+        )
+        self.embedding_profile = (
+            embedding_profile or settings.OM_EMBEDDING_PROFILE
+        )
+        if not self.card_schema_version or not self.embedding_profile:
+            raise ValueError(
+                "OM_CARD_SCHEMA_VERSION e OM_EMBEDDING_PROFILE são obrigatórios"
+            )
+
+    @staticmethod
+    def _point_id(scope_id: str, card_id: str) -> str:
+        namespace = uuid5(NAMESPACE_URL, f"urn:graphrag-tais:{scope_id}")
+        return str(uuid5(namespace, card_id))
+
+    @staticmethod
+    def _content_hash(content: str) -> str:
+        return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _relationship_summary(
+        relationship: dict[str, Any],
+        *,
+        node_id: str,
+    ) -> str:
+        source = relationship["source_node_id"]
+        target = relationship["target_node_id"]
+        direction = "->" if node_id in {source, relationship["source_table_node_id"]} else "<-"
+        other = target if direction == "->" else source
+        details = [
+            str(relationship["relationship_type"]).lower(),
+        ]
+        for key in (
+            "semantic_key",
+            "join_rule",
+            "cardinality",
+            "confidence",
+            "validation",
+        ):
+            if relationship.get(key):
+                details.append(str(relationship[key]))
+        details.append(
+            f"sql_join_eligible={str(bool(relationship['sql_join_eligible'])).lower()}"
+        )
+        return f"{direction} {other} [{', '.join(details)}]"
+
+    def _base_meta(
+        self,
+        *,
+        records: dict[str, Any],
+        card_id: str,
+        card_type: str,
+        node_id: str,
+        relationship_ids: list[str],
+        content: str,
+    ) -> dict[str, Any]:
+        return {
+            "scope_id": records["scope_id"],
+            "card_id": card_id,
+            "card_type": card_type,
+            "card_schema_version": self.card_schema_version,
+            "node_id": node_id,
+            "fqn": node_id,
+            "relationship_ids": relationship_ids,
+            "source_system": "openmetadata",
+            "source_version": records["source_version"],
+            "embedding_profile": self.embedding_profile,
+            "content_hash": self._content_hash(content),
+            "content_truncated": False,
+            "omitted_column_count": 0,
+            "omitted_relationship_count": 0,
+            "ingestion_run_id": records["ingestion_run_id"],
+        }
 
     @component.output_types(
         documents=List[Document],
         nodes=List[Dict[str, Any]],
         relationships=List[Dict[str, Any]],
+        summary=Dict[str, Any],
     )
-    def run(self, entities: Dict[str, Any]) -> dict:
-        docs: List[Document] = []
-        nodes: List[Dict[str, Any]] = []
-        rels: List[Dict[str, Any]] = []
+    def run(self, records: Dict[str, Any]) -> Dict[str, Any]:
+        tables = list(records.get("tables") or [])
+        columns = list(records.get("columns") or [])
+        relationships = list(records.get("relationships") or [])
+        scope_id = str(records.get("scope_id") or "")
+        if not scope_id:
+            raise ValueError("records.scope_id é obrigatório")
 
-        for table in entities.get("tables", []):
-            self._handle_table(table, docs, nodes, rels)
-        for metric in entities.get("metrics", []):
-            self._handle_metric(metric, docs, nodes)
-        for term in entities.get("glossary", []):
-            self._handle_term(term, docs, nodes)
-        for lineage_doc in entities.get("lineage", []):
-            self._handle_lineage(lineage_doc, rels)
+        columns_by_table: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for column in columns:
+            columns_by_table[column["table_node_id"]].append(column)
+        for table_columns in columns_by_table.values():
+            table_columns.sort(
+                key=lambda column: (
+                    column["ordinal_position"],
+                    column["node_id"],
+                )
+            )
 
-        return {"documents": docs, "nodes": nodes, "relationships": rels}
-
-    # ------------------------------------------------------------------ #
-    # Tabelas + Colunas + FK + hierarquia Schema/Database
-    # ------------------------------------------------------------------ #
-    def _handle_table(self, table: dict, docs, nodes, rels) -> None:
-        t_fqn = table.get("fullyQualifiedName") or table.get("name")
-        if not t_fqn:
-            return
-        t_desc = table.get("description") or ""
-        schema = table.get("databaseSchema") or {}
-        database = table.get("database") or {}
-        schema_fqn = schema.get("fullyQualifiedName")
-        db_fqn = database.get("fullyQualifiedName")
-        cols = table.get("columns", [])
-
-        nodes.append({
-            "label": "Table",
-            "key": t_fqn,
-            "props": {"name": table.get("name"), "fqn": t_fqn,
-                      "description": t_desc, "schema": schema_fqn, "database": db_fqn},
-        })
-        col_names = ", ".join(c.get("name", "") for c in cols)
-        docs.append(Document(
-            content=f"Tabela {t_fqn}. {t_desc} Schema: {schema_fqn}. Colunas: {col_names}.",
-            meta={"node_id": t_fqn, "label": "Table", "fqn": t_fqn},
-        ))
-
-        # Hierarquia Database → Schema → Table
-        if db_fqn:
-            nodes.append({"label": "Database", "key": db_fqn,
-                          "props": {"name": database.get("name"), "fqn": db_fqn}})
-        if schema_fqn:
-            nodes.append({"label": "Schema", "key": schema_fqn,
-                          "props": {"name": schema.get("name"), "fqn": schema_fqn}})
-            rels.append({"type": "IN_SCHEMA", "start": t_fqn, "end": schema_fqn, "props": {}})
-            if db_fqn:
-                rels.append({"type": "IN_DATABASE", "start": schema_fqn, "end": db_fqn, "props": {}})
-
-        # Colunas
-        for col in cols:
-            c_fqn = col.get("fullyQualifiedName") or f"{t_fqn}.{col.get('name')}"
-            c_desc = col.get("description") or ""
-            c_type = col.get("dataType") or col.get("dataTypeDisplay") or ""
-            nodes.append({
-                "label": "Column",
-                "key": c_fqn,
-                "props": {"name": col.get("name"), "fqn": c_fqn, "data_type": c_type,
-                          "description": c_desc, "is_pk": self._is_pk(col), "table": t_fqn},
-            })
-            rels.append({"type": "HAS_COLUMN", "start": t_fqn, "end": c_fqn, "props": {}})
-            docs.append(Document(
-                content=f"Coluna {c_fqn} ({c_type}) da tabela {t_fqn}. {c_desc}",
-                meta={"node_id": c_fqn, "label": "Column", "fqn": c_fqn},
-            ))
-
-            # Glossary terms via tags de origem "Glossary" (best-effort)
-            for tag in col.get("tags", []) or []:
-                if (tag.get("source") or "").lower() == "glossary":
-                    term_fqn = tag.get("tagFQN")
-                    if term_fqn:
-                        rels.append({"type": "HAS_TERM", "start": c_fqn, "end": term_fqn, "props": {}})
-
-        # Foreign keys (tableConstraints)
-        for constraint in table.get("tableConstraints", []) or []:
-            if (constraint.get("constraintType") or "").upper() != "FOREIGN_KEY":
+        relationships_by_column: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        relationships_by_table: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for relationship in relationships:
+            if relationship["relationship_type"] == "HAS_COLUMN":
                 continue
-            local_cols = constraint.get("columns", [])
-            referred = constraint.get("referredColumns", [])
-            for local, ref in zip(local_cols, referred):
-                local_fqn = local if "." in local else f"{t_fqn}.{local}"
-                rels.append({"type": "FOREIGN_KEY", "start": local_fqn, "end": ref, "props": {}})
+            relationships_by_column[relationship["source_node_id"]].append(
+                relationship
+            )
+            relationships_by_column[relationship["target_node_id"]].append(
+                relationship
+            )
+            relationships_by_table[relationship["source_table_node_id"]].append(
+                relationship
+            )
+            if (
+                relationship["target_table_node_id"]
+                != relationship["source_table_node_id"]
+            ):
+                relationships_by_table[relationship["target_table_node_id"]].append(
+                    relationship
+                )
 
-    def _handle_metric(self, metric: dict, docs, nodes) -> None:
-        m_fqn = metric.get("fullyQualifiedName") or metric.get("name")
-        if not m_fqn:
-            return
-        m_desc = metric.get("description") or ""
-        expression = ((metric.get("metricExpression") or {}).get("code")
-                      or metric.get("expression") or "")
-        nodes.append({"label": "MetricFlow", "key": m_fqn,
-                      "props": {"name": metric.get("name"), "fqn": m_fqn,
-                                "description": m_desc, "expression": expression}})
-        docs.append(Document(
-            content=f"Métrica {m_fqn}. {m_desc} Expressão: {expression}",
-            meta={"node_id": m_fqn, "label": "MetricFlow", "fqn": m_fqn},
-        ))
-        # TODO: ligar MetricFlow-[:USES]->Column/Table quando a fonte expuser as
-        #       colunas/tabelas consumidas pela métrica.
+        documents: list[Document] = []
+        nodes: list[dict[str, Any]] = []
 
-    def _handle_term(self, term: dict, docs, nodes) -> None:
-        g_fqn = term.get("fullyQualifiedName") or term.get("name")
-        if not g_fqn:
-            return
-        g_desc = term.get("description") or ""
-        nodes.append({"label": "GlossaryTerm", "key": g_fqn,
-                      "props": {"name": term.get("name"), "fqn": g_fqn, "description": g_desc}})
-        docs.append(Document(
-            content=f"Termo de negócio {g_fqn}. {g_desc}",
-            meta={"node_id": g_fqn, "label": "GlossaryTerm", "fqn": g_fqn},
-        ))
+        for table in sorted(tables, key=lambda item: item["node_id"]):
+            table_fqn = table["node_id"]
+            table_columns = columns_by_table.get(table_fqn, [])
+            table_relationships = sorted(
+                relationships_by_table.get(table_fqn, []),
+                key=lambda item: item["relationship_id"],
+            )
+            lines = [
+                "Tipo: tabela",
+                f"FQN: {table_fqn}",
+                f"Nome: {table['name']}",
+            ]
+            if table.get("display_name") and table["display_name"] != table["name"]:
+                lines.append(f"Nome de exibição: {table['display_name']}")
+            lines.extend(
+                [
+                    f"Descrição: {table.get('description') or ''}",
+                    f"Schema: {table['schema']}",
+                    "Colunas: "
+                    + "; ".join(
+                        f"{column['name']}:{column['data_type']}"
+                        for column in table_columns
+                    ),
+                ]
+            )
+            if table_relationships:
+                lines.append("Relacionamentos:")
+                lines.extend(
+                    "- "
+                    + self._relationship_summary(
+                        relationship, node_id=table_fqn
+                    )
+                    for relationship in table_relationships
+                )
+            content = "\n".join(lines)
+            relationship_ids = [
+                relationship["relationship_id"]
+                for relationship in table_relationships
+            ]
+            card_id = f"{scope_id}|table:{table_fqn}"
+            meta = self._base_meta(
+                records=records,
+                card_id=card_id,
+                card_type="table",
+                node_id=table_fqn,
+                relationship_ids=relationship_ids,
+                content=content,
+            )
+            meta["om_id"] = table["om_id"]
+            documents.append(
+                Document(
+                    id=self._point_id(scope_id, card_id),
+                    content=content,
+                    meta=meta,
+                )
+            )
+            nodes.append(
+                {
+                    "label": "Table",
+                    "key": table_fqn,
+                    "props": dict(table),
+                }
+            )
 
-    def _handle_lineage(self, lineage_doc: dict, rels) -> None:
-        """Converte a resposta de lineage (nodes + up/downstream edges) em arestas Table-LINEAGE->Table."""
-        id_to_fqn = {n.get("id"): n.get("fullyQualifiedName") for n in lineage_doc.get("nodes", [])}
-        entity = lineage_doc.get("entity") or {}
-        if entity.get("id") and entity.get("fullyQualifiedName"):
-            id_to_fqn[entity["id"]] = entity["fullyQualifiedName"]
-        for edge in (lineage_doc.get("upstreamEdges", []) + lineage_doc.get("downstreamEdges", [])):
-            src = id_to_fqn.get(edge.get("fromEntity"))
-            dst = id_to_fqn.get(edge.get("toEntity"))
-            if src and dst:
-                rels.append({"type": "LINEAGE", "start": src, "end": dst, "props": {}})
+        for column in sorted(columns, key=lambda item: item["node_id"]):
+            column_fqn = column["node_id"]
+            column_relationships = sorted(
+                relationships_by_column.get(column_fqn, []),
+                key=lambda item: item["relationship_id"],
+            )
+            lines = [
+                "Tipo: coluna",
+                f"FQN: {column_fqn}",
+                f"Tabela: {column['table_node_id']}",
+                f"Nome: {column['name']}",
+                f"Tipo de dado: {column['data_type_display'] or column['data_type']}",
+                f"Descrição: {column.get('description') or ''}",
+                "Chave primária: "
+                + ("sim" if column["is_primary_key"] else "não"),
+            ]
+            if column_relationships:
+                lines.append("Relacionamentos:")
+                lines.extend(
+                    "- "
+                    + self._relationship_summary(
+                        relationship, node_id=column_fqn
+                    )
+                    for relationship in column_relationships
+                )
+            content = "\n".join(lines)
+            relationship_ids = [
+                relationship["relationship_id"]
+                for relationship in column_relationships
+            ]
+            card_id = f"{scope_id}|column:{column_fqn}"
+            meta = self._base_meta(
+                records=records,
+                card_id=card_id,
+                card_type="column",
+                node_id=column_fqn,
+                relationship_ids=relationship_ids,
+                content=content,
+            )
+            meta["table_node_id"] = column["table_node_id"]
+            meta["table_om_id"] = column["table_om_id"]
+            documents.append(
+                Document(
+                    id=self._point_id(scope_id, card_id),
+                    content=content,
+                    meta=meta,
+                )
+            )
+            nodes.append(
+                {
+                    "label": "Column",
+                    "key": column_fqn,
+                    "props": dict(column),
+                }
+            )
 
-    @staticmethod
-    def _is_pk(col: dict) -> bool:
-        constraint = (col.get("constraint") or "").upper()
-        return constraint in {"PRIMARY_KEY", "PK"}
+        graph_relationships = [
+            {
+                "type": relationship["relationship_type"],
+                "start": relationship["source_node_id"],
+                "end": relationship["target_node_id"],
+                "relationship_id": relationship["relationship_id"],
+                "props": dict(relationship),
+            }
+            for relationship in relationships
+        ]
+        return {
+            "documents": documents,
+            "nodes": nodes,
+            "relationships": graph_relationships,
+            "summary": {
+                "tables": len(tables),
+                "columns": len(columns),
+                "relationships": len(relationships),
+                "cards": len(documents),
+                "table_cards": len(tables),
+                "column_cards": len(columns),
+            },
+        }

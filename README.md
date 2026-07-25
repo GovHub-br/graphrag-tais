@@ -28,6 +28,13 @@ PERGUNTA ─┬─► embedding denso (Ollama) ─┐
 - **Neo4j** = grafo puro percorrido por Cypher: nós tipados e relações (`HAS_COLUMN`,
   `FOREIGN_KEY`, `LINEAGE`, `IN_SCHEMA`, `USES`, `HAS_TERM`). É o que dá os JOINs.
 
+> **Estado atual versus contrato-alvo:** esta seção descreve o protótipo que
+> ainda está no código. A
+> [ADR-0011](docs/adr/0011-contrato-detalhado-da-ingestao-openmetadata-neo4j-qdrant.md)
+> reduz a próxima versão da ingestão a Table, Column e Relationship e lista as
+> mudanças necessárias; MetricFlow, glossário, lineage e granularidade ficam
+> fora daquele contrato.
+
 ### Modelo do grafo
 
 | Nó | Origem (OpenMetadata) |
@@ -63,6 +70,27 @@ src/rag/
 > **Convenção**: pipelines usam só componentes Haystack; todo custom vive em
 > `components/`. Factories leem defaults do `.env` (ver
 > [configs.py](src/rag/settings/configs.py)).
+
+## MDD do retrieval
+
+Mudanças capazes de alterar ranking, sementes, expansão, poda, cards ou
+embeddings seguem desenvolvimento orientado a métricas (*Metric-Driven
+Development*). O benchmark termina no subgrafo recuperado, antes do LLM e da
+geração de SQL.
+
+- decisão: [ADR-0012](docs/adr/0012-desenvolvimento-orientado-a-metricas-no-retrieval.md);
+- contratos, métricas e comandos: [eval/README.md](eval/README.md);
+- fluxo para agentes: [skill `evaluate-retrieval-change`](skills/evaluate-retrieval-change/SKILL.md).
+
+```bash
+make eval-quick
+make eval-full EVAL_TRACE=/caminho/trace.json \
+  EVAL_BASELINE=eval/baselines/baseline-aceita.json
+```
+
+Enquanto o dataset estiver em `draft`, o trace completo não existir ou não
+houver baseline aceita, os resultados são apenas diagnósticos de bootstrap e
+não constituem aprovação da qualidade do retrieval.
 
 ## Setup
 
