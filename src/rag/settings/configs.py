@@ -61,6 +61,19 @@ class Settings(BaseSettings):
     OLLAMA_STOP_SEQUENCES: Optional[str] = Field(None, description="Comma-separated stop sequences")
 
     # ------------------------------------------------------------------ #
+    # OpenAI (LLM da geração de SQL na query)
+    # ------------------------------------------------------------------ #
+    # A ingestão e o embedding da query continuam on-prem (Ollama gte-qwen2 +
+    # BM25, ADR-0009 "plano B"); só a GERAÇÃO de SQL usa a OpenAI, que tem
+    # modelos melhores. Nada do dado das linhas trafega aqui — só a pergunta e
+    # os metadados do schema recuperado (ADR-0009 §4).
+    OPENAI_API_KEY: Optional[str] = Field(None, description="OpenAI API key (LLM da query)")
+    OPENAI_CHAT_MODEL: str = Field("gpt-4o", description="Modelo OpenAI para geração de SQL")
+    OPENAI_TEMPERATURE: float = Field(0.1, description="Temperatura da geração (determinismo)")
+    OPENAI_MAX_TOKENS: int = Field(2048, description="Máx. de tokens na resposta do LLM")
+    OPENAI_TIMEOUT: int = Field(60, description="Timeout (s) das chamadas à OpenAI")
+
+    # ------------------------------------------------------------------ #
     # Redis (memory manager para loops entre componentes Haystack)
     # ------------------------------------------------------------------ #
     REDIS_HOST: str = Field("redis", description="Redis host")
