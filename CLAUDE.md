@@ -67,22 +67,30 @@ Pipeline de query implementada e funcional ponta a ponta (pergunta → Qdrant h�
   **exposta na resposta** (ponto de controle do ADR-0006/0007); ainda **não** reescreve
   o roteamento da recuperação por conceito.
 - ✅ **`run_chat_completion`** (OpenAI-compat) + `SqlAnswerBuilder` → resposta em Markdown
-  (explicação + SQL + referências ancoradas no subgrafo) no open-webui.
+  (explicação + SQL + dicionário de dados ancorado no subgrafo) no open-webui.
+- ✅ **Camada de entrega — execução + gráfico (ADR-0013)**: pipeline de entrega
+  separada (`pipelines/delivery/`) que o `run_chat_completion` compõe. `McpSqlExecutor`
+  roda o SQL via **Agent do Haystack + postgres-mcp** (read-only, autocorreção no erro),
+  `ChartSpecBuilder` (LLM) escolhe o gráfico e os renderers matplotlib desenham → PNG
+  embutido como data URI base64. Aditivo e tolerante a falha (sem execução/gráfico → só texto).
 
 ### Gaps conhecidos / próximos passos
 
-1. Sem **validador estrutural de SQL** (`sqlglot`) nem loop de reescrita (ADR-0007);
-   `top_k=5` fixo, sem reranker. A ressalva de grain aparece na resposta, mas a
-   correção semântica não é garantida.
+1. Sem **validador estrutural de SQL** (`sqlglot`) — a validação agora vem da **execução
+   real** via postgres-mcp (ADR-0013). Ainda `top_k=5` fixo, sem reranker; a correção
+   semântica (grain/fan-out) não é garantida.
 2. IR **completa** (`group_by`/`time_range`) + roteamento de recuperação por conceito.
-3. Camada de entrega (execução read-only, gráfico, explicação, docx — ADR-0008/0010).
+3. Camada de entrega: (a) tabelas/colunas ✅, (b) gráfico ✅ (ADR-0013); faltam
+   (c) explicação sobre o resultado executado e (d) relatório docx (`docxtpl` + MinIO).
 4. Backlog (ADRs): grain/fan-out, `CAN_JOIN` derivado, normalização por glossário.
 5. **Medir com `eval/`** (`make eval-quick`/`eval-full`): ainda em bootstrap (gold `draft`,
    sem baseline aceita, retrieval não emite `RetrievalTrace` completo) — gate real
    pendente. Obrigatório p/ mudanças de retrieval.
 
-## Camada de entrega (ADRs 0008/0010, ainda não implementada)
+## Camada de entrega (ADRs 0008/0010/0013)
 
-Do SQL saem: (a) tabelas/colunas, (b) gráfico (matplotlib no v1; Superset MCP no v2),
-(c) explicação (LLM, com ressalva de grain), (d) relatório docx (`docxtpl` + MinIO).
+Do SQL saem: (a) tabelas/colunas ✅, (b) gráfico ✅ — **execução via Agent + postgres-mcp
+(read-only, autocorreção) + chart-spec + matplotlib**, PNG base64 no chat (ADR-0013).
+Faltam: (c) explicação do resultado (LLM, com ressalva de grain), (d) relatório docx
+(`docxtpl` + MinIO). Superset MCP segue como v2.
 Execução do SQL: conexão read-only direta no v1 (ADR-0008).

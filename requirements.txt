@@ -22,6 +22,15 @@ qdrant-haystack==10.3.1
 qdrant-client==1.15.1
 
 # ------------------------------------------------------------------ #
+# Camada de entrega (ADR-0013): execução via postgres-mcp + gráfico
+# ------------------------------------------------------------------ #
+# Agente do Haystack conecta no postgres-mcp (SSE) e autocorrige o SQL.
+mcp-haystack==1.4.0
+# Renderização determinística dos gráficos (chart-spec → PNG).
+matplotlib==3.11.1
+pandas==2.3.3
+
+# ------------------------------------------------------------------ #
 # Config / infra
 # ------------------------------------------------------------------ #
 pydantic==2.13.4
