@@ -48,11 +48,12 @@ inclusive o próprio autor daqui a seis meses — entenda *por que* o sistema é
 | [0005](./0005-ingestao-openmetadata-para-neo4j-e-qdrant.md) | Ingestão do OpenMetadata para Neo4j e Qdrant | Substituído por ADR-0011 |
 | [0006](./0006-interpretacao-da-pergunta-em-representacao-estruturada.md) | Interpretação da pergunta em uma representação estruturada (IR) | Proposto |
 | [0007](./0007-fechamento-dos-gaps-de-correcao-e-consistencia-do-v1.md) | Fechamento dos gaps de correção e consistência do v1 | Proposto |
-| [0008](./0008-execucao-do-sql-e-visualizacao-no-v1.md) | Execução do SQL e visualização no v1 (conexão read-only + matplotlib) | Proposto |
+| [0008](./0008-execucao-do-sql-e-visualizacao-no-v1.md) | Execução do SQL e visualização no v1 (conexão read-only + matplotlib) | Proposto (execução revisada pelo ADR-0013) |
 | [0009](./0009-modelo-de-embedding-e-composicao-do-retrieval-hibrido.md) | Modelo de embedding (OpenAI) e composição do retrieval híbrido | Proposto |
 | [0010](./0010-camada-de-entrega-tabelas-grafico-explicacao-relatorio.md) | Camada de entrega — tabelas, gráfico, explicação e relatório | Proposto |
 | [0011](./0011-contrato-detalhado-da-ingestao-openmetadata-neo4j-qdrant.md) | Contrato detalhado da ingestão OpenMetadata → Neo4j e Qdrant | Proposto |
 | [0012](./0012-desenvolvimento-orientado-a-metricas-no-retrieval.md) | Desenvolvimento orientado a métricas no retrieval | Proposto |
+| [0013](./0013-execucao-via-postgres-mcp-e-grafico-chart-spec-no-v1.md) | Execução via postgres-mcp com auto-correção e gráfico por chart-spec | Proposto |
 
 ### Temas candidatos a ADR (backlog)
 

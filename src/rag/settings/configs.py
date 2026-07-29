@@ -74,6 +74,29 @@ class Settings(BaseSettings):
     OPENAI_TIMEOUT: int = Field(60, description="Timeout (s) das chamadas à OpenAI")
 
     # ------------------------------------------------------------------ #
+    # Camada de entrega (ADR-0013): execução via postgres-mcp + gráfico
+    # ------------------------------------------------------------------ #
+    # O postgres-mcp (crystaldba) já roda em modo RESTRICTED (read-only) e é o
+    # que executa/autocorrige o SQL. Dentro da rede do compose ele é alcançável
+    # como `postgres-mcp:8000`; o transporte é SSE (endpoint /sse).
+    POSTGRES_MCP_URL: str = Field(
+        "http://postgres-mcp:8000/sse",
+        description="Endpoint SSE do postgres-mcp para o Agent executar o SQL",
+    )
+    AGENT_MAX_STEPS: int = Field(
+        6, description="Máx. de passos do Agent na execução/autocorreção do SQL"
+    )
+    MAX_EXEC_ROWS: int = Field(
+        1000, description="LIMIT default aplicado à consulta de dados do gráfico"
+    )
+    CHART_DPI: int = Field(
+        120, description="DPI do PNG inline no chat (menor = resposta mais leve)"
+    )
+    CHART_MAX_CATEGORIES: int = Field(
+        20, description="Máx. de categorias/barras num gráfico de barras"
+    )
+
+    # ------------------------------------------------------------------ #
     # Redis (memory manager para loops entre componentes Haystack)
     # ------------------------------------------------------------------ #
     REDIS_HOST: str = Field("redis", description="Redis host")
