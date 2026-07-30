@@ -84,6 +84,122 @@ class RetrievalMetricsTest(unittest.TestCase):
         )
         self.assertLess(noisy_metrics["ndcg_at_10"], perfect_metrics["ndcg_at_10"])
 
+    def test_context_observations_are_aggregated_without_becoming_a_score(self) -> None:
+        payload = _json(FIXTURES / "perfect-run.json")
+        payload["traces"][0]["metadata"]["context"] = {
+            "document_count": 2,
+            "schema_context_chars": 1234,
+            "rendered_llm_prompt_chars": 1300,
+        }
+        report = evaluate_run(
+            self.dataset,
+            RetrievalRun.from_dict(payload),
+            generated_at="2026-07-24T00:00:00Z",
+        )
+
+        case = report.cases["synthetic-join-001"]
+        self.assertEqual(case["context"]["schema_context_chars"], 1234)
+        self.assertEqual(
+            report.summary["context_schema_context_chars_p50"],
+            1234,
+        )
+        self.assertEqual(
+            report.summary["context_rendered_llm_prompt_chars_max"],
+            1300,
+        )
+        self.assertEqual(
+            report.summary[
+                "context_rendered_llm_prompt_chars_coverage_count"
+            ],
+            1,
+        )
+        self.assertEqual(
+            report.summary[
+                "context_rendered_llm_prompt_chars_coverage_rate"
+            ],
+            1,
+        )
+        self.assertNotIn("schema_context_chars", case["metrics"])
+
+    def test_invalid_context_observation_is_reported_and_not_aggregated(self) -> None:
+        payload = _json(FIXTURES / "perfect-run.json")
+        payload["traces"][0]["metadata"]["context"] = {
+            "schema_context_chars": -1,
+            "rendered_llm_prompt_chars": 1300,
+        }
+        report = evaluate_run(
+            self.dataset,
+            RetrievalRun.from_dict(payload),
+            generated_at="2026-07-24T00:00:00Z",
+        )
+
+        case = report.cases["synthetic-join-001"]
+        self.assertEqual(
+            case["invalid_context_fields"],
+            ["schema_context_chars"],
+        )
+        self.assertNotIn("schema_context_chars", case["context"])
+        self.assertNotIn(
+            "context_schema_context_chars_mean",
+            report.summary,
+        )
+
+    def test_expansion_gain_uses_selected_seeds_not_deeper_diagnostics(self) -> None:
+        payload = _json(FIXTURES / "perfect-run.json")
+        payload["traces"][0]["seeds"].append(
+            {
+                "node_id": "db.schema.dimension",
+                "card_type": "Table",
+                "rank": 3,
+                "score": 0.50,
+            }
+        )
+        report = evaluate_run(
+            self.dataset,
+            RetrievalRun.from_dict(payload),
+            generated_at="2026-07-24T00:00:00Z",
+        )
+
+        metrics = report.cases["synthetic-join-001"]["metrics"]
+        self.assertEqual(metrics["expansion_recall_gain"], 0.5)
+        self.assertEqual(metrics["marginal_expansion_precision"], 1)
+
+    def test_seed_at5_uses_actual_selected_ranking(self) -> None:
+        payload = _json(FIXTURES / "perfect-run.json")
+        payload["traces"][0]["seeds"].append(
+            {
+                "node_id": "db.schema.dimension",
+                "card_type": "Table",
+                "rank": 3,
+                "score": 0.50,
+            }
+        )
+        payload["traces"][0]["selected_seed_node_ids"] = [
+            "db.schema.dimension"
+        ]
+        report = evaluate_run(
+            self.dataset,
+            RetrievalRun.from_dict(payload),
+            generated_at="2026-07-24T00:00:00Z",
+        )
+
+        metrics = report.cases["synthetic-join-001"]["metrics"]
+        self.assertEqual(metrics["seed_recall_at_5"], 0)
+        self.assertEqual(metrics["seed_recall_at_10"], 1)
+
+    def test_explicit_empty_selected_seeds_does_not_fall_back(self) -> None:
+        payload = _json(FIXTURES / "perfect-run.json")
+        payload["traces"][0]["selected_seed_node_ids"] = []
+        report = evaluate_run(
+            self.dataset,
+            RetrievalRun.from_dict(payload),
+            generated_at="2026-07-24T00:00:00Z",
+        )
+
+        metrics = report.cases["synthetic-join-001"]["metrics"]
+        self.assertEqual(metrics["expansion_recall_gain"], 1)
+        self.assertEqual(metrics["marginal_expansion_precision"], 1)
+
     def test_gate_passes_identical_report_and_rejects_regressions(self) -> None:
         policy = GatePolicy.from_json_file(POLICY)
         perfect = self._report("perfect-run.json")

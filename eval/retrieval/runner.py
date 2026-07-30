@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import math
 from typing import Iterable
 
 from .metrics import (
@@ -71,14 +72,44 @@ def _case_result(
         trace.seeds,
         case.seed_relevance,
         node_types=node_types,
+        selected_seed_node_ids=trace.selected_seed_node_ids,
     )
     scores.update(graph_scores)
+    context_raw = trace.metadata.get("context", {})
+    context = (
+        {
+            str(name): numeric
+            for name, value in context_raw.items()
+            if isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and math.isfinite(numeric := float(value))
+            and numeric >= 0
+        }
+        if isinstance(context_raw, dict)
+        else {}
+    )
+    invalid_context_fields = (
+        sorted(
+            str(name)
+            for name, value in context_raw.items()
+            if isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and (
+                not math.isfinite(float(value))
+                or float(value) < 0
+            )
+        )
+        if isinstance(context_raw, dict)
+        else []
+    )
     return {
         **base,
         "chosen_gold_subgraph_id": selected.id,
         "metrics": scores,
         "latency_ms": trace.total_latency_ms,
         "timings_ms": dict(trace.timings_ms),
+        "context": context,
+        "invalid_context_fields": invalid_context_fields,
         "error": None,
         "counts": {
             "seeds": len(trace.seeds),

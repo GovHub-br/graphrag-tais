@@ -80,14 +80,27 @@ def seed_metrics(
     seeds: Sequence[RankedSeed],
     relevance: Mapping[str, float],
     node_types: Mapping[str, NodeType] | None = None,
+    selected_seed_node_ids: Sequence[str] | None = None,
 ) -> dict[str, float]:
     ordered_ids = _ordered_unique_seed_ids(seeds)
+    selected_ids = list(
+        ordered_ids
+        if selected_seed_node_ids is None
+        else selected_seed_node_ids
+    )[:5]
     relevant_ids = {
         node_id for node_id, grade in relevance.items() if grade > 0
     }
     metrics: dict[str, float] = {}
     for cutoff in (5, 10):
-        retrieved = ordered_ids[:cutoff]
+        # @5 measures the production call that actually entered graph
+        # expansion. @10 and the rank-sensitive metrics measure the separate,
+        # real diagnostic top-10 call preserved in ``seeds``.
+        retrieved = (
+            selected_ids
+            if cutoff == 5
+            else ordered_ids[:cutoff]
+        )
         hits = len(set(retrieved) & relevant_ids)
         metrics[f"seed_recall_at_{cutoff}"] = safe_divide(
             hits,
@@ -255,7 +268,14 @@ def graph_metrics(
     trace: RetrievalTrace,
     gold: GoldSubgraph,
 ) -> dict[str, float]:
-    seed_ids = set(_ordered_unique_seed_ids(trace.seeds))
+    # A trace may preserve a deeper diagnostic ranking than the subset that
+    # actually entered graph expansion. Expansion gain must use the selected
+    # production seeds, otherwise relevant items observed only below runtime
+    # top_k are incorrectly credited as graph inputs.
+    # The parser supplies all ranked seeds only when the field is absent.
+    # An explicitly empty selection means that graph expansion had no inputs
+    # and must not silently fall back to the diagnostic ranking.
+    seed_ids = set(trace.selected_seed_node_ids)
     retrieved_node_ids = {node.id for node in trace.final_nodes}
     gold_node_ids = {node.id for node in gold.nodes}
 
@@ -582,4 +602,35 @@ def aggregate_case_results(
             timing_values,
             0.95,
         )
+    context_names = sorted(
+        {
+            str(name)
+            for result in successful
+            if isinstance(result.get("context"), Mapping)
+            for name in result["context"]
+        }
+    )
+    for context_name in context_names:
+        context_values = [
+            float(context[context_name])
+            for result in successful
+            if isinstance((context := result.get("context")), Mapping)
+            and isinstance(context.get(context_name), (int, float))
+            and not isinstance(context.get(context_name), bool)
+        ]
+        if not context_values:
+            continue
+        prefix = f"context_{context_name}"
+        summary[f"{prefix}_coverage_count"] = len(context_values)
+        summary[f"{prefix}_coverage_rate"] = safe_divide(
+            len(context_values),
+            len(successful),
+        )
+        summary[f"{prefix}_mean"] = safe_divide(
+            sum(context_values),
+            len(context_values),
+        )
+        summary[f"{prefix}_p50"] = percentile(context_values, 0.50)
+        summary[f"{prefix}_p95"] = percentile(context_values, 0.95)
+        summary[f"{prefix}_max"] = max(context_values)
     return summary

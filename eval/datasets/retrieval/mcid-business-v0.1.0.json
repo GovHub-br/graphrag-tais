@@ -1,0 +1,468 @@
+{
+  "schema_version": "1",
+  "name": "mcid-business-retrieval",
+  "version": "0.1.0",
+  "status": "draft",
+  "metadata": {
+    "scope_id": "mcid",
+    "language": "pt-BR",
+    "review_status": "pending_domain_review",
+    "description": "Casos diagnósticos de perguntas analíticas que alimentam dashboards. O gold é provisório, representa o menor subgrafo documental suficiente e não pode ser promovido automaticamente."
+  },
+  "cases": [
+    {
+      "id": "far-ranking-valor-001",
+      "question": "Quais são os 10 empreendimentos FAR com maior valor contratado? Mostre empreendimento, município, UF, situação atual, unidades habitacionais e valor contratado.",
+      "critical": true,
+      "slices": [
+        "pt_br",
+        "far",
+        "mono_table",
+        "top_n",
+        "semantic_metric",
+        "dashboard"
+      ],
+      "seed_relevance": {
+        "Cidades.cidades.empreendimento_far.empreendimento": 3,
+        "Cidades.cidades.empreendimento_far.empreendimento.empreendimento_nome": 2,
+        "Cidades.cidades.empreendimento_far.empreendimento.quantidade_uh": 2,
+        "Cidades.cidades.empreendimento_far.empreendimento.municipio": 2,
+        "Cidades.cidades.empreendimento_far.empreendimento.uf": 2,
+        "Cidades.cidades.empreendimento_far.empreendimento.situacao_empreendimento": 2,
+        "Cidades.cidades.empreendimento_far.empreendimento.valor_contratado": 3,
+        "Cidades.cidades.empreendimento_far.ficha_empreendimento": 3,
+        "Cidades.cidades.empreendimento_far.ficha_empreendimento.nome_empreendimento": 2,
+        "Cidades.cidades.empreendimento_far.ficha_empreendimento.quantidade_uh": 2,
+        "Cidades.cidades.empreendimento_far.ficha_empreendimento.municipio": 2,
+        "Cidades.cidades.empreendimento_far.ficha_empreendimento.uf": 2,
+        "Cidades.cidades.empreendimento_far.ficha_empreendimento.situacao_empreendimento": 2,
+        "Cidades.cidades.empreendimento_far.ficha_empreendimento.valor_contratado": 3
+      },
+      "gold_subgraphs": [
+        {
+          "id": "ficha-empreendimento-grain-apf",
+          "nodes": [
+            {"id": "Cidades.cidades.empreendimento_far.ficha_empreendimento", "type": "Table"},
+            {"id": "Cidades.cidades.empreendimento_far.ficha_empreendimento.nome_empreendimento", "type": "Column"},
+            {"id": "Cidades.cidades.empreendimento_far.ficha_empreendimento.quantidade_uh", "type": "Column"},
+            {"id": "Cidades.cidades.empreendimento_far.ficha_empreendimento.municipio", "type": "Column"},
+            {"id": "Cidades.cidades.empreendimento_far.ficha_empreendimento.uf", "type": "Column"},
+            {"id": "Cidades.cidades.empreendimento_far.ficha_empreendimento.situacao_empreendimento", "type": "Column"},
+            {"id": "Cidades.cidades.empreendimento_far.ficha_empreendimento.valor_contratado", "type": "Column"}
+          ],
+          "relationships": [
+            {"id": "9832a9b27c67b968d5da26d11f148d4684b6c83f68be0789e150884cba9f1343", "type": "HAS_COLUMN", "source": "Cidades.cidades.empreendimento_far.ficha_empreendimento", "target": "Cidades.cidades.empreendimento_far.ficha_empreendimento.nome_empreendimento", "direction": "forward", "sql_join_eligible": false},
+            {"id": "6c56dd761fc8eda6d1dc56254d8d5994a4020a36912697f7eb1b36c3e8e72bdb", "type": "HAS_COLUMN", "source": "Cidades.cidades.empreendimento_far.ficha_empreendimento", "target": "Cidades.cidades.empreendimento_far.ficha_empreendimento.quantidade_uh", "direction": "forward", "sql_join_eligible": false},
+            {"id": "6feefb0783704d3a539e745626f78c8909be585baa3134ad1d790f56f40a9ffb", "type": "HAS_COLUMN", "source": "Cidades.cidades.empreendimento_far.ficha_empreendimento", "target": "Cidades.cidades.empreendimento_far.ficha_empreendimento.municipio", "direction": "forward", "sql_join_eligible": false},
+            {"id": "749dd51b6b16e04f5e736841b48e2822483061bed514ec0074edd44b78dbd259", "type": "HAS_COLUMN", "source": "Cidades.cidades.empreendimento_far.ficha_empreendimento", "target": "Cidades.cidades.empreendimento_far.ficha_empreendimento.uf", "direction": "forward", "sql_join_eligible": false},
+            {"id": "84eb42d25e5c429278e1d420cea8435705429fc64faf3866b356b006ce125e4b", "type": "HAS_COLUMN", "source": "Cidades.cidades.empreendimento_far.ficha_empreendimento", "target": "Cidades.cidades.empreendimento_far.ficha_empreendimento.situacao_empreendimento", "direction": "forward", "sql_join_eligible": false},
+            {"id": "9907da9573e0c9f2a02fedefa23b4d358185a1825edb145806b7df92119777e6", "type": "HAS_COLUMN", "source": "Cidades.cidades.empreendimento_far.ficha_empreendimento", "target": "Cidades.cidades.empreendimento_far.ficha_empreendimento.valor_contratado", "direction": "forward", "sql_join_eligible": false}
+          ],
+          "paths": []
+        },
+        {
+          "id": "empreendimento-silver-unificada",
+          "nodes": [
+            {"id": "Cidades.cidades.empreendimento_far.empreendimento", "type": "Table"},
+            {"id": "Cidades.cidades.empreendimento_far.empreendimento.empreendimento_nome", "type": "Column"},
+            {"id": "Cidades.cidades.empreendimento_far.empreendimento.quantidade_uh", "type": "Column"},
+            {"id": "Cidades.cidades.empreendimento_far.empreendimento.municipio", "type": "Column"},
+            {"id": "Cidades.cidades.empreendimento_far.empreendimento.uf", "type": "Column"},
+            {"id": "Cidades.cidades.empreendimento_far.empreendimento.situacao_empreendimento", "type": "Column"},
+            {"id": "Cidades.cidades.empreendimento_far.empreendimento.valor_contratado", "type": "Column"}
+          ],
+          "relationships": [
+            {"id": "29abbb62369ab92ebba22da3b73b3ec9ec198d341063f102a0372ea8ce0c2efa", "type": "HAS_COLUMN", "source": "Cidades.cidades.empreendimento_far.empreendimento", "target": "Cidades.cidades.empreendimento_far.empreendimento.empreendimento_nome", "direction": "forward", "sql_join_eligible": false},
+            {"id": "604c7e39c644ed741f141b2179cdd9ba8dbdde9218ead9c8289424dfa54c4fc5", "type": "HAS_COLUMN", "source": "Cidades.cidades.empreendimento_far.empreendimento", "target": "Cidades.cidades.empreendimento_far.empreendimento.quantidade_uh", "direction": "forward", "sql_join_eligible": false},
+            {"id": "a6aa4c135aeb8b29b09667778a485b03b6a2d54c7255f58da128e9065288f7d7", "type": "HAS_COLUMN", "source": "Cidades.cidades.empreendimento_far.empreendimento", "target": "Cidades.cidades.empreendimento_far.empreendimento.municipio", "direction": "forward", "sql_join_eligible": false},
+            {"id": "488265986d1aee134bf604c7e9d92f3c2f7093d8d0297087c1b9c8ca5a03412f", "type": "HAS_COLUMN", "source": "Cidades.cidades.empreendimento_far.empreendimento", "target": "Cidades.cidades.empreendimento_far.empreendimento.uf", "direction": "forward", "sql_join_eligible": false},
+            {"id": "ed6f42e021daf6bcf583a78eb831ff1ce1c9e4b97c766dcd5ffb789ac024db1a", "type": "HAS_COLUMN", "source": "Cidades.cidades.empreendimento_far.empreendimento", "target": "Cidades.cidades.empreendimento_far.empreendimento.situacao_empreendimento", "direction": "forward", "sql_join_eligible": false},
+            {"id": "7c244ed9b7510ad83cd346206db029e3e427cd442dda24e21511911fd7ceeffa", "type": "HAS_COLUMN", "source": "Cidades.cidades.empreendimento_far.empreendimento", "target": "Cidades.cidades.empreendimento_far.empreendimento.valor_contratado", "direction": "forward", "sql_join_eligible": false}
+          ],
+          "paths": []
+        }
+      ],
+      "metadata": {
+        "annotation_status": "draft",
+        "reviewer": null,
+        "evidence": "OpenMetadata/Neo4j documentam ficha_empreendimento e empreendimento como visões capazes de responder aos campos solicitados.",
+        "review_notes": "Snapshot físico de 2026-07-30: ambas as visões têm 1.646 linhas para 823 APFs, exatamente duas por APF. A escolha da tabela não resolve o grain; a execução precisa deduplicar ou a carga upstream deve ser corrigida.",
+        "contains_row_values": false
+      }
+    },
+    {
+      "id": "far-ufs-uh-001",
+      "question": "Quais são as 10 UFs com mais unidades habitacionais em empreendimentos FAR? Mostre também o valor contratado em cada UF.",
+      "critical": true,
+      "slices": [
+        "pt_br",
+        "far",
+        "mono_table",
+        "aggregate",
+        "filter",
+        "top_n",
+        "geographic",
+        "dashboard"
+      ],
+      "seed_relevance": {
+        "Cidades.cidades.empreendimento_far.mapa_nacional": 3,
+        "Cidades.cidades.empreendimento_far.mapa_nacional.uf": 2,
+        "Cidades.cidades.empreendimento_far.mapa_nacional.nivel": 2,
+        "Cidades.cidades.empreendimento_far.mapa_nacional.total_uhs": 3,
+        "Cidades.cidades.empreendimento_far.mapa_nacional.total_valor_contratado": 3
+      },
+      "gold_subgraphs": [
+        {
+          "id": "mapa-nacional-nivel-uf",
+          "nodes": [
+            {"id": "Cidades.cidades.empreendimento_far.mapa_nacional", "type": "Table"},
+            {"id": "Cidades.cidades.empreendimento_far.mapa_nacional.uf", "type": "Column"},
+            {"id": "Cidades.cidades.empreendimento_far.mapa_nacional.nivel", "type": "Column"},
+            {"id": "Cidades.cidades.empreendimento_far.mapa_nacional.total_uhs", "type": "Column"},
+            {"id": "Cidades.cidades.empreendimento_far.mapa_nacional.total_valor_contratado", "type": "Column"}
+          ],
+          "relationships": [
+            {"id": "35013b2d1a3496f20afef3a05af05a5c7dc1e9aac91b26b96d04537470bb4e7c", "type": "HAS_COLUMN", "source": "Cidades.cidades.empreendimento_far.mapa_nacional", "target": "Cidades.cidades.empreendimento_far.mapa_nacional.uf", "direction": "forward", "sql_join_eligible": false},
+            {"id": "02fef250afe28ac93bc6cb609766941b0861a48c271fb08eba1d360bbceb83cc", "type": "HAS_COLUMN", "source": "Cidades.cidades.empreendimento_far.mapa_nacional", "target": "Cidades.cidades.empreendimento_far.mapa_nacional.nivel", "direction": "forward", "sql_join_eligible": false},
+            {"id": "976ecd4fa30c41c3e95c8fb9ca978078d8d0cad3a913386bba3eaa4b69562f9a", "type": "HAS_COLUMN", "source": "Cidades.cidades.empreendimento_far.mapa_nacional", "target": "Cidades.cidades.empreendimento_far.mapa_nacional.total_uhs", "direction": "forward", "sql_join_eligible": false},
+            {"id": "d5b0d62bf2cd4ef78fc9fadaa95b1bf80ada4559ff6486593a19092ad4715352", "type": "HAS_COLUMN", "source": "Cidades.cidades.empreendimento_far.mapa_nacional", "target": "Cidades.cidades.empreendimento_far.mapa_nacional.total_valor_contratado", "direction": "forward", "sql_join_eligible": false}
+          ],
+          "paths": []
+        }
+      ],
+      "metadata": {
+        "annotation_status": "draft",
+        "reviewer": null,
+        "evidence": "OpenMetadata/Neo4j; mapa_nacional é uma visão agregada pronta para exibição.",
+        "review_notes": "Validar a preferência pela visão mapa_nacional em vez de agregar ficha_empreendimento e confirmar o literal nivel='uf'.",
+        "contains_row_values": false
+      }
+    },
+    {
+      "id": "fds-eo-risco-001",
+      "question": "Quais são as 10 Entidades Organizadoras classificadas como alto risco com mais obras paralisadas? Mostre nome, CNPJ, obras paralisadas e valor total contratado.",
+      "critical": true,
+      "slices": [
+        "pt_br",
+        "fds",
+        "mono_table",
+        "acronym",
+        "filter",
+        "ranking",
+        "risk",
+        "dashboard"
+      ],
+      "seed_relevance": {
+        "Cidades.cidades.entidades_fds.fds_panorama_entidade": 3,
+        "Cidades.cidades.entidades_fds.fds_panorama_entidade.cnpj_eo": 2,
+        "Cidades.cidades.entidades_fds.fds_panorama_entidade.nome_eo": 2,
+        "Cidades.cidades.entidades_fds.fds_panorama_entidade.classificacao_risco": 3,
+        "Cidades.cidades.entidades_fds.fds_panorama_entidade.qtd_obras_paralisadas": 3,
+        "Cidades.cidades.entidades_fds.fds_panorama_entidade.valor_total_contratado": 2
+      },
+      "gold_subgraphs": [
+        {
+          "id": "panorama-entidade-risco",
+          "nodes": [
+            {"id": "Cidades.cidades.entidades_fds.fds_panorama_entidade", "type": "Table"},
+            {"id": "Cidades.cidades.entidades_fds.fds_panorama_entidade.cnpj_eo", "type": "Column"},
+            {"id": "Cidades.cidades.entidades_fds.fds_panorama_entidade.nome_eo", "type": "Column"},
+            {"id": "Cidades.cidades.entidades_fds.fds_panorama_entidade.classificacao_risco", "type": "Column"},
+            {"id": "Cidades.cidades.entidades_fds.fds_panorama_entidade.qtd_obras_paralisadas", "type": "Column"},
+            {"id": "Cidades.cidades.entidades_fds.fds_panorama_entidade.valor_total_contratado", "type": "Column"}
+          ],
+          "relationships": [
+            {"id": "191d67153484f96a19b0e7df24111e06d1083bae16348fac0189b5526df2ea27", "type": "HAS_COLUMN", "source": "Cidades.cidades.entidades_fds.fds_panorama_entidade", "target": "Cidades.cidades.entidades_fds.fds_panorama_entidade.cnpj_eo", "direction": "forward", "sql_join_eligible": false},
+            {"id": "1f3a50faa2448e8e4d2462f017e45388d79bd5af6c8c54f3146671fa7d1cb37d", "type": "HAS_COLUMN", "source": "Cidades.cidades.entidades_fds.fds_panorama_entidade", "target": "Cidades.cidades.entidades_fds.fds_panorama_entidade.nome_eo", "direction": "forward", "sql_join_eligible": false},
+            {"id": "049ddb660e291bf038e98b72e19f367f3e1423e50fb398d618b0c2ffa1981896", "type": "HAS_COLUMN", "source": "Cidades.cidades.entidades_fds.fds_panorama_entidade", "target": "Cidades.cidades.entidades_fds.fds_panorama_entidade.classificacao_risco", "direction": "forward", "sql_join_eligible": false},
+            {"id": "ee9043f6a3996440871a78839b9bd9f72e292d2c4e39fefaa9d1429fcd8b743d", "type": "HAS_COLUMN", "source": "Cidades.cidades.entidades_fds.fds_panorama_entidade", "target": "Cidades.cidades.entidades_fds.fds_panorama_entidade.qtd_obras_paralisadas", "direction": "forward", "sql_join_eligible": false},
+            {"id": "dfb4d4d488f1a839c6695223801a38cf0d837141d89c8d6bbc41ea5767b94f42", "type": "HAS_COLUMN", "source": "Cidades.cidades.entidades_fds.fds_panorama_entidade", "target": "Cidades.cidades.entidades_fds.fds_panorama_entidade.valor_total_contratado", "direction": "forward", "sql_join_eligible": false}
+          ],
+          "paths": []
+        }
+      ],
+      "metadata": {
+        "annotation_status": "draft",
+        "reviewer": null,
+        "evidence": "OpenMetadata/Neo4j; panorama consolidado por Entidade Organizadora.",
+        "review_notes": "Confirmar o literal e a capitalização de classificacao_risco na camada de execução.",
+        "contains_row_values": false
+      }
+    },
+    {
+      "id": "fds-entrega-ts-001",
+      "question": "Quais empreendimentos do MCMV Entidades têm alguma unidade entregue, mas execução do trabalho social abaixo de 100%? Mostre APF, empreendimento, município, UF e os dois percentuais.",
+      "critical": false,
+      "slices": [
+        "pt_br",
+        "fds",
+        "mono_table",
+        "multi_filter",
+        "semantic",
+        "operational_dashboard"
+      ],
+      "seed_relevance": {
+        "Cidades.cidades.entidades_fds.fds_ficha_empreendimento": 3,
+        "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.apf": 2,
+        "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.nome_empreendimento": 2,
+        "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.municipio": 2,
+        "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.uf": 2,
+        "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.pct_entrega": 3,
+        "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.pct_execucao_ts": 3
+      },
+      "gold_subgraphs": [
+        {
+          "id": "fds-ficha-entrega-trabalho-social",
+          "nodes": [
+            {"id": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento", "type": "Table"},
+            {"id": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.apf", "type": "Column"},
+            {"id": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.nome_empreendimento", "type": "Column"},
+            {"id": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.municipio", "type": "Column"},
+            {"id": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.uf", "type": "Column"},
+            {"id": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.pct_entrega", "type": "Column"},
+            {"id": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.pct_execucao_ts", "type": "Column"}
+          ],
+          "relationships": [
+            {"id": "57212515a2b0fee026ae3b1590abd80b50f2f4bb635c935dc79f1935e8e259aa", "type": "HAS_COLUMN", "source": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento", "target": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.apf", "direction": "forward", "sql_join_eligible": false},
+            {"id": "a183e538974ddaaa305bb2ed5c9ca8f119f7988a026b631d5ef668c0b113b5fe", "type": "HAS_COLUMN", "source": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento", "target": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.nome_empreendimento", "direction": "forward", "sql_join_eligible": false},
+            {"id": "394f7e73d38ddfdda233fc44b64d1f83e725c50d069f0467f7dfe9f741014418", "type": "HAS_COLUMN", "source": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento", "target": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.municipio", "direction": "forward", "sql_join_eligible": false},
+            {"id": "9bee72973f4ea2634a8cb82bf758a15581348d824402e8be5aac6031e9e65e11", "type": "HAS_COLUMN", "source": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento", "target": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.uf", "direction": "forward", "sql_join_eligible": false},
+            {"id": "c53b79dc2967184dda8183752181d2c9729ce90f9735518c27dc545103e83023", "type": "HAS_COLUMN", "source": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento", "target": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.pct_entrega", "direction": "forward", "sql_join_eligible": false},
+            {"id": "5a60878e3caf3f97698f36de4741c3aebfee9733ce8e6814b87666186d2e867d", "type": "HAS_COLUMN", "source": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento", "target": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.pct_execucao_ts", "direction": "forward", "sql_join_eligible": false}
+          ],
+          "paths": []
+        }
+      ],
+      "metadata": {
+        "annotation_status": "draft",
+        "reviewer": null,
+        "evidence": "OpenMetadata/Neo4j; ficha FDS consolida execução e entrega no mesmo grain.",
+        "review_notes": "Definir tratamento de NULL e confirmar se alguma unidade entregue equivale a pct_entrega > 0.",
+        "contains_row_values": false
+      }
+    },
+    {
+      "id": "fds-evolucao-ritmo-001",
+      "question": "Como evoluiu, mês a mês, o valor liberado dos empreendimentos FDS atualmente classificados como Desembolso Adiantado? Mostre APF, empreendimento, UF, valor mensal e desembolso acumulado.",
+      "critical": true,
+      "slices": [
+        "pt_br",
+        "fds",
+        "multi_table",
+        "time_series",
+        "filter",
+        "semantic_join_exact",
+        "one_hop",
+        "dashboard"
+      ],
+      "seed_relevance": {
+        "Cidades.cidades.entidades_fds.fds_evolucao_financeira_chart": 3,
+        "Cidades.cidades.entidades_fds.fds_evolucao_financeira_chart.apf": 2,
+        "Cidades.cidades.entidades_fds.fds_evolucao_financeira_chart.mes": 2,
+        "Cidades.cidades.entidades_fds.fds_evolucao_financeira_chart.valor_liberado_mensal": 3,
+        "Cidades.cidades.entidades_fds.fds_evolucao_financeira_chart.valor_desembolsado_acumulado": 3,
+        "Cidades.cidades.entidades_fds.fds_ficha_empreendimento": 3,
+        "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.apf": 2,
+        "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.nome_empreendimento": 2,
+        "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.uf": 2,
+        "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.status_ritmo_obra": 3
+      },
+      "gold_subgraphs": [
+        {
+          "id": "evolucao-chart-ficha-apf-exact",
+          "nodes": [
+            {"id": "Cidades.cidades.entidades_fds.fds_evolucao_financeira_chart", "type": "Table"},
+            {"id": "Cidades.cidades.entidades_fds.fds_evolucao_financeira_chart.apf", "type": "Column"},
+            {"id": "Cidades.cidades.entidades_fds.fds_evolucao_financeira_chart.mes", "type": "Column"},
+            {"id": "Cidades.cidades.entidades_fds.fds_evolucao_financeira_chart.valor_liberado_mensal", "type": "Column"},
+            {"id": "Cidades.cidades.entidades_fds.fds_evolucao_financeira_chart.valor_desembolsado_acumulado", "type": "Column"},
+            {"id": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento", "type": "Table"},
+            {"id": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.apf", "type": "Column"},
+            {"id": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.nome_empreendimento", "type": "Column"},
+            {"id": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.uf", "type": "Column"},
+            {"id": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.status_ritmo_obra", "type": "Column"}
+          ],
+          "relationships": [
+            {"id": "9fe2dda12caf929fb1896d203b076b4407faac57f19017985394b9580a473489", "type": "HAS_COLUMN", "source": "Cidades.cidades.entidades_fds.fds_evolucao_financeira_chart", "target": "Cidades.cidades.entidades_fds.fds_evolucao_financeira_chart.apf", "direction": "forward", "sql_join_eligible": false},
+            {"id": "9188ca98e62cebc053b07c4c448126467a63a81f5ad636527e9ee5c56a2b904d", "type": "HAS_COLUMN", "source": "Cidades.cidades.entidades_fds.fds_evolucao_financeira_chart", "target": "Cidades.cidades.entidades_fds.fds_evolucao_financeira_chart.mes", "direction": "forward", "sql_join_eligible": false},
+            {"id": "4283999343caa2abe3752e7cbc207492ef3d67c6d0ebd15bec7f63f5b5cf8ad2", "type": "HAS_COLUMN", "source": "Cidades.cidades.entidades_fds.fds_evolucao_financeira_chart", "target": "Cidades.cidades.entidades_fds.fds_evolucao_financeira_chart.valor_liberado_mensal", "direction": "forward", "sql_join_eligible": false},
+            {"id": "88cce51710fe8fd6146d146b5c04b553b44b41a6a17b8e5815bb54b69c65af28", "type": "HAS_COLUMN", "source": "Cidades.cidades.entidades_fds.fds_evolucao_financeira_chart", "target": "Cidades.cidades.entidades_fds.fds_evolucao_financeira_chart.valor_desembolsado_acumulado", "direction": "forward", "sql_join_eligible": false},
+            {"id": "57212515a2b0fee026ae3b1590abd80b50f2f4bb635c935dc79f1935e8e259aa", "type": "HAS_COLUMN", "source": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento", "target": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.apf", "direction": "forward", "sql_join_eligible": false},
+            {"id": "a183e538974ddaaa305bb2ed5c9ca8f119f7988a026b631d5ef668c0b113b5fe", "type": "HAS_COLUMN", "source": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento", "target": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.nome_empreendimento", "direction": "forward", "sql_join_eligible": false},
+            {"id": "9bee72973f4ea2634a8cb82bf758a15581348d824402e8be5aac6031e9e65e11", "type": "HAS_COLUMN", "source": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento", "target": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.uf", "direction": "forward", "sql_join_eligible": false},
+            {"id": "845d2758ab01c280034e281d2b9965a1c076f4a86678226e847a2f09b02113a7", "type": "HAS_COLUMN", "source": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento", "target": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.status_ritmo_obra", "direction": "forward", "sql_join_eligible": false},
+            {"id": "69cbe76605e2db2fb3a7b5298f19c8811ed5f74d0973d2cc8054022c084bbcae", "type": "SEMANTIC_JOIN", "source": "Cidades.cidades.entidades_fds.fds_evolucao_financeira_chart.apf", "target": "Cidades.cidades.entidades_fds.fds_ficha_empreendimento.apf", "direction": "forward", "sql_join_eligible": true}
+          ],
+          "paths": [
+            {"id": "join-evolucao-ficha-apf", "relationship_ids": ["69cbe76605e2db2fb3a7b5298f19c8811ed5f74d0973d2cc8054022c084bbcae"], "join_path": true}
+          ]
+        }
+      ],
+      "metadata": {
+        "annotation_status": "draft",
+        "reviewer": null,
+        "evidence": "OpenMetadata mcidSemanticRelationships; join exact APF validado na documentação.",
+        "review_notes": "A classificação de ritmo é atual e não representa necessariamente o estado histórico de cada mês.",
+        "contains_row_values": false
+      }
+    },
+    {
+      "id": "conjuntura-pnad-ocupacao-renda-001",
+      "question": "Nos 12 meses mais recentes disponíveis, como evoluíram o número de pessoas ocupadas e o rendimento na construção? Mostre por mês os dois valores e suas variações em 12 meses.",
+      "critical": true,
+      "slices": [
+        "pt_br",
+        "conjuntura",
+        "multi_table",
+        "semantic",
+        "trend",
+        "dynamic_date",
+        "semantic_join_exact",
+        "one_hop",
+        "dashboard"
+      ],
+      "seed_relevance": {
+        "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_ocupados_construcao": 3,
+        "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_ocupados_construcao.periodo": 2,
+        "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_ocupados_construcao.data_referencia": 2,
+        "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_ocupados_construcao.ocupados_construcao": 3,
+        "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_ocupados_construcao.var_ano": 2,
+        "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_rendimento_construcao": 3,
+        "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_rendimento_construcao.periodo": 2,
+        "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_rendimento_construcao.rendimento_construcao": 3,
+        "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_rendimento_construcao.var_ano": 2
+      },
+      "gold_subgraphs": [
+        {
+          "id": "pnadc-ocupacao-rendimento-periodo",
+          "nodes": [
+            {"id": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_ocupados_construcao", "type": "Table"},
+            {"id": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_ocupados_construcao.periodo", "type": "Column"},
+            {"id": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_ocupados_construcao.data_referencia", "type": "Column"},
+            {"id": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_ocupados_construcao.ocupados_construcao", "type": "Column"},
+            {"id": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_ocupados_construcao.var_ano", "type": "Column"},
+            {"id": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_rendimento_construcao", "type": "Table"},
+            {"id": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_rendimento_construcao.periodo", "type": "Column"},
+            {"id": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_rendimento_construcao.rendimento_construcao", "type": "Column"},
+            {"id": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_rendimento_construcao.var_ano", "type": "Column"}
+          ],
+          "relationships": [
+            {"id": "5f2679af0fb3478a56126e863448baee1c833442b634b48156e1a503681249d7", "type": "HAS_COLUMN", "source": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_ocupados_construcao", "target": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_ocupados_construcao.periodo", "direction": "forward", "sql_join_eligible": false},
+            {"id": "337ee2543fa39052307f7c4d9d27d1e2224fcd9f9692dd038d343fc52f23df00", "type": "HAS_COLUMN", "source": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_ocupados_construcao", "target": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_ocupados_construcao.data_referencia", "direction": "forward", "sql_join_eligible": false},
+            {"id": "d2fb8e2886f511035e90f9dd2974cd3297f694ca3552e6d424de5df5704e2457", "type": "HAS_COLUMN", "source": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_ocupados_construcao", "target": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_ocupados_construcao.ocupados_construcao", "direction": "forward", "sql_join_eligible": false},
+            {"id": "e0bc6e2243fe9ed9f0466e8bac1ff7cc957c83c511957c6e9256931292b1a8fb", "type": "HAS_COLUMN", "source": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_ocupados_construcao", "target": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_ocupados_construcao.var_ano", "direction": "forward", "sql_join_eligible": false},
+            {"id": "805996219eb09c82ccf3d8fd1e96ad0f786825619da3999c546b4481006bb502", "type": "HAS_COLUMN", "source": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_rendimento_construcao", "target": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_rendimento_construcao.periodo", "direction": "forward", "sql_join_eligible": false},
+            {"id": "85506d56952f3355f2418c4b60e5161caf35ee938caef7b6a25fc2aafab06823", "type": "HAS_COLUMN", "source": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_rendimento_construcao", "target": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_rendimento_construcao.rendimento_construcao", "direction": "forward", "sql_join_eligible": false},
+            {"id": "4805ea474e3cb7cc347bb4c417478053ecd556cb9231119187aa6350bd674208", "type": "HAS_COLUMN", "source": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_rendimento_construcao", "target": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_rendimento_construcao.var_ano", "direction": "forward", "sql_join_eligible": false},
+            {"id": "1b50c464a5f41fde72814fe54f95ff83856d2e68ff591f245d607d2321ae7619", "type": "SEMANTIC_JOIN", "source": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_ocupados_construcao.periodo", "target": "Cidades.cidades.conjuntura_silver.silver_ibge_pnadc_rendimento_construcao.periodo", "direction": "forward", "sql_join_eligible": true}
+          ],
+          "paths": [
+            {"id": "join-pnadc-periodo", "relationship_ids": ["1b50c464a5f41fde72814fe54f95ff83856d2e68ff591f245d607d2321ae7619"], "join_path": true}
+          ]
+        }
+      ],
+      "metadata": {
+        "annotation_status": "draft",
+        "reviewer": null,
+        "evidence": "OpenMetadata mcidSemanticRelationships; join exact por período.",
+        "review_notes": "Validar se data_referencia é necessária ou se periodo sozinho é suficiente para a série.",
+        "contains_row_values": false
+      }
+    },
+    {
+      "id": "conjuntura-custos-001",
+      "question": "Em dezembro de 2025, qual indicador teve maior variação em 12 meses: o custo SINAPI ou o INCC-M? Compare os dois também com dezembro de 2024.",
+      "critical": false,
+      "slices": [
+        "pt_br",
+        "conjuntura",
+        "mono_table",
+        "semantic_compare",
+        "acronym",
+        "wide_gold",
+        "dashboard"
+      ],
+      "seed_relevance": {
+        "Cidades.cidades.conjuntura_gold.gold_precos_construcao": 3,
+        "Cidades.cidades.conjuntura_gold.gold_precos_construcao.sinapi_var_12m_dez25": 3,
+        "Cidades.cidades.conjuntura_gold.gold_precos_construcao.sinapi_var_12m_dez24": 2,
+        "Cidades.cidades.conjuntura_gold.gold_precos_construcao.incc_var_12m_dez25": 3,
+        "Cidades.cidades.conjuntura_gold.gold_precos_construcao.incc_var_12m_dez24": 2
+      },
+      "gold_subgraphs": [
+        {
+          "id": "gold-precos-construcao-wide",
+          "nodes": [
+            {"id": "Cidades.cidades.conjuntura_gold.gold_precos_construcao", "type": "Table"},
+            {"id": "Cidades.cidades.conjuntura_gold.gold_precos_construcao.sinapi_var_12m_dez25", "type": "Column"},
+            {"id": "Cidades.cidades.conjuntura_gold.gold_precos_construcao.sinapi_var_12m_dez24", "type": "Column"},
+            {"id": "Cidades.cidades.conjuntura_gold.gold_precos_construcao.incc_var_12m_dez25", "type": "Column"},
+            {"id": "Cidades.cidades.conjuntura_gold.gold_precos_construcao.incc_var_12m_dez24", "type": "Column"}
+          ],
+          "relationships": [
+            {"id": "c6f249077cbb18590302e9d707e4e99b76fb9e79dd927e305e5e153be15836ab", "type": "HAS_COLUMN", "source": "Cidades.cidades.conjuntura_gold.gold_precos_construcao", "target": "Cidades.cidades.conjuntura_gold.gold_precos_construcao.sinapi_var_12m_dez25", "direction": "forward", "sql_join_eligible": false},
+            {"id": "a2c67ed253334e11e1904255641990e1e6a2efcb8cc4df680ded3a6376341f7b", "type": "HAS_COLUMN", "source": "Cidades.cidades.conjuntura_gold.gold_precos_construcao", "target": "Cidades.cidades.conjuntura_gold.gold_precos_construcao.sinapi_var_12m_dez24", "direction": "forward", "sql_join_eligible": false},
+            {"id": "c0bca105573cd4218fa10aac7c3d368789fd65b6057de93f513dc65bc2ddba68", "type": "HAS_COLUMN", "source": "Cidades.cidades.conjuntura_gold.gold_precos_construcao", "target": "Cidades.cidades.conjuntura_gold.gold_precos_construcao.incc_var_12m_dez25", "direction": "forward", "sql_join_eligible": false},
+            {"id": "7003a7bca3ee48ec93e7b46bd15686c7fe538851177037eecae7aa25ace92c2b", "type": "HAS_COLUMN", "source": "Cidades.cidades.conjuntura_gold.gold_precos_construcao", "target": "Cidades.cidades.conjuntura_gold.gold_precos_construcao.incc_var_12m_dez24", "direction": "forward", "sql_join_eligible": false}
+          ],
+          "paths": []
+        }
+      ],
+      "metadata": {
+        "annotation_status": "draft",
+        "reviewer": null,
+        "evidence": "OpenMetadata/Neo4j; visão Gold wide documenta os indicadores e períodos na coluna.",
+        "review_notes": "Comparar as variações é válido; não inferir equivalência metodológica ou causalidade entre SINAPI e INCC-M.",
+        "contains_row_values": false
+      }
+    },
+    {
+      "id": "conjuntura-cbic-mcmv-001",
+      "question": "Em qual região o MCMV teve a maior participação nos lançamentos imobiliários no quarto trimestre de 2025, e como ela mudou frente ao terceiro trimestre de 2025 e ao quarto trimestre de 2024?",
+      "critical": false,
+      "slices": [
+        "pt_br",
+        "conjuntura",
+        "mono_table",
+        "lexical",
+        "acronym",
+        "ranking",
+        "period_compare",
+        "dashboard"
+      ],
+      "seed_relevance": {
+        "Cidades.cidades.conjuntura_gold.gold_cbic_lancamentos_regiao": 3,
+        "Cidades.cidades.conjuntura_gold.gold_cbic_lancamentos_regiao.regiao": 2,
+        "Cidades.cidades.conjuntura_gold.gold_cbic_lancamentos_regiao.perc_mcmv_4t25": 3,
+        "Cidades.cidades.conjuntura_gold.gold_cbic_lancamentos_regiao.perc_mcmv_3t25": 2,
+        "Cidades.cidades.conjuntura_gold.gold_cbic_lancamentos_regiao.perc_mcmv_4t24": 2
+      },
+      "gold_subgraphs": [
+        {
+          "id": "gold-cbic-lancamentos-regiao",
+          "nodes": [
+            {"id": "Cidades.cidades.conjuntura_gold.gold_cbic_lancamentos_regiao", "type": "Table"},
+            {"id": "Cidades.cidades.conjuntura_gold.gold_cbic_lancamentos_regiao.regiao", "type": "Column"},
+            {"id": "Cidades.cidades.conjuntura_gold.gold_cbic_lancamentos_regiao.perc_mcmv_4t25", "type": "Column"},
+            {"id": "Cidades.cidades.conjuntura_gold.gold_cbic_lancamentos_regiao.perc_mcmv_3t25", "type": "Column"},
+            {"id": "Cidades.cidades.conjuntura_gold.gold_cbic_lancamentos_regiao.perc_mcmv_4t24", "type": "Column"}
+          ],
+          "relationships": [
+            {"id": "f10b3e3dd94f0c1d0f4e744f5f2ba588e98d85eff39ed88814870c4fa1ce46d5", "type": "HAS_COLUMN", "source": "Cidades.cidades.conjuntura_gold.gold_cbic_lancamentos_regiao", "target": "Cidades.cidades.conjuntura_gold.gold_cbic_lancamentos_regiao.regiao", "direction": "forward", "sql_join_eligible": false},
+            {"id": "da873338c434c5a7e267b168468d9d8be9ba9d814f558ce7ef5f9948e0832faf", "type": "HAS_COLUMN", "source": "Cidades.cidades.conjuntura_gold.gold_cbic_lancamentos_regiao", "target": "Cidades.cidades.conjuntura_gold.gold_cbic_lancamentos_regiao.perc_mcmv_4t25", "direction": "forward", "sql_join_eligible": false},
+            {"id": "68d6426b442c7bf225f785c555f6d0b8f56ac84963a85b1cfe2d1cb0af8f87e8", "type": "HAS_COLUMN", "source": "Cidades.cidades.conjuntura_gold.gold_cbic_lancamentos_regiao", "target": "Cidades.cidades.conjuntura_gold.gold_cbic_lancamentos_regiao.perc_mcmv_3t25", "direction": "forward", "sql_join_eligible": false},
+            {"id": "9e38452c09477a24902e70cf969657150693c89ec26c37cf01260a1c061c37bd", "type": "HAS_COLUMN", "source": "Cidades.cidades.conjuntura_gold.gold_cbic_lancamentos_regiao", "target": "Cidades.cidades.conjuntura_gold.gold_cbic_lancamentos_regiao.perc_mcmv_4t24", "direction": "forward", "sql_join_eligible": false}
+          ],
+          "paths": []
+        }
+      ],
+      "metadata": {
+        "annotation_status": "draft",
+        "reviewer": null,
+        "evidence": "OpenMetadata/Neo4j; visão Gold de lançamentos por região.",
+        "review_notes": "O caso deve penalizar confusão com gold_cbic_vendas_regiao.",
+        "contains_row_values": false
+      }
+    }
+  ]
+}

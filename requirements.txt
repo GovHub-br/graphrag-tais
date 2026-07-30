@@ -26,6 +26,9 @@ qdrant-client==1.15.1
 # ------------------------------------------------------------------ #
 # Agente do Haystack conecta no postgres-mcp (SSE) e autocorrige o SQL.
 mcp-haystack==1.4.0
+# mcp-haystack 1.4.0 ainda usa a API do SDK MCP v1
+# (`streamablehttp_client`). O MCP 2.0 renomeou essa API e quebra o import.
+mcp==1.29.0
 # Renderização determinística dos gráficos (chart-spec → PNG).
 matplotlib==3.11.1
 pandas==2.3.3

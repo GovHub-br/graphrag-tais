@@ -1,0 +1,236 @@
+{
+  "experiment_id": "20260730-current-retrieval-audit",
+  "status": "completed_diagnostic",
+  "hypothesis": "O perfil atual gte-qwen2 + BM25 encontra pontos de entrada úteis para perguntas analíticas do MCid, mas a expansão que une todos os vizinhos de um hop das sementes produz sobre-expansão e contexto maior que o subgrafo mínimo suficiente.",
+  "change_scope": [
+    "retrieval_observability",
+    "evaluation_framework"
+  ],
+  "runtime_retrieval_change": false,
+  "primary_metrics": [
+    {
+      "metric": "seed_recall_at_10",
+      "expected_direction": "measure_current_baseline",
+      "target_slices": [
+        "dashboard",
+        "mono_table",
+        "multi_table"
+      ]
+    },
+    {
+      "metric": "structural_sufficiency",
+      "expected_direction": "measure_current_baseline",
+      "target_slices": [
+        "dashboard"
+      ]
+    },
+    {
+      "metric": "overexpansion",
+      "expected_direction": "lower",
+      "target_slices": [
+        "mono_table",
+        "multi_table"
+      ]
+    }
+  ],
+  "guardrails": [
+    "a instrumentação não pode alterar seeds, scores, expansão ou ordem do contexto",
+    "unauthorized_join_rate deve permanecer zero",
+    "todos os casos devem produzir trace pré-LLM sem erro estruturado",
+    "gold e baseline não serão promovidos automaticamente"
+  ],
+  "dataset": {
+    "name": "mcid-business-retrieval",
+    "version": "0.1.0",
+    "status": "draft",
+    "hash": "7524635f554cdf4912d72611cee7e5c55235f94b946c15b96a592b01337f886c",
+    "case_count": 8,
+    "review_status": "pending_domain_review"
+  },
+  "baseline_report": null,
+  "candidate_report": {
+    "run": "eval/reports/current-run.json",
+    "report": "eval/reports/candidate.json",
+    "run_id": "live-retrieval-20260730T181132775301Z",
+    "fingerprint": "f4f849fbcfd5097fe53c49f1551d2df1a6c9839551ea96cdacedb47b48b24a4b",
+    "channel": "hybrid"
+  },
+  "source_snapshot": {
+    "qdrant_point_count": 1289,
+    "graph_node_count": 1289,
+    "graph_relationship_count": 1239,
+    "qdrant_snapshot_hash": "dc8e00a1257bac56bc3dcc34c5a0ef6c022c61cc6b13823fd9a93294f12447a8",
+    "graph_snapshot_hash": "83d63e3bbc7dec9ad0c2e38bed3ca3144517e8d5cb549b38417f81b75a678fa0",
+    "source_snapshot_hash": "009c8f5ad4c94ddf4140cc3b46a4cdd73b09500c7169b33133d0ac409e1efe7a"
+  },
+  "embedding_profile": {
+    "dense_model": "aroxima/gte-qwen2-1.5b-instruct:f16",
+    "dimension": 1536,
+    "query_template": "raw_question_without_instruction_prefix",
+    "sparse_model": "Qdrant/bm25",
+    "profile": "dev-gte-qwen2-1.5b-f16__qdrant-bm25-v1",
+    "assessment": "O denso é complementar ao BM25 e não há evidência para substituí-lo antes de testar o prefixo de instrução recomendado pela família do modelo."
+  },
+  "scope_observation": {
+    "collection_scopes": [
+      "mcid"
+    ],
+    "runtime_qdrant_scope_filter": null,
+    "observed_cross_scope_leakage": false,
+    "assessment": "O snapshot atual é de um único scope, mas a ausência de filtro explícito viola o isolamento exigido pelo ADR-0011 e deve ser corrigida antes de compartilhar a collection."
+  },
+  "graph_inventory": {
+    "table_nodes": 74,
+    "column_nodes": 1215,
+    "has_column_relationships": 1215,
+    "semantic_join_relationships": 24,
+    "sql_join_eligible_relationships": 6
+  },
+  "channel_comparison": {
+    "dense": {
+      "run": "eval/reports/dense-run.json",
+      "report": "eval/reports/dense-report.json",
+      "run_id": "live-retrieval-20260730T181202287174Z",
+      "fingerprint": "06248136c5e217d557fa39f1e7d92e7ed04930527c85c87a7ffcd543a7c183dc",
+      "seed_recall_at_5": 0.22757936507936508,
+      "seed_recall_at_10": 0.3248015873015873,
+      "mrr_at_10": 0.625,
+      "ndcg_at_10": 0.3682128454577637,
+      "structural_sufficiency": 0.875,
+      "node_precision": 0.13456585850642597,
+      "overexpansion": 20.53015873015873,
+      "rendered_prompt_chars_mean": 16144.0
+    },
+    "sparse": {
+      "run": "eval/reports/sparse-run.json",
+      "report": "eval/reports/sparse-report.json",
+      "run_id": "live-retrieval-20260730T181224219413Z",
+      "fingerprint": "a9f89521978045e87d5652bee769c8a0000dc4e73689f60eefd8e5b6bf485ee6",
+      "seed_recall_at_5": 0.2150793650793651,
+      "seed_recall_at_10": 0.303968253968254,
+      "mrr_at_10": 0.6041666666666666,
+      "ndcg_at_10": 0.34206170071764663,
+      "structural_sufficiency": 0.75,
+      "node_precision": 0.09818227832933715,
+      "overexpansion": 32.785714285714285,
+      "rendered_prompt_chars_mean": 24946.25
+    },
+    "hybrid": {
+      "run": "eval/reports/current-run.json",
+      "report": "eval/reports/candidate.json",
+      "run_id": "live-retrieval-20260730T181132775301Z",
+      "fingerprint": "f4f849fbcfd5097fe53c49f1551d2df1a6c9839551ea96cdacedb47b48b24a4b",
+      "seed_recall_at_5": 0.30515873015873013,
+      "seed_recall_at_10": 0.39265873015873015,
+      "mrr_at_10": 0.53125,
+      "ndcg_at_10": 0.405794086013695,
+      "structural_sufficiency": 1.0,
+      "node_precision": 0.12733710600600792,
+      "relationship_precision": 0.11390364599061335,
+      "expansion_recall_gain": 0.6948412698412699,
+      "marginal_expansion_precision": 0.09048412653399669,
+      "overexpansion": 27.144642857142856,
+      "unauthorized_join_rate": 0.0,
+      "rendered_prompt_chars_mean": 21452.625,
+      "rendered_prompt_chars_p50": 26700.0,
+      "rendered_prompt_chars_p95": 35310.0,
+      "rendered_prompt_chars_max": 35562.0,
+      "rendered_prompt_coverage": 1.0,
+      "context_tables_mean": 5.75,
+      "context_columns_mean": 186.375,
+      "latency_p50_ms": 259.48935899941716,
+      "latency_p95_ms": 745.0677520502719
+    }
+  },
+  "stability": {
+    "runs": [
+      "eval/reports/final-hybrid-stability-run-1.json",
+      "eval/reports/final-hybrid-stability-run-2.json",
+      "eval/reports/final-hybrid-stability-run-3.json"
+    ],
+    "shared_fingerprint": "f4f849fbcfd5097fe53c49f1551d2df1a6c9839551ea96cdacedb47b48b24a4b",
+    "cases_with_unstable_top5_membership": 1,
+    "cases_with_unstable_top5_order": 6,
+    "metric_ranges": {
+      "seed_recall_at_5": [
+        0.30515873015873013,
+        0.30515873015873013
+      ],
+      "mrr_at_10": [
+        0.6041666666666666,
+        0.6666666666666666
+      ],
+      "ndcg_at_10": [
+        0.4222300769376601,
+        0.43970625505900673
+      ],
+      "rendered_prompt_chars_mean": [
+        21452.625,
+        21811.75
+      ]
+    },
+    "context_variation_examples": {
+      "far-ranking-valor-001": {
+        "min_chars": 34842,
+        "max_chars": 37715,
+        "tables": 9,
+        "min_columns": 310,
+        "max_columns": 349
+      }
+    },
+    "diagnosis": "Empates do RRF alteram a ordem e, perto do corte top-5, também a composição das sementes e o volume do contexto."
+  },
+  "endpoint_validation": {
+    "question": "Quais são os 10 empreendimentos FAR com maior valor contratado? Mostre empreendimento, município, UF, situação atual, unidades habitacionais e valor contratado.",
+    "http_status": 200,
+    "elapsed_seconds": 20.819,
+    "retrieval": {
+      "selected_seeds": 5,
+      "expanded_tables": 9,
+      "semantic_joins": 8
+    },
+    "mcp_result": {
+      "rows": 10,
+      "columns": 6,
+      "chart_generated": true
+    },
+    "business_correctness_issue": {
+      "description": "A tabela física retorna duas linhas por APF; o top-10 exibe cinco empreendimentos únicos duplicados.",
+      "table_rows": 1646,
+      "distinct_apf": 823,
+      "rows_per_apf": 2,
+      "chart_effect": "O renderer agrupa por empreendimento e soma as linhas, dobrando os valores no PNG.",
+      "scope": "upstream_grain_or_sql_dedup_after_retrieval"
+    }
+  },
+  "delivery_dependency_fix": {
+    "retrieval_evaluation": "not_applicable",
+    "status": "healthy",
+    "mcp_haystack": "1.4.0",
+    "mcp_sdk": "1.29.0",
+    "reason": "O pin do SDK MCP destrava execução SQL e gráfico após o LLM, sem alterar embeddings, Qdrant, seeds, Neo4j ou contexto pré-LLM."
+  },
+  "validation": {
+    "quick_before": "passed",
+    "quick_after": "passed_25_tests_plus_smoke",
+    "trace_identity_validation": "passed_real_snapshot_and_unit_guardrails",
+    "full": "blocked_without_accepted_baseline",
+    "full_candidate_score": "completed",
+    "gate": "attempted_and_blocked_before_policy_evaluation",
+    "gate_reason": "O dataset continua draft e não existe eval/baselines/mcid-business-retrieval-v1.json."
+  },
+  "decision": {
+    "current_profile": "keep_hybrid_for_next_experiments",
+    "model": "keep_current_dense_model_until_instruction_prefix_experiment_is_scored",
+    "priority": [
+      "enforce_scope_id_filter_in_all_qdrant_queries",
+      "make_fusion_tie_breaking_deterministic",
+      "route_or_filter_by_business_domain_before_fusion",
+      "make_graph_expansion_intent_and_seed_evidence_aware",
+      "prune_serialized_columns_and_enforce_a_context_budget",
+      "fix_upstream_or_sql_grain_for_duplicate_APF_rows"
+    ],
+    "conclusion": "O híbrido é complementar e tem o melhor recall, nDCG e suficiência estrutural, mas MRR e corte top-5 são instáveis e o contexto é grande demais em relação ao subgrafo útil. A próxima mudança deve atacar scope, estabilidade, expansão e poda; trocar o embedding sem esse controle não é sustentado pelos dados."
+  },
+  "reviewer": null
+}

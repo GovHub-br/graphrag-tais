@@ -22,8 +22,11 @@ O projeto está em **bootstrap**:
 
 - o motor de métricas e o gate podem ser exercitados offline;
 - fixtures sintéticas comprovam as fórmulas sem Qdrant, Neo4j ou Ollama;
-- o primeiro caso MCid está em estado `draft` e ainda precisa de revisão humana;
-- o retrieval atual ainda não emite o `RetrievalTrace` completo;
+- os datasets MCid permanecem em estado `draft` e ainda precisam de revisão humana;
+- `mcid-business-v0.1.0.json` contém perguntas analíticas provisórias para
+  dashboards, além do caso inicial de descoberta estrutural;
+- o collector live emite um `RetrievalTrace` observacional suficiente para o
+  scorer atual por fora da pipeline, sem alterar o runtime nem chamar o LLM;
 - não existe baseline real aceita.
 
 Portanto, unitários e smoke tests podem passar agora, mas isso **não significa**
@@ -58,6 +61,7 @@ O retriever deve exportar o trace antes do prompt/LLM, contendo:
 - caminhos candidatos;
 - IDs efetivamente serializados no contexto;
 - latência por etapa;
+- volume textual e estrutural do contexto serializado;
 - fingerprint do código, corpus, embeddings, cards e configuração de retrieval.
 
 Não extraia arestas ou caminhos do texto DDL entregue ao LLM. O texto é uma
@@ -91,6 +95,13 @@ O relatório mantém eixos separados, sem produzir um score composto:
 - ruído: sobre-expansão e nós desconectados;
 - operação: taxa de erro e latência p50/p95.
 
+As observações de contexto (`table_node_count`, `column_node_count`,
+`schema_context_chars`, `rendered_llm_prompt_chars` e afins) são agregadas em
+cobertura, média, p50, p95 e máximo no relatório. O prompt é renderizado pelo
+mesmo `ChatPromptBuilder` e template do runtime, mas não é enviado ao LLM.
+Essas observações continuam separadas das métricas de qualidade e não formam
+um score composto.
+
 `SEMANTIC_JOIN` com `sql_join_eligible=false` pode ser contexto semântico, mas
 não satisfaz um caminho de JOIN.
 
@@ -99,7 +110,9 @@ não satisfaz um caminho de JOIN.
 Execute a partir da raiz do repositório:
 
 ```bash
-make eval-quick
+make eval-quick \
+  EVAL_DATASET=eval/datasets/retrieval/mcid-business-v0.1.0.json
+make eval-live
 make eval-score EVAL_TRACE=/caminho/para/retrieval-trace.json
 make eval-full \
   EVAL_TRACE=/caminho/para/retrieval-trace.json \
@@ -117,6 +130,24 @@ make -C eval full \
 ```
 
 `quick` valida contratos, executa os unitários do motor e roda um smoke offline.
+`eval-live` coleta no container `hayhooks` e pontua os oito casos de negócio
+pré-LLM. Para isolar os sinais denso e esparso em runs completos:
+
+```bash
+make eval-collect \
+  EVAL_CHANNEL=dense \
+  EVAL_TRACE=eval/reports/dense-run.json
+make eval-collect \
+  EVAL_CHANNEL=sparse \
+  EVAL_TRACE=eval/reports/sparse-run.json
+```
+
+Cada canal usa seu próprio top-5 para a expansão e preserva, separadamente, um
+top-10 real para diagnóstico. Recall/Precision@5 medem a seleção que entrou no
+grafo; Recall@10, MRR e nDCG medem a chamada diagnóstica, sem fabricar uma
+lista ao juntar resultados de chamadas diferentes. Não compare scores brutos
+entre canais; compare Recall, MRR, nDCG e os slices calculados pelo runner.
+
 `score` mede um trace sem afirmar aprovação. `full` compara o relatório candidato
 com uma baseline aceita e retorna código diferente de zero quando o gate falha.
 

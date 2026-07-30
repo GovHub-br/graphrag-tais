@@ -22,7 +22,10 @@ validate:
 		--dataset "$(DATASET)"
 
 unit:
-	cd .. && $(PYTHON) -m unittest tests.test_retrieval_eval -v
+	cd .. && $(PYTHON) -m unittest \
+		tests.test_retrieval_eval \
+		tests.test_live_retrieval \
+		-v
 
 smoke:
 	cd .. && $(PYTHON) -m eval.retrieval.cli score \
