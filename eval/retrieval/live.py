@@ -812,26 +812,30 @@ def _introspect_graph(
                 f"found {sorted(scopes)!r}"
             )
 
-    expected_columns = {
-        _node_id(document): [
+    # Fidelidade: toda coluna serializada no contexto precisa existir no grafo
+    # (sem alucinação). A poda de colunas (ADR/Fase 1) serializa um SUBCONJUNTO
+    # das colunas da tabela de propósito, então a checagem é de SUBCONJUNTO, não
+    # de igualdade. As métricas de recall/precisão medem o subconjunto real.
+    graph_columns: dict[str, set[str]] = {table_id: set() for table_id in table_ids}
+    for row in has_column_rows:
+        graph_columns.setdefault(str(row["table_id"]), set()).add(
+            str(row.get("column_name") or "")
+        )
+    for document in documents:
+        table_id = _node_id(document)
+        serialized = [
             str(column.get("name") or "")
             for column in (
                 (getattr(document, "meta", None) or {}).get("columns", [])
             )
             if isinstance(column, Mapping) and column.get("name")
         ]
-        for document in documents
-    }
-    actual_columns: dict[str, list[str]] = {table_id: [] for table_id in table_ids}
-    for row in has_column_rows:
-        actual_columns.setdefault(str(row["table_id"]), []).append(
-            str(row.get("column_name") or "")
-        )
-    if expected_columns != actual_columns:
-        raise LiveRetrievalError(
-            "Neo4j HAS_COLUMN rows differ from the columns serialized in "
-            f"context: expected={expected_columns!r}, actual={actual_columns!r}"
-        )
+        unknown = [c for c in serialized if c not in graph_columns.get(table_id, set())]
+        if unknown:
+            raise LiveRetrievalError(
+                "context serializes columns absent from Neo4j HAS_COLUMN for "
+                f"{table_id!r}: {unknown!r}"
+            )
 
     runtime_join_counts = Counter(
         _runtime_join_identity(join) for join in joins
@@ -1041,7 +1045,8 @@ def _collect_trace(
         stage = "graph_expansion"
         subgraph_result, timings["graph_expansion"] = _timed(
             lambda: runtime.subgraph_retriever.run(
-                documents=selected_documents
+                documents=selected_documents,
+                query=question,
             )
         )
         context_documents = list(subgraph_result.get("documents") or [])

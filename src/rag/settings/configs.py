@@ -74,6 +74,25 @@ class Settings(BaseSettings):
     OPENAI_TIMEOUT: int = Field(60, description="Timeout (s) das chamadas à OpenAI")
 
     # ------------------------------------------------------------------ #
+    # Tuning do retrieval (Fase 1: scope + determinismo + poda de colunas)
+    # ------------------------------------------------------------------ #
+    # Isola o scope na busca vetorial (ADR-0011). Vazio/none desliga o filtro.
+    SCOPE_FILTER_ENABLED: bool = Field(True, description="Aplica filtro scope_id no Qdrant")
+    # Pool recuperado antes do corte determinístico do top-k (desempate estável).
+    RETRIEVAL_POOL_SIZE: int = Field(30, description="Pool do híbrido antes do corte estável")
+    # Modo de expansão do subgrafo (Fase 2). "all": expande todos os vizinhos de
+    # 1 hop por SEMANTIC_JOIN (comportamento atual). "evidence": só mantém o
+    # vizinho se ele também for semente OU o join for elegível (sql_join_eligible).
+    # Default "evidence" (medido seguro no gold: 0 tabelas-gold perdidas,
+    # over-expansion 27→16.6, prompt p95 acumulado −52%). "all" = fallback seguro.
+    EXPANSION_MODE: str = Field("evidence", description="Expansão do subgrafo: all | evidence")
+    # Poda de colunas na serialização do subgrafo. Sempre mantém PK, chaves de
+    # JOIN, colunas-semente e colunas casadas com a pergunta; o teto limita o
+    # "resto" (colunas por ordinal). Tabela-semente recebe teto maior.
+    PRUNE_SEED_TABLE_MAX_COLS: int = Field(25, description="Teto de colunas por tabela-semente")
+    PRUNE_EXPANSION_TABLE_MAX_COLS: int = Field(6, description="Teto de colunas por tabela só de expansão")
+
+    # ------------------------------------------------------------------ #
     # Camada de entrega (ADR-0013): execução via postgres-mcp + gráfico
     # ------------------------------------------------------------------ #
     # O postgres-mcp (crystaldba) já roda em modo RESTRICTED (read-only) e é o

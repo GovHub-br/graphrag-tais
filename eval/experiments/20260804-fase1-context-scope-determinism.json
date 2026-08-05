@@ -1,0 +1,69 @@
+{
+  "experiment_id": "20260804-fase1-context-scope-determinism",
+  "status": "in_progress",
+  "hypothesis": "O contexto está inflado (over-expansion 27x, prompt p95 35k, node precision 12.7%) porque a expansão serializa TODAS as colunas de TODAS as tabelas alcançadas, e o corte do top-5 é não-determinístico por empates de RRF. Três mudanças que NÃO removem tabelas do subgrafo devem reduzir o contexto e estabilizar o ranking sem regredir a suficiência estrutural nem o JOIN recall: (1) filtro de scope no Qdrant, (2) fusão determinística antes do corte, (3) poda de colunas na serialização mantendo PK, chaves de JOIN, colunas-semente e colunas casadas com a pergunta.",
+  "change_scope": [
+    "seed_retrieval",
+    "graph_expansion",
+    "card_serialization"
+  ],
+  "primary_metrics": [
+    {
+      "metric": "context_rendered_llm_prompt_chars_p95",
+      "expected_direction": "lower",
+      "target_slices": ["far", "fds"]
+    },
+    {
+      "metric": "node_precision",
+      "expected_direction": "higher",
+      "target_slices": ["far", "fds"]
+    },
+    {
+      "metric": "overexpansion",
+      "expected_direction": "lower",
+      "target_slices": ["mono_table", "multi_table"]
+    }
+  ],
+  "guardrails": [
+    "structural_sufficiency não pode cair de 1.0",
+    "eligible_join_relationship_recall e join_path_recall devem permanecer 1.0",
+    "unauthorized_join_rate deve permanecer 0.0",
+    "seed_recall_at_5/10 e table_recall não podem regredir (o scope filter e a fusão não devem remover sementes válidas no snapshot single-scope)",
+    "gold e baseline não serão promovidos automaticamente; dataset segue draft"
+  ],
+  "dataset": {
+    "name": "mcid-business-retrieval",
+    "version": "0.1.0",
+    "status": "draft",
+    "hash": "7524635f554cdf4912d72611cee7e5c55235f94b946c15b96a592b01337f886c"
+  },
+  "baseline_report": "eval/reports/fase1-before-report.json",
+  "candidate_report": "eval/reports/fase1-after-report.json",
+  "notes": "Bootstrap diagnóstico: não existe baseline aceita e o dataset é draft, então o gate full não emite verde. A comparação é por delta de métrica entre before/after coletados no mesmo snapshot. column_recall PODE cair de 1.0 (a poda remove colunas não-essenciais de propósito); o que precisa se manter é structural_sufficiency e JOIN recall.",
+  "results": {
+    "baseline_run": "eval/reports/candidate.json (audit, idêntico ao before coletado)",
+    "candidate_runs": ["eval/reports/fase1-after-run.json", "eval/reports/fase1-after-run2.json"],
+    "guardrails_ok": true,
+    "measured": {
+      "structural_sufficiency": "1.0 → 1.0",
+      "eligible_join_recall": "1.0 → 1.0",
+      "join_path_recall": "1.0 → 1.0",
+      "unauthorized_join_rate": "0.0 → 0.0",
+      "table_recall": "1.0 → 1.0",
+      "node_recall": "1.0 → 1.0",
+      "seed_recall_at_5": "0.3052 → 0.3052 (inalterado)",
+      "schema_context_chars_mean": "19022.6 → 11831.4 (-38%)",
+      "rendered_prompt_chars_mean": "21452.6 → 14261.4 (-34%)",
+      "rendered_prompt_chars_p95": "35310 → 23354.6 (-34%)",
+      "gold_column_coverage_in_pruned_context": "50/50 = 100% (nenhuma coluna-gold perdida)",
+      "determinism_top5_identical_across_runs": "8/8 ordem e membros (audit: 6/8 ordem, 1/8 membros)",
+      "overexpansion_node_precision": "INALTERADOS — o eval conta nós do GRAFO (todas as colunas das tabelas do contexto), então só a poda de TABELAS (Fase 2) move essas métricas; a poda de colunas move as métricas de chars"
+    },
+    "eval_framework_changes": [
+      "live.py: passa query=question ao subgraph_retriever (fidelidade à produção, que agora usa a pergunta na poda)",
+      "live.py: checagem de colunas serializadas relaxada de igualdade para SUBCONJUNTO (poda serializa subconjunto real do grafo; ainda rejeita coluna inexistente)"
+    ]
+  },
+  "decision": "adotar Fase 1 (prompt -34/-38%, determinístico, scope isolado, zero regressão de suficiência/JOIN, 100% das colunas-gold preservadas). over-expansion do eval permanece alto por ser table-driven → Fase 2 (poda de expansão de tabelas). Dataset segue draft; bootstrap diagnóstico, sem gate verde.",
+  "reviewer": null
+}

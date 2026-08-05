@@ -61,6 +61,14 @@ Pipeline de query implementada e funcional ponta a ponta (pergunta → Qdrant h�
 
 - ✅ **Retrieval alinhado (fix nº1 feito)**: `Neo4jSubgraphRetriever` agora expande por
   `SEMANTIC_JOIN` (+ `HAS_COLUMN`) e devolve tabelas + JOINs (com `sql_join_eligible`).
+- ✅ **Tuning Fase 1/2 (medido com `eval/`, ver `experiments/20260804-*`)**: filtro de
+  `scope_id` no Qdrant (ADR-0011); **fusão determinística** (pool + corte estável por
+  `(-score, node_id)` → top-5 fixo 8/8); **poda de colunas** na serialização (PK + chaves
+  de JOIN + colunas-semente + casadas com a pergunta); **expansão por evidência**
+  (`EXPANSION_MODE=evidence`: vizinho só entra se for semente OU join elegível). Resultado
+  medido: prompt p95 **35k→16.8k (−52%)**, over-expansion **27×→16.6×**, com suficiência,
+  JOIN recall e cobertura de colunas/tabelas-gold **100% preservados**. Grafo: 55/74 tabelas
+  são ilhas; joins só dentro de FAR/FDS (nenhum cruza schema); FAR não tem join elegível.
 - ✅ **LLM = OpenAI** (`OpenAIChatGenerator`, `gpt-4o`, saída JSON) só na geração de SQL;
   os embeddings da query seguem on-prem (Ollama gte-qwen2 + BM25), iguais à ingestão.
 - ✅ **IR mínima** (intent/metric/filters) gerada junto do SQL numa única chamada e
@@ -76,9 +84,11 @@ Pipeline de query implementada e funcional ponta a ponta (pergunta → Qdrant h�
 
 ### Gaps conhecidos / próximos passos
 
-1. Sem **validador estrutural de SQL** (`sqlglot`) — a validação agora vem da **execução
-   real** via postgres-mcp (ADR-0013). Ainda `top_k=5` fixo, sem reranker; a correção
-   semântica (grain/fan-out) não é garantida.
+1. **Seed recall ainda baixo** (Recall@5 ~30%): o grafo compensava espalhando; a Fase 1/2
+   cortou o contexto, mas o próximo lever é **subir o recall de sementes** (prefixo de
+   instrução no GTE, ADR-0009) — isso torna a expansão por evidência à prova de bala.
+   Sem validador `sqlglot` (a validação vem da execução real via postgres-mcp); correção
+   semântica (grain/fan-out) não garantida. Gold do eval ainda `draft`/8 casos.
 2. IR **completa** (`group_by`/`time_range`) + roteamento de recuperação por conceito.
 3. Camada de entrega: (a) tabelas/colunas ✅, (b) gráfico ✅ (ADR-0013); faltam
    (c) explicação sobre o resultado executado e (d) relatório docx (`docxtpl` + MinIO).
