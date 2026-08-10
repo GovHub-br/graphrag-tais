@@ -1,0 +1,403 @@
+<title>graphrag-tais — Documentação</title>
+<style>
+  :root{
+    --purple:#7c3aed; --purple-d:#6d28d9; --violet:#8b5cf6;
+    --orange:#f97316; --amber:#f59e0b;
+    --ink:#221f33; --muted:#5b596f; --faint:#8a889b;
+    --bg:#ffffff; --soft:#f7f5fe; --soft-2:#f2eefe; --border:#eceaf5; --border-2:#e2ddf1;
+    --good:#0f9d58; --warn:#c07a10;
+    --shadow:0 1px 2px rgba(80,50,160,.05),0 8px 26px rgba(95,60,175,.07);
+    --shadow-lg:0 10px 34px rgba(95,60,175,.12);
+    --nav:linear-gradient(90deg,#6d28d9 0%,#7c3aed 55%,#8b5cf6 100%);
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  }
+  /* Identidade GovHub = tema claro (branco). Committed light. */
+  :root[data-theme="dark"]{color-scheme:light;}
+  *{box-sizing:border-box;}
+  html{color-scheme:light;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.62;-webkit-font-smoothing:antialiased;}
+  a{color:var(--purple);text-decoration:none;} a:hover{text-decoration:underline;}
+  code,.mono{font-family:var(--mono);font-size:.85em;}
+  :not(pre)>code{background:var(--soft);border:1px solid var(--border-2);padding:.05em .38em;border-radius:5px;color:var(--purple-d);white-space:nowrap;}
+  h1{font-size:2rem;font-weight:700;letter-spacing:-.025em;margin:0 0 .3rem;}
+  h2{font-size:1.15rem;font-weight:700;letter-spacing:-.01em;margin:2.4rem 0 .7rem;}
+  h2 .num{color:var(--purple);font-family:var(--mono);font-size:.9rem;margin-right:.35rem;}
+  h3{font-size:.96rem;font-weight:650;margin:0 0 .25rem;}
+  p{margin:0 0 .9rem;}
+  .lede{color:var(--muted);font-size:1.08rem;max-width:66ch;margin-bottom:1.3rem;}
+  .eyebrow{font-family:var(--mono);font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--purple);font-weight:700;margin:0 0 .55rem;}
+
+  /* ---- navbar (estilo GovHub) ---- */
+  .navbar{position:sticky;top:0;z-index:30;background:var(--nav);box-shadow:0 2px 14px rgba(90,40,180,.22);}
+  .navbar .in{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:1rem;height:60px;padding:0 22px;}
+  .brand-logo{height:26px;width:auto;display:block;}
+  .navbar nav{margin-left:auto;display:flex;gap:.18rem;overflow-x:auto;}
+  .navbar nav a{font-size:.76rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#efeaff;padding:.42rem .8rem;border-radius:999px;white-space:nowrap;transition:background .15s;}
+  .navbar nav a:hover{color:#fff;background:rgba(255,255,255,.14);text-decoration:none;}
+  .navbar nav a.active{background:var(--amber);color:#fff;box-shadow:0 3px 10px rgba(245,158,11,.4);}
+
+  main{max-width:960px;margin:0 auto;}
+  .page{padding:2.6rem 22px 4.5rem;}
+  .page[hidden]{display:none;}
+
+  /* cards / grids */
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.2rem 0;}
+  .cards.c3{grid-template-columns:repeat(3,1fr);}
+  .cx{background:var(--bg);border:1px solid var(--border);border-radius:16px;padding:1.15rem 1.25rem;box-shadow:var(--shadow);}
+  .cx .k{font-family:var(--mono);font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;color:var(--purple);font-weight:700;}
+  .cx h3{margin-top:.3rem;}
+  .cx p{margin:.35rem 0 0;color:var(--muted);font-size:.9rem;}
+  .soft{background:var(--soft);border-color:var(--border-2);}
+
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:.35rem 1.1rem;font-size:.94rem;margin:.8rem 0 1.2rem;}
+  .kv dt{color:var(--faint);font-family:var(--mono);font-size:.78rem;padding-top:.05rem;}
+  .kv dd{margin:0;}
+
+  .tw{overflow-x:auto;border:1px solid var(--border);border-radius:14px;margin:1.1rem 0;box-shadow:var(--shadow);}
+  table{width:100%;border-collapse:collapse;font-size:.9rem;}
+  th,td{text-align:left;padding:.62rem .9rem;border-bottom:1px solid var(--border);vertical-align:top;}
+  tr:last-child td{border-bottom:0;}
+  thead th{font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:700;background:var(--soft);}
+  td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);}
+  td b{font-weight:660;} td:first-child,th:first-child{padding-left:1.1rem;}
+  .pill{display:inline-block;font-family:var(--mono);font-size:.68rem;padding:.1em .6em;border-radius:999px;border:1px solid var(--border-2);color:var(--muted);}
+  .pill.ok{color:var(--good);border-color:color-mix(in srgb,var(--good) 45%,var(--border));background:color-mix(in srgb,var(--good) 8%,#fff);}
+  .pill.pend{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,var(--border));background:color-mix(in srgb,var(--warn) 8%,#fff);}
+  .up{color:var(--good);font-weight:600;}
+
+  figure{margin:1.3rem 0;background:#fbfaff;border:1px solid var(--border-2);border-radius:16px;padding:1.1rem;overflow-x:auto;box-shadow:var(--shadow);}
+  figure svg.arch{display:block;min-width:840px;width:100%;height:auto;}
+  figcaption{font-size:.8rem;color:var(--faint);margin-top:.7rem;text-align:center;}
+
+  .note{border-left:3px solid var(--purple);background:var(--soft);border-radius:0 10px 10px 0;padding:.8rem 1.05rem;font-size:.9rem;color:var(--muted);margin:1.1rem 0;}
+  .note.warn{border-left-color:var(--amber);background:#fef9f0;}
+  .note b{color:var(--ink);}
+  ul.tight{margin:.5rem 0;padding-left:1.2rem;} ul.tight li{margin:.3rem 0;color:var(--muted);} ul.tight li b{color:var(--ink);}
+
+  .steps{counter-reset:s;list-style:none;padding:0;margin:1.1rem 0;}
+  .steps li{counter-increment:s;position:relative;padding:.55rem 0 .55rem 2.5rem;border-bottom:1px solid var(--border);color:var(--muted);font-size:.92rem;}
+  .steps li:last-child{border-bottom:0;}
+  .steps li b{color:var(--ink);}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:.5rem;width:1.7rem;height:1.7rem;border-radius:50%;background:var(--soft-2);color:var(--purple);font-family:var(--mono);font-size:.8rem;font-weight:700;display:grid;place-items:center;}
+
+  .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;margin:1.2rem 0;}
+  .st{background:var(--bg);border:1px solid var(--border);border-radius:14px;padding:1rem 1.1rem;box-shadow:var(--shadow);}
+  .st .v{font-size:1.7rem;font-weight:800;letter-spacing:-.03em;color:var(--purple-d);font-variant-numeric:tabular-nums;}
+  .st .v small{font-size:.9rem;color:var(--faint);font-weight:600;}
+  .st .l{font-size:.78rem;color:var(--muted);margin-top:.1rem;}
+
+  pre.sh{background:#faf9ff;border:1px solid var(--border-2);border-radius:12px;padding:.9rem 1.1rem;overflow-x:auto;font-family:var(--mono);font-size:.82rem;line-height:1.6;color:var(--ink);margin:.8rem 0;}
+  pre.sh .c{color:var(--faint);}
+
+  footer{border-top:1px solid var(--border);padding:1.6rem 22px 2.5rem;max-width:960px;margin:0 auto;color:var(--faint);font-size:.82rem;}
+  footer b{color:var(--purple-d);}
+
+  @media (max-width:760px){ .cards,.cards.c3{grid-template-columns:1fr;} .stat-row{grid-template-columns:repeat(2,1fr);} h1{font-size:1.6rem;} }
+</style>
+
+<div class="navbar">
+  <div class="in">
+    <svg class="brand-logo" viewBox="0 0 824 200" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="Gov Hub">
+      <path d="M39.4807 116.186H79.6597C78.4617 120.369 76.6907 123.958 74.3297 126.934C71.4947 130.508 67.9717 133.191 63.7617 134.988C59.5487 136.785 54.7687 137.683 49.4207 137.683C43.1527 137.683 37.6737 136.296 32.9837 133.521C28.2927 130.747 24.6397 126.835 22.0257 121.785C19.4107 116.736 18.1037 110.838 18.1037 104.091C18.1037 97.3054 19.4007 91.4074 21.9957 86.3974C24.5907 81.3884 28.2627 77.5054 33.0137 74.7514C37.7637 71.9964 43.3127 70.6194 49.6597 70.6194C55.0877 70.6194 59.6587 71.4784 63.3717 73.1944C67.0837 74.9114 70.0187 77.1674 72.1737 79.9614C74.3297 82.7554 75.7257 85.7484 76.3647 88.9424H96.0057C95.2057 82.6754 92.9017 76.8674 89.0897 71.5184C85.2767 66.1684 80.0477 61.8584 73.4017 58.5844C66.7547 55.3114 58.7017 53.6744 49.2397 53.6744C39.4997 53.6744 30.9267 55.8104 23.5227 60.0814C16.1177 64.3534 10.3387 70.2814 6.18769 77.8644C2.03569 85.4494 -0.0393066 94.1914 -0.0393066 104.091C-0.0393066 113.991 2.06569 122.743 6.27769 130.347C10.4887 137.953 16.3167 143.901 23.7617 148.191C31.2067 152.483 39.7197 154.629 49.3007 154.629C58.6417 154.629 66.9737 152.682 74.2997 148.79C81.6237 144.898 87.3917 139.28 91.6047 131.934C95.8147 124.59 97.9217 115.767 97.9217 105.468V100.379H39.4807V116.186Z" fill="white"/>
+      <path d="M163.217 129.39C161.72 132.205 159.644 134.38 156.99 135.917C154.334 137.454 151.211 138.222 147.618 138.222C144.026 138.222 140.882 137.454 138.187 135.917C135.493 134.38 133.398 132.205 131.9 129.39C130.403 126.575 129.654 123.273 129.654 119.48C129.654 115.688 130.394 112.385 131.871 109.57C133.347 106.756 135.433 104.571 138.128 103.013C140.822 101.457 143.985 100.678 147.618 100.678C151.211 100.678 154.345 101.457 157.019 103.013C159.693 104.571 161.769 106.756 163.247 109.57C164.723 112.385 165.462 115.688 165.462 119.48C165.462 123.273 164.713 126.575 163.217 129.39ZM165.941 88.7334C160.671 85.7604 154.543 84.2724 147.559 84.2724C140.612 84.2724 134.475 85.7604 129.145 88.7334C123.817 91.7074 119.665 95.8384 116.692 101.127C113.717 106.417 112.23 112.534 112.23 119.48C112.23 126.387 113.727 132.484 116.721 137.773C119.716 143.063 123.867 147.194 129.176 150.168C134.484 153.142 140.612 154.629 147.559 154.629C154.504 154.629 160.621 153.142 165.911 150.168C171.2 147.194 175.342 143.063 178.336 137.773C181.33 132.484 182.827 126.387 182.827 119.48C182.827 112.534 181.33 106.417 178.336 101.127C175.342 95.8384 171.21 91.7074 165.941 88.7334Z" fill="white"/>
+      <path d="M233.222 136.845H230.627L215.099 85.8889H195.519L218.811 153.192H245.038L268.39 85.8889H248.751L233.222 136.845Z" fill="white"/>
+      <path d="M401.556 97.3849H348.863V55.3509H331.378V153.191H348.863V114.391H401.556V153.191H419.041V55.3509H401.556V97.3849Z" fill="white"/>
+      <path d="M483.108 122.654C483.108 127.684 481.89 131.556 479.455 134.27C477.021 136.986 473.507 138.342 468.917 138.342C464.365 138.342 460.882 136.986 458.467 134.27C456.053 131.556 454.845 127.684 454.845 122.654V85.8888H437.541V125.408C437.541 131.276 438.828 136.396 441.403 140.767C443.977 145.138 447.621 148.532 452.331 150.947C457.04 153.361 462.57 154.569 468.917 154.569C475.264 154.569 480.793 153.361 485.503 150.947C490.213 148.532 493.856 145.138 496.431 140.767C499.006 136.396 500.293 131.276 500.293 125.408V85.8888H483.108V122.654Z" fill="white"/>
+      <path d="M568.194 129.33C566.718 132.145 564.631 134.341 561.937 135.917C559.242 137.495 556.079 138.283 552.447 138.283C548.894 138.283 545.77 137.495 543.075 135.917C540.381 134.341 538.294 132.145 536.818 129.33C535.342 126.516 534.604 123.233 534.604 119.48C534.604 115.648 535.342 112.335 536.818 109.541C538.294 106.747 540.381 104.581 543.075 103.044C545.77 101.508 548.894 100.739 552.447 100.739C556.079 100.739 559.242 101.508 561.937 103.044C564.631 104.581 566.718 106.757 568.194 109.57C569.67 112.385 570.41 115.689 570.41 119.48C570.41 123.233 569.67 126.516 568.194 129.33ZM572.327 88.7628C567.456 85.8098 561.767 84.3318 555.261 84.3318C549.312 84.3318 544.333 85.6698 540.321 88.3428C538.116 89.8138 536.218 91.6808 534.604 93.9158V45.3509H517.478V153.192H534.604V145.038C536.218 147.269 538.116 149.128 540.321 150.588C544.333 153.241 549.312 154.569 555.261 154.569C561.767 154.569 567.456 153.102 572.327 150.168C577.196 147.234 580.988 143.132 583.703 137.863C586.417 132.594 587.774 126.467 587.774 119.48C587.774 112.495 586.417 106.367 583.703 101.098C580.988 95.8288 577.196 91.7178 572.327 88.7628Z" fill="white"/>
+      <path d="M761.107 185.874V70.1068C786.514 70.4558 808.275 89.8268 810.973 115.709C814.407 148.648 792.542 178.501 761.107 185.874ZM692.072 169.164C674.862 155.204 664.119 135.377 661.821 113.336C661.553 110.768 661.385 108.215 661.309 105.681L707.538 105.807C707.314 108.859 707.352 111.934 707.673 115.008C709.799 135.401 726.743 150.656 748.786 152.789V187.581C728.199 188.713 708.199 182.247 692.072 169.164ZM682.969 43.2978C699.219 24.7808 722.493 13.8828 748.786 12.4058V93.5978L661.705 93.3618C663.502 74.5088 670.776 57.1918 682.969 43.2978ZM719.89 105.84L748.786 105.919V140.411C732.998 138.483 721.419 128.035 719.927 113.73C719.652 111.091 719.641 108.451 719.89 105.84ZM823.227 114.431C819.87 82.2198 792.744 58.1288 761.107 57.7838V9.09378C761.107 6.64378 760.1 4.25778 758.344 2.54678C756.586 0.834783 754.173 -0.121227 751.719 -0.0452271C720.622 0.774773 692.917 13.2818 673.708 35.1708C655.02 56.4678 646.446 84.6808 649.567 114.614C652.205 139.928 664.544 162.7 684.31 178.733C701.449 192.636 722.392 200.03 744.158 200.03C747.496 200.03 750.852 199.856 754.217 199.505C796.699 195.076 827.656 156.912 823.227 114.431Z" fill="white"/>
+    </svg>
+    <nav id="nav">
+      <a data-nav href="#overview">Visão</a>
+      <a data-nav href="#arquitetura">Arquitetura</a>
+      <a data-nav href="#camadas">Camadas</a>
+      <a data-nav href="#motor">Motor</a>
+      <a data-nav href="#entregas">Entregas</a>
+      <a data-nav href="#tuning">Tuning</a>
+      <a data-nav href="#referencia">Referência</a>
+    </nav>
+  </div>
+</div>
+
+<main>
+  <!-- ===== VISÃO ===== -->
+  <section class="page" data-page="overview">
+    <p class="eyebrow">Documentação do projeto</p>
+    <h1>graphrag-tais</h1>
+    <p class="lede">GraphRAG de metadados para <b>text-to-SQL</b>: a pergunta em português recupera o subgrafo de schema relevante (Qdrant + Neo4j), um LLM escreve o SQL, o banco executa e devolve explicação, SQL e gráfico — servido no chat.</p>
+    <div class="stat-row">
+      <div class="st"><div class="v">74</div><div class="l">tabelas indexadas</div></div>
+      <div class="st"><div class="v">1.289</div><div class="l">cards + nós de schema</div></div>
+      <div class="st"><div class="v">−52<small>%</small></div><div class="l">contexto do prompt (tuning)</div></div>
+      <div class="st"><div class="v">14</div><div class="l">ADRs de arquitetura</div></div>
+    </div>
+    <div class="kv">
+      <dt>escopo</dt><dd>RAG genérico do GovHub — entrega no MinC, desenvolvido/validado sobre o MCid (ADR-0000)</dd>
+      <dt>branch</dt><dd><code>feat/ingest</code></dd>
+      <dt>como usar</dt><dd>chat no open-webui (modelo <code>query</code>) ou API <code>POST /query/run</code></dd>
+    </div>
+    <div class="cards">
+      <div class="cx soft"><div class="k">duas metades</div><h3>Ingestão &amp; Consulta</h3><p><b>Ingestão</b> (batch, Airflow) transforma metadados em grafo + vetores. <b>Consulta</b> (tempo real) leva a pergunta até SQL + gráfico.</p></div>
+      <div class="cx soft"><div class="k">fronteira limpa</div><h3>Motor reusável</h3><p>O <b>motor</b> (recupera + gera SQL) não toca no banco. A <b>entrega</b> (executa + plota) é uma pipeline separada que o compõe.</p></div>
+    </div>
+    <p style="color:var(--muted);font-size:.92rem">Navegue pelas seções no topo: <b>Arquitetura</b> traz o mapa geral; <b>Camadas</b>, <b>Motor</b> e <b>Entregas</b> explicam macro por macro; <b>Tuning</b> mostra a evolução das métricas de retrieval.</p>
+  </section>
+
+  <!-- ===== ARQUITETURA ===== -->
+  <section class="page" data-page="arquitetura" hidden>
+    <p class="eyebrow">Arquitetura</p>
+    <h1>Arquitetura de ponta a ponta</h1>
+    <p class="lede">Da fonte de metadados ao gráfico no chat. À esquerda a indexação (batch); ao centro o motor de consulta (Haystack); à direita as entregas por pergunta.</p>
+    <figure>
+      <svg class="arch" viewBox="0 0 1340 560" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif">
+        <defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#9a90b8"/></marker></defs>
+        <style>
+          .grp{fill:#f6f3fe;stroke:#e0d7f7;stroke-width:1.2;}
+          .gh{font-size:12px;font-weight:700;letter-spacing:.5px;fill:#7c3aed;font-family:ui-monospace,monospace;}
+          .nd{fill:#ffffff;stroke-width:1.6;}
+          .lb{font-size:12.5px;fill:#221f33;font-weight:600;}
+          .sub{font-size:10.5px;fill:#8a889b;font-family:ui-monospace,monospace;}
+          .fl{fill:none;stroke:#9a90b8;stroke-width:1.5;marker-end:url(#ah);}
+          .fld{fill:none;stroke:#b3a8d4;stroke-width:1.4;stroke-dasharray:5 4;marker-end:url(#ah);}
+          .al{font-size:10.5px;fill:#8a5a10;font-family:ui-monospace,monospace;}
+        </style>
+        <!-- LLM -->
+        <rect class="nd" x="558" y="24" width="200" height="46" rx="9" fill="#fff8ef" stroke="#f59e0b"/>
+        <text class="lb" x="658" y="45" text-anchor="middle" fill="#b06d0a">LLM · OpenAI gpt-4o</text>
+        <text class="sub" x="658" y="60" text-anchor="middle">gera SQL · chart-spec · explicação</text>
+        <!-- Group A -->
+        <rect class="grp" x="20" y="150" width="300" height="360" rx="16"/>
+        <text class="gh" x="40" y="177">INDEXAÇÃO · AIRFLOW</text>
+        <rect class="nd" x="44" y="410" width="156" height="56" rx="9" stroke="#64748b"/>
+        <text class="lb" x="122" y="433" text-anchor="middle">OpenMetadata</text><text class="sub" x="122" y="450" text-anchor="middle">dbt · MetricFlow</text>
+        <g stroke="#7c3aed" stroke-width="1.6" fill="#fff"><path d="M214 250 h86 v54 a43 8 0 0 1-86 0 z"/><ellipse cx="257" cy="250" rx="43" ry="8"/></g>
+        <text class="lb" x="257" y="284" text-anchor="middle" fill="#6d28d9">Qdrant</text>
+        <g stroke="#8b5cf6" stroke-width="1.6" fill="#fff"><path d="M214 330 h86 v54 a43 8 0 0 1-86 0 z"/><ellipse cx="257" cy="330" rx="43" ry="8"/></g>
+        <text class="lb" x="257" y="364" text-anchor="middle" fill="#7c3aed">Neo4j</text>
+        <path class="fl" d="M200 420 C 224 396 202 318 214 300"/><text class="al" x="140" y="356" fill="#8a889b">embeddings</text>
+        <path class="fl" d="M202 424 C 230 408 206 392 214 386"/><text class="al" x="150" y="404" fill="#8a889b">grafo</text>
+        <!-- Group B -->
+        <rect class="grp" x="360" y="150" width="392" height="360" rx="16"/>
+        <text class="gh" x="380" y="177">RUNTIME · PIPELINE HAYSTACK (motor)</text>
+        <rect class="nd" x="380" y="300" width="96" height="52" rx="9" stroke="#6d28d9"/><text class="lb" x="428" y="323" text-anchor="middle">Pergunta</text><text class="sub" x="428" y="339" text-anchor="middle">PT-BR</text>
+        <rect class="nd" x="496" y="300" width="104" height="52" rx="9" stroke="#7c3aed"/><text class="lb" x="548" y="323" text-anchor="middle">Busca</text><text class="sub" x="548" y="339" text-anchor="middle">híbrida</text>
+        <rect class="nd" x="620" y="300" width="108" height="52" rx="9" stroke="#8b5cf6"/><text class="lb" x="674" y="323" text-anchor="middle">Subgrafo</text><text class="sub" x="674" y="339" text-anchor="middle">de schema</text>
+        <path class="fl" d="M476 326 h20"/><path class="fl" d="M600 326 h20"/>
+        <path class="fld" d="M300 276 C 420 250 500 280 546 300"/><text class="al" x="428" y="256" fill="#8a889b">top-k</text>
+        <path class="fld" d="M300 360 C 500 400 600 380 660 352"/><text class="al" x="470" y="392" fill="#8a889b">vizinhos</text>
+        <rect class="nd" x="778" y="300" width="92" height="52" rx="9" stroke="#f59e0b"/><text class="lb" x="824" y="323" text-anchor="middle" fill="#b06d0a">SQL</text><text class="sub" x="824" y="339" text-anchor="middle">gerado</text>
+        <path class="fl" d="M728 326 h50"/>
+        <path class="fld" d="M700 70 C 782 180 820 250 824 300"/><text class="al" x="788" y="150">gera SQL</text>
+        <!-- Group C -->
+        <rect class="grp" x="900" y="96" width="420" height="414" rx="16"/>
+        <text class="gh" x="920" y="123">ENTREGAS POR PERGUNTA</text>
+        <rect class="nd" x="922" y="410" width="180" height="44" rx="9" stroke="#0d9488"/><text class="lb" x="1012" y="437" text-anchor="middle">a) Tabelas · colunas · SQL</text>
+        <rect class="nd" x="922" y="330" width="180" height="44" rx="9" stroke="#0d9488"/><text class="lb" x="1012" y="357" text-anchor="middle">b) Gráfico do indicador</text>
+        <rect class="nd" x="922" y="250" width="180" height="44" rx="9" stroke="#0d9488"/><text class="lb" x="1012" y="277" text-anchor="middle">c) Explicação</text>
+        <rect class="nd" x="922" y="170" width="180" height="44" rx="9" stroke="#0d9488"/><text class="lb" x="1012" y="197" text-anchor="middle">d) Relatório .docx</text>
+        <rect class="nd" x="1136" y="410" width="168" height="44" rx="9" stroke="#64748b"/><text class="lb" x="1220" y="431" text-anchor="middle" font-size="11.5">postgres-mcp</text><text class="sub" x="1220" y="446" text-anchor="middle">execução read-only</text>
+        <rect class="nd" x="1136" y="330" width="168" height="44" rx="9" stroke="#64748b"/><text class="lb" x="1220" y="356" text-anchor="middle">matplotlib</text>
+        <rect class="nd" x="1136" y="250" width="168" height="44" rx="9" stroke="#c9c2e0" stroke-dasharray="5 4"/><text class="lb" x="1220" y="271" text-anchor="middle" fill="#8a889b" font-size="12">Superset · MCP</text><text class="sub" x="1220" y="285" text-anchor="middle">v2</text>
+        <path class="fl" d="M870 326 C 895 372 900 420 922 428"/>
+        <path class="fl" d="M1012 410 v-36"/><path class="fl" d="M1012 330 v-36"/><path class="fl" d="M1012 250 v-36"/>
+        <path class="fl" d="M1102 428 h34"/><path class="fl" d="M1102 352 h34"/>
+        <path class="fld" d="M1102 420 C 1120 380 1120 300 1136 274"/>
+        <path class="fld" d="M700 68 C 900 200 950 300 1012 330"/><text class="al" x="902" y="212">chart-spec</text>
+      </svg>
+      <figcaption>Sólido = fluxo principal · tracejado = dados / uso do LLM · <span style="color:#8a889b">cinza tracejado</span> = v2 (futuro).</figcaption>
+    </figure>
+    <div class="note"><b>Em uma frase:</b> a indexação alimenta Qdrant e Neo4j; o motor usa os dois para recuperar o subgrafo e gerar SQL com o LLM; a entrega executa o SQL e produz os quatro artefatos por pergunta.</div>
+  </section>
+
+  <!-- ===== CAMADAS ===== -->
+  <section class="page" data-page="camadas" hidden>
+    <p class="eyebrow">Camadas de dados</p>
+    <h1>Da fonte ao grafo + vetores</h1>
+    <p class="lede">O graphrag-tais não modela dados — consome o schema já construído (dbt), catalogado (OpenMetadata) e o transforma em grafo (Neo4j) + vetores (Qdrant).</p>
+
+    <h2><span class="num">1.</span>Camada semântica (a fonte)</h2>
+    <div class="tw"><table>
+      <thead><tr><th>Peça</th><th>Papel</th><th>Saída p/ o RAG</th></tr></thead>
+      <tbody>
+        <tr><td><b>dbt</b></td><td>Transforma os dados brutos nas tabelas analíticas (bronze → silver → gold) no Postgres <code>cidades</code>.</td><td>as tabelas físicas que o SQL consulta</td></tr>
+        <tr><td><b>MetricFlow</b></td><td>Camada de métricas de negócio (semantic layer).</td><td>vocabulário de métrica (evolução)</td></tr>
+        <tr><td><b>OpenMetadata</b></td><td>Catálogo: descrições, tipos e as <b>“relações semânticas MCID”</b> (Custom Property) que definem os JOINs.</td><td>fonte única da ingestão (REST)</td></tr>
+      </tbody>
+    </table></div>
+    <div class="note"><b>Ponto-chave:</b> o MCid <b>não declara Foreign Keys</b> — a joinabilidade vem das Custom Properties e vira as 24 arestas <code>SEMANTIC_JOIN</code> (adapter <code>mcid_markdown_v1</code>).</div>
+
+    <h2><span class="num">2.</span>Ingestão (orquestrada por Airflow)</h2>
+    <ol class="steps">
+      <li><b>OpenMetadataSource</b> — lê o snapshot do catálogo via REST (escopo do <code>.env</code>).</li>
+      <li><b>MetadataRecordBuilder</b> — normaliza no contrato Table/Column/Relationship; extrai os <code>SEMANTIC_JOIN</code>.</li>
+      <li><b>GraphCardBuilder</b> — projeta em nós/arestas + um <em>card</em> de texto por entidade.</li>
+      <li><b>Neo4jGraphWriter + GraphWriteGate</b> — grava o grafo; só libera os embeddings após o Neo4j confirmar.</li>
+      <li><b>Embedders → Qdrant</b> — card → denso (Ollama) + esparso (BM25). Costura por <code>node_id</code>.</li>
+    </ol>
+
+    <h2><span class="num">3.</span>Qdrant — busca vetorial</h2>
+    <p class="lede" style="font-size:1rem">Acha os pontos de entrada: busca <b>híbrida</b> (denso + esparso) fundida por RRF.</p>
+    <div class="tw"><table>
+      <thead><tr><th>Aspecto</th><th>Como</th></tr></thead>
+      <tbody>
+        <tr><td>Denso</td><td>Ollama <code>gte-qwen2-1.5b</code> (1536 dims, multilíngue) — semântica</td></tr>
+        <tr><td>Esparso</td><td>BM25 (<code>Qdrant/bm25</code>) — casa identificadores exatos</td></tr>
+        <tr><td>Fusão + tuning</td><td>RRF + filtro de <code>scope_id</code> + pool 30 + corte determinístico <code>(-score, node_id)</code></td></tr>
+      </tbody>
+    </table></div>
+
+    <h2><span class="num">4.</span>Neo4j — a “costura” do GraphRAG</h2>
+    <p class="lede" style="font-size:1rem">A partir das sementes, percorre o grafo e monta o subgrafo: tabelas, colunas (podadas) e JOINs.</p>
+    <div class="tw"><table>
+      <thead><tr><th>Fato do grafo real</th><th class="n">Valor</th><th>Consequência</th></tr></thead>
+      <tbody>
+        <tr><td>Tabelas ilha (sem JOIN)</td><td class="n">55 / 74</td><td>maioria das perguntas é mono-tabela</td></tr>
+        <tr><td>Joins que cruzam schema</td><td class="n">0</td><td>sem contaminação entre domínios</td></tr>
+        <tr><td>Joins elegíveis (diretos)</td><td class="n">6 / 24</td><td>o resto exige normalização</td></tr>
+        <tr><td>Grau do hub <code>cadastro_pj</code></td><td class="n">8</td><td>fonte do inchaço de contexto</td></tr>
+      </tbody>
+    </table></div>
+    <div class="note"><b>Custom:</b> <code>Neo4jSubgraphRetriever</code> expande por <code>SEMANTIC_JOIN</code> (modo <code>evidence</code>) e poda colunas ao essencial (PK + chaves de JOIN + sementes + casadas com a pergunta).</div>
+  </section>
+
+  <!-- ===== MOTOR ===== -->
+  <section class="page" data-page="motor" hidden>
+    <p class="eyebrow">Motor de consulta</p>
+    <h1>Haystack, modelos e a pipeline</h1>
+    <p class="lede">Haystack modela cada etapa como um componente; o Hayhooks serve as pipelines como REST OpenAI-compat (é o que faz o open-webui enxergar o modelo <code>query</code>).</p>
+
+    <h2><span class="num">1.</span>Componentes Haystack usados</h2>
+    <div class="tw"><table>
+      <thead><tr><th>Componente</th><th>Papel</th><th>Origem</th></tr></thead>
+      <tbody>
+        <tr><td><code>OllamaTextEmbedder</code> · <code>FastembedSparse…</code></td><td>embeddings denso + esparso da query</td><td>integração</td></tr>
+        <tr><td><code>DeterministicHybridRetriever</code></td><td>busca híbrida + scope + corte estável</td><td><b>custom</b></td></tr>
+        <tr><td><code>Neo4jSubgraphRetriever</code></td><td>expande o subgrafo + poda colunas</td><td><b>custom</b></td></tr>
+        <tr><td><code>ChatPromptBuilder</code> · <code>OpenAIChatGenerator</code></td><td>monta o prompt · gera o SQL (JSON)</td><td>core</td></tr>
+        <tr><td><code>SqlAnswerBuilder</code></td><td>monta a resposta (explicação + SQL + refs + IR)</td><td><b>custom</b></td></tr>
+        <tr><td><code>Agent</code> + <code>MCPToolset</code></td><td>executa e autocorrige o SQL (entrega)</td><td>core + MCP</td></tr>
+        <tr><td><code>ChartSpecBuilder</code> · <code>ChartRenderer</code></td><td>escolhe e desenha o gráfico</td><td><b>custom</b></td></tr>
+      </tbody>
+    </table></div>
+
+    <h2><span class="num">2.</span>Modelos — embedding &amp; LLM</h2>
+    <div class="tw"><table>
+      <thead><tr><th>Papel</th><th>Modelo</th><th>Onde</th></tr></thead>
+      <tbody>
+        <tr><td>Embedding denso</td><td><code>gte-qwen2-1.5b-instruct</code> (Ollama)</td><td>on-prem · 1536 dims</td></tr>
+        <tr><td>Embedding esparso</td><td><code>Qdrant/bm25</code> (fastembed)</td><td>local · lexical</td></tr>
+        <tr><td>Geração SQL + chart-spec</td><td><code>gpt-4o</code> (OpenAI)</td><td>nuvem · saída JSON</td></tr>
+      </tbody>
+    </table></div>
+    <div class="note warn"><b>Privacidade &amp; invariante:</b> só a pergunta e os metadados vão pra OpenAI — as linhas do banco nunca saem (ADR-0009). Ingestão e query têm que usar o mesmo modelo de embedding, senão os vetores não são comparáveis.</div>
+
+    <h2><span class="num">3.</span>Pipeline de consulta (passo a passo)</h2>
+    <ol class="steps">
+      <li><b>Embeddings da query</b> — denso (Ollama) + esparso (BM25), os mesmos da ingestão.</li>
+      <li><b>Busca híbrida no Qdrant</b> — RRF + scope + corte determinístico → sementes (top-5).</li>
+      <li><b>Subgrafo no Neo4j</b> — expande por <code>SEMANTIC_JOIN</code> (evidence) e poda colunas → tabelas + JOINs.</li>
+      <li><b>LLM (gpt-4o)</b> — uma chamada JSON interpreta a pergunta (IR) <em>e</em> escreve o SQL.</li>
+      <li><b>SqlAnswerBuilder</b> — explicação + SQL + dicionário de dados + IR (ponto de controle ADR-0006/0007).</li>
+    </ol>
+  </section>
+
+  <!-- ===== ENTREGAS ===== -->
+  <section class="page" data-page="entregas" hidden>
+    <p class="eyebrow">Produto</p>
+    <h1>Entregas por pergunta (a · b · c · d)</h1>
+    <p class="lede">O produto não entrega “um SQL” — entrega quatro artefatos por pergunta (ADR-0010). A entrega é uma pipeline separada que compõe o motor.</p>
+    <div class="tw"><table>
+      <thead><tr><th>#</th><th>Entrega</th><th>Como é feita</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td><b>a</b></td><td>Tabelas · colunas · SQL</td><td><code>SqlAnswerBuilder</code> — dicionário de dados ancorado no subgrafo</td><td><span class="pill ok">pronto</span></td></tr>
+        <tr><td><b>b</b></td><td>Gráfico do indicador</td><td>LLM emite <b>chart-spec</b> validada nas colunas reais → <b>matplotlib</b> → PNG base64</td><td><span class="pill ok">pronto</span></td></tr>
+        <tr><td><b>c</b></td><td>Explicação do resultado</td><td>LLM comenta os números executados, com ressalva de grain</td><td><span class="pill pend">pendente</span></td></tr>
+        <tr><td><b>d</b></td><td>Relatório <code>.docx</code></td><td><code>docxtpl</code> + imagem embutida, hospedado no MinIO</td><td><span class="pill pend">pendente</span></td></tr>
+      </tbody>
+    </table></div>
+    <h2>Execução do SQL (o que destrava b · c · d)</h2>
+    <div class="cards">
+      <div class="cx"><div class="k">McpSqlExecutor</div><h3>Agent que se autocorrige</h3><p>Um <b>Agent do Haystack + postgres-mcp</b> (read-only) roda o SQL; no erro, <b>lê a mensagem, corrige e tenta de novo</b> até <code>AGENT_MAX_STEPS</code>.</p></div>
+      <div class="cx"><div class="k">chart-spec + renderers</div><h3>O LLM escolhe, o matplotlib desenha</h3><p>O LLM decide o tipo de gráfico e os eixos (validado nas colunas reais); o matplotlib desenha de forma determinística.</p></div>
+    </div>
+    <div class="note warn"><b>Limitação de grain (E2E):</b> <code>empreendimento</code>/<code>ficha_empreendimento</code> têm cada APF duplicado (1.646 linhas p/ 823 APFs) → o renderer soma duplicatas e <b>dobra valores</b>. Guardrail de dedup pendente.</div>
+  </section>
+
+  <!-- ===== TUNING ===== -->
+  <section class="page" data-page="tuning" hidden>
+    <p class="eyebrow">Qualidade · desenvolvimento orientado a métricas (ADR-0012)</p>
+    <h1>Tuning do retrieval</h1>
+    <p class="lede">Partindo de um audit (muito contexto + recall baixo), duas fases medidas ao vivo contra o gold (8 casos). Regra: medir antes, medir depois, só adotar se os guardrails segurarem.</p>
+    <div class="tw"><table>
+      <thead><tr><th>Métrica</th><th class="n">Baseline</th><th class="n">Fase 1</th><th class="n">Fase 2</th><th>Δ</th></tr></thead>
+      <tbody>
+        <tr><td>Prompt p95 (chars)</td><td class="n">35.310</td><td class="n">23.355</td><td class="n">16.826</td><td class="up">−52%</td></tr>
+        <tr><td>Over-expansion</td><td class="n">27,1×</td><td class="n">27,1×</td><td class="n">16,6×</td><td class="up">−39%</td></tr>
+        <tr><td>MRR@10 (ordenação)</td><td class="n">0,531</td><td class="n">0,667</td><td class="n">0,667</td><td class="up">+25%</td></tr>
+        <tr><td>Latência p95 (ms)</td><td class="n">745</td><td class="n">275</td><td class="n">216</td><td class="up">−71%</td></tr>
+        <tr><td>Top-5 estável entre runs</td><td class="n">6/8</td><td class="n">8/8</td><td class="n">8/8</td><td class="up">✓</td></tr>
+        <tr><td>Suficiência · JOIN · gold</td><td class="n">100%</td><td class="n">100%</td><td class="n">100%</td><td class="up">✓</td></tr>
+        <tr><td>Seed recall@5</td><td class="n">0,305</td><td class="n">0,305</td><td class="n">0,305</td><td style="color:var(--warn)">parado</td></tr>
+      </tbody>
+    </table></div>
+    <div class="cards">
+      <div class="cx soft"><div class="k">o que fizemos</div><p><b>Fase 1:</b> scope filter + fusão determinística + poda de colunas. <b>Fase 2:</b> expansão por evidência. <b>Segurança:</b> 100% das colunas e tabelas-gold preservadas.</p></div>
+      <div class="cx" style="border-color:#f4dcae;background:#fef9f0"><div class="k" style="color:var(--warn)">o que falta</div><p><b>Seed recall ~30%</b> é o gargalo (não tocado). Próximo lever: <b>prefixo de instrução no GTE</b> (lado da query, sem reindexar). Prompt p95 ainda &gt; alvo de 12k. Gold <b>draft / 8 casos</b>.</p></div>
+    </div>
+  </section>
+
+  <!-- ===== REFERÊNCIA ===== -->
+  <section class="page" data-page="referencia" hidden>
+    <p class="eyebrow">Referência</p>
+    <h1>Stack · dados · ADRs · rodar</h1>
+    <h2>Stack</h2>
+    <div class="cards c3">
+      <div class="cx"><div class="k">orquestração</div><p><b>Haystack 3 + Hayhooks</b> — pipelines + REST OpenAI-compat</p></div>
+      <div class="cx"><div class="k">vetorial</div><p><b>Qdrant</b> — híbrido denso + BM25 (RRF)</p></div>
+      <div class="cx"><div class="k">grafo</div><p><b>Neo4j 5</b> — Cypher, a costura</p></div>
+      <div class="cx"><div class="k">embedding</div><p><b>Ollama · gte-qwen2</b> — denso on-prem</p></div>
+      <div class="cx"><div class="k">llm</div><p><b>OpenAI · gpt-4o</b> — SQL + chart-spec</p></div>
+      <div class="cx"><div class="k">execução</div><p><b>postgres-mcp</b> — SQL read-only</p></div>
+      <div class="cx"><div class="k">gráfico</div><p><b>matplotlib</b> — render → PNG</p></div>
+      <div class="cx"><div class="k">fonte</div><p><b>OpenMetadata · dbt</b> — metadados + tabelas</p></div>
+      <div class="cx"><div class="k">chat</div><p><b>open-webui</b> — modelo <code>query</code></p></div>
+    </div>
+    <h2>Onde ficam os dados</h2>
+    <div class="tw"><table>
+      <thead><tr><th>Serviço</th><th>Guarda</th><th>Linhas?</th></tr></thead>
+      <tbody>
+        <tr><td>Qdrant · Neo4j</td><td>embeddings + grafo de schema</td><td>só metadados</td></tr>
+        <tr><td>PostgreSQL <code>cidades</code> (<code>10.0.0.50</code>)</td><td><b>as linhas reais</b> — banco analítico à parte</td><td><b>sim</b></td></tr>
+      </tbody>
+    </table></div>
+    <h2>ADRs (a verdade da arquitetura)</h2>
+    <ul class="tight">
+      <li><b>0000–0004</b> escopo · GraphRAG · Neo4j · Qdrant · OpenMetadata</li>
+      <li><b>0006</b> IR · <b>0007</b> gaps do v1 · <b>0009</b> embedding híbrido · <b>0010</b> camada de entrega</li>
+      <li><b>0011</b> contrato da ingestão · <b>0012</b> métricas · <b>0013</b> execução via postgres-mcp + gráfico</li>
+    </ul>
+    <h2>Como rodar</h2>
+    <pre class="sh"><span class="c"># Docker Desktop + VPN da lab (rede 10.0.0.x: Ollama e o banco)</span>
+make up                       <span class="c"># qdrant, neo4j, hayhooks, postgres-mcp</span>
+docker compose up -d webui    <span class="c"># chat em :3000 (modelo "query")</span>
+curl -X POST localhost:8000/ingest/run -d '{}'   <span class="c"># ingestão</span></pre>
+    <div class="note warn"><b>Gotchas:</b> a rede <code>10.0.0.x</code> exige a VPN da lab · <code>429</code> da OpenAI = cota esgotada · com ~7,75 GiB de RAM, Airflow + RAG + webui juntos dão OOM (pare o Airflow para testar o chat). Verdade operacional completa: <code>CLAUDE.md</code>.</div>
+  </section>
+</main>
+
+<footer><b>Gov Hub</b> · graphrag-tais — documentação da branch <code>feat/ingest</code>. Verdade da arquitetura: os ADRs em <code>docs/adr/</code>.</footer>
+
+<script>
+  (function(){
+    var pages=[].slice.call(document.querySelectorAll('[data-page]'));
+    var links=[].slice.call(document.querySelectorAll('[data-nav]'));
+    function show(id){
+      if(!pages.some(function(p){return p.dataset.page===id;})) id='overview';
+      pages.forEach(function(p){p.hidden=(p.dataset.page!==id);});
+      links.forEach(function(a){a.classList.toggle('active', a.getAttribute('href')==='#'+id);});
+      window.scrollTo(0,0);
+    }
+    window.addEventListener('hashchange',function(){show(location.hash.slice(1));});
+    show(location.hash.slice(1)||'overview');
+  })();
+</script>

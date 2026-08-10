@@ -16,6 +16,7 @@ extraído das Custom Properties do OpenMetadata. Por isso a travessia é por
 `SEMANTIC_JOIN` (+ `HAS_COLUMN`), não por FK — que era o motivo de o passo de
 grafo não expandir nada antes.
 """
+import re
 from typing import Any, Dict, List
 
 from loguru import logger
@@ -23,23 +24,32 @@ from haystack import Document, component
 
 from rag.components.graphstore.neo4j import Neo4jGraphStore
 
-# A partir dos node_ids semente, sobe pra Tabela (se o seed for Column), expande
-# 1 hop por SEMANTIC_JOIN e retorna cada tabela com suas colunas (nome, tipo, PK),
-# em ordem de posição ordinal. Usa `node_id` (não existe prop `fqn` no nó) e
-# `is_primary_key` (não `is_pk`).
-_TABLES_CYPHER = """
+# Resolve os node_ids semente para as TABELAS-semente (sobe de Column para Table).
+_SEED_TABLES_CYPHER = """
 UNWIND $ids AS nid
 MATCH (seed {node_id: nid})
 OPTIONAL MATCH (seed)<-[:HAS_COLUMN]-(parent:Table)
 WITH collect(DISTINCT CASE WHEN seed:Table THEN seed.node_id END)
-   + collect(DISTINCT parent.node_id) AS seed_ids
-UNWIND seed_ids AS sid
-MATCH (t:Table {node_id: sid})
-OPTIONAL MATCH (t)-[:HAS_COLUMN]->(:Column)-[:SEMANTIC_JOIN]-(:Column)<-[:HAS_COLUMN]-(nbr:Table)
-WITH seed_ids, collect(DISTINCT nbr.node_id) AS nbr_ids
-WITH seed_ids + nbr_ids AS all_ids
-UNWIND all_ids AS tid
+   + collect(DISTINCT parent.node_id) AS ids
+UNWIND ids AS tid
 WITH DISTINCT tid WHERE tid IS NOT NULL
+RETURN tid
+"""
+
+# Vizinhos de 1 hop por SEMANTIC_JOIN das tabelas-semente, com a elegibilidade do
+# join. A decisão de manter ou não o vizinho (modo "evidence") é feita em Python.
+_NEIGHBORS_CYPHER = """
+UNWIND $tids AS tid
+MATCH (t:Table {node_id: tid})-[:HAS_COLUMN]->(:Column)
+      -[r:SEMANTIC_JOIN]-(:Column)<-[:HAS_COLUMN]-(nbr:Table)
+WHERE nbr.node_id <> tid
+RETURN DISTINCT nbr.node_id AS neighbor_id, r.sql_join_eligible AS eligible
+"""
+
+# Colunas (nome, tipo, PK, descrição) das tabelas relevantes, em ordem ordinal.
+# Usa `node_id` (não existe prop `fqn` no nó) e `is_primary_key` (não `is_pk`).
+_COLUMNS_CYPHER = """
+UNWIND $tids AS tid
 MATCH (tab:Table {node_id: tid})-[:HAS_COLUMN]->(col:Column)
 WITH tab, col ORDER BY col.ordinal_position
 RETURN tab.node_id AS table_fqn, tab.name AS table_name, tab.schema AS schema_fqn,
@@ -72,6 +82,27 @@ ORDER BY left_table, right_table
 """
 
 
+_STOPWORDS = {
+    "qual", "quais", "quanto", "quantos", "quantas", "como", "onde", "para",
+    "por", "com", "dos", "das", "the", "and", "que", "uma", "uns", "umas",
+    "todos", "todas", "cada", "entre", "sobre", "mais", "menos", "seu", "sua",
+}
+
+
+def _tokenize(query: str) -> set:
+    """Tokens úteis da pergunta (>=4 chars, sem stopwords) para casar colunas."""
+    parts = re.split(r"[^0-9a-zA-Zà-úÀ-Ú]+", (query or "").lower())
+    return {p for p in parts if len(p) >= 4 and p not in _STOPWORDS}
+
+
+def _col_matches(name: str, description: str, tokens: set) -> bool:
+    """True se algum token da pergunta aparece no nome (por partes) ou descrição."""
+    if not tokens:
+        return False
+    haystack = (name or "").lower().replace("_", " ") + " " + (description or "").lower()
+    return any(tok in haystack for tok in tokens)
+
+
 def _schema_short(schema_fqn: str | None, table_fqn: str) -> str:
     """Último segmento do FQN do schema (ex.: 'Cidades.cidades.conjuntura_gold'
     → 'conjuntura_gold'). É o schema físico usado no SQL do Postgres."""
@@ -89,44 +120,89 @@ class Neo4jSubgraphRetriever:
         self.max_seeds = max_seeds
 
     @component.output_types(documents=List[Document], joins=List[Dict[str, Any]])
-    def run(self, documents: List[Document]) -> dict:
+    def run(self, documents: List[Document], query: str = "") -> dict:
         seed_ids: List[str] = []
+        seed_column_fqns: set = set()
+        seed_table_fqns: set = set()
         for doc in documents or []:
-            nid = (doc.meta or {}).get("node_id")
-            if nid and nid not in seed_ids:
+            meta = doc.meta or {}
+            nid = meta.get("node_id")
+            if not nid:
+                continue
+            if nid not in seed_ids:
                 seed_ids.append(nid)
+            card_type = meta.get("card_type")
+            if card_type == "table":
+                seed_table_fqns.add(nid)
+            else:  # coluna (ou desconhecido): sobe pra tabela-pai
+                seed_column_fqns.add(nid)
+                seed_table_fqns.add(nid.rsplit(".", 1)[0])
         seed_ids = seed_ids[: self.max_seeds]
 
         if not seed_ids:
             logger.warning("Neo4jSubgraphRetriever: nenhum node_id nos documents-semente")
             return {"documents": [], "joins": []}
 
-        rows = self.store.execute_read(_TABLES_CYPHER, {"ids": seed_ids})
+        # 1) Tabelas-semente + vizinhos, escolhendo o conjunto conforme o modo.
+        from rag.settings.configs import settings
+        seed_table_ids = [
+            r["tid"] for r in self.store.execute_read(_SEED_TABLES_CYPHER, {"ids": seed_ids})
+        ]
+        relevant_ids = set(seed_table_ids)
+        if seed_table_ids:
+            nbr_rows = self.store.execute_read(_NEIGHBORS_CYPHER, {"tids": seed_table_ids})
+            seed_set = set(seed_table_ids)
+            for nr in nbr_rows:
+                nbr = nr["neighbor_id"]
+                if settings.EXPANSION_MODE == "evidence":
+                    # Cauteloso: mantém o vizinho só se ele também for semente
+                    # (evidência dos dois lados) OU o join for elegível (direto).
+                    if nr.get("eligible") or nbr in seed_set:
+                        relevant_ids.add(nbr)
+                else:  # "all": expande todos os vizinhos de 1 hop (comportamento atual)
+                    relevant_ids.add(nbr)
+
+        rows = self.store.execute_read(_COLUMNS_CYPHER, {"tids": sorted(relevant_ids)}) if relevant_ids else []
         table_ids = [row["table_fqn"] for row in rows]
         joins = self.store.execute_read(_JOINS_CYPHER, {"tids": table_ids}) if table_ids else []
 
-        logger.info(
-            "Neo4jSubgraphRetriever: {} seeds → {} tabelas, {} joins no subgrafo",
-            len(seed_ids), len(rows), len(joins),
-        )
+        # Chaves de JOIN por tabela (nome da coluna) — sempre preservadas na poda.
+        join_key_cols: Dict[str, set] = {}
+        for j in joins:
+            join_key_cols.setdefault(j["left_table_fqn"], set()).add(j["left_col"])
+            join_key_cols.setdefault(j["right_table_fqn"], set()).add(j["right_col"])
+
+        query_tokens = _tokenize(query)
 
         out: List[Document] = []
+        total_cols = 0
         for row in rows:
-            schema = _schema_short(row.get("schema_fqn"), row["table_fqn"])
+            table_fqn = row["table_fqn"]
+            schema = _schema_short(row.get("schema_fqn"), table_fqn)
             sql_name = f"{schema}.{row['table_name']}" if schema else row["table_name"]
-            columns = [c for c in (row.get("columns") or []) if c and c.get("name")]
+            all_cols = [c for c in (row.get("columns") or []) if c and c.get("name")]
+            kept = self._select_columns(
+                all_cols,
+                table_fqn=table_fqn,
+                is_seed_table=table_fqn in seed_table_fqns,
+                seed_column_fqns=seed_column_fqns,
+                join_key_names=join_key_cols.get(table_fqn, set()),
+                query_tokens=query_tokens,
+            )
+            total_cols += len(kept)
             out.append(Document(
-                content=self._serialize_table(row, sql_name, columns),
+                content=self._serialize_table(row, sql_name, kept),
                 meta={
-                    "node_id": row["table_fqn"],
-                    "fqn": row["table_fqn"],
+                    "node_id": table_fqn,
+                    "fqn": table_fqn,
                     "label": "Table",
                     "schema": schema,
                     "table": row["table_name"],
                     "sql_name": sql_name,
                     "description": row.get("table_desc") or "",
+                    "omitted_column_count": len(all_cols) - len(kept),
                     # Dicionário de dados por coluna (nome, tipo, PK, descrição),
-                    # consumido pelo SqlAnswerBuilder para a tabela de referência.
+                    # já podado, consumido pelo SqlAnswerBuilder.
                     "columns": [
                         {
                             "name": c["name"],
@@ -134,11 +210,54 @@ class Neo4jSubgraphRetriever:
                             "is_pk": bool(c.get("is_pk")),
                             "description": c.get("description") or "",
                         }
-                        for c in columns
+                        for c in kept
                     ],
                 },
             ))
+        logger.info(
+            "Neo4jSubgraphRetriever: {} seeds → {} tabelas, {} joins, {} colunas serializadas",
+            len(seed_ids), len(rows), len(joins), total_cols,
+        )
         return {"documents": out, "joins": joins}
+
+    def _select_columns(
+        self,
+        all_cols: list,
+        *,
+        table_fqn: str,
+        is_seed_table: bool,
+        seed_column_fqns: set,
+        join_key_names: set,
+        query_tokens: set,
+    ) -> list:
+        """Poda de colunas mantendo o essencial: PK + chaves de JOIN + colunas
+        que vieram como semente + colunas casadas com a pergunta; completa por
+        ordinal até o teto (maior em tabela-semente). Preserva a ordem ordinal."""
+        from rag.settings.configs import settings
+
+        max_cols = (
+            settings.PRUNE_SEED_TABLE_MAX_COLS if is_seed_table
+            else settings.PRUNE_EXPANSION_TABLE_MAX_COLS
+        )
+        keep_names: set = set()
+        for col in all_cols:
+            name = col["name"]
+            col_fqn = f"{table_fqn}.{name}"
+            essential = (
+                col.get("is_pk")
+                or name in join_key_names
+                or col_fqn in seed_column_fqns
+                or _col_matches(name, col.get("description", ""), query_tokens)
+            )
+            if essential:
+                keep_names.add(name)
+        # Completa por ordinal (all_cols já vem ordenado) até o teto.
+        for col in all_cols:
+            if len(keep_names) >= max_cols:
+                break
+            keep_names.add(col["name"])
+        # Preserva a ordem ordinal original.
+        return [c for c in all_cols if c["name"] in keep_names]
 
     @staticmethod
     def _serialize_table(row: dict, sql_name: str, columns: list) -> str:

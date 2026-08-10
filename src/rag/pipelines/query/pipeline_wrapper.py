@@ -40,6 +40,7 @@ class PipelineWrapper(BasePipelineWrapper):
                 "dense_text_embedder": {"text": query},
                 "sparse_text_embedder": {"text": query},
                 "hybrid_retriever": {"top_k": top_k},
+                "subgraph_retriever": {"query": query},
                 "prompt_builder": {"query": query},
             },
             include_outputs_from=_MOTOR_OUTPUTS,

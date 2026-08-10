@@ -1,0 +1,32 @@
+{
+  "experiment_id": "20260804-fase2-evidence-expansion",
+  "status": "measured_safe_on_gold",
+  "hypothesis": "A sobre-expansão (27x) vem de expandir TODOS os vizinhos de 1 hop dos hubs (cadastro_pj grau 8, fds_cadastro_pj grau 6) por SEMANTIC_JOIN, a maioria via joins não-elegíveis. Manter o vizinho só se ele também for semente OU o join for elegível reduz over-expansion sem perder a tabela-gold — desde que o recall de sementes já traga a tabela-gold como semente.",
+  "change_scope": ["graph_expansion"],
+  "graph_facts": {
+    "islands_tables": "55/74 sem SEMANTIC_JOIN",
+    "connected_only_in": ["empreendimento_far", "entidades_fds", "1 par em conjuntura_silver"],
+    "cross_schema_joins": 0,
+    "hubs": {"cadastro_pj": 8, "fds_cadastro_pj": 6},
+    "eligible_joins_total": 6,
+    "far_eligible_joins": 0
+  },
+  "dataset": {"name": "mcid-business-retrieval", "version": "0.1.0", "status": "draft",
+    "hash": "7524635f554cdf4912d72611cee7e5c55235f94b946c15b96a592b01337f886c"},
+  "baseline_report": "eval/reports/fase1-after-report.json",
+  "candidate_report": "eval/reports/fase2-evidence-report.json",
+  "results": {
+    "structural_sufficiency": "1.0 -> 1.0",
+    "table_recall": "1.0 -> 1.0",
+    "node_recall": "1.0 -> 1.0",
+    "weighted_dependency_recall": "1.0 -> 1.0",
+    "gold_table_coverage": "8/8 casos com todas as tabelas-gold presentes (0 perdidas)",
+    "overexpansion": "27.14 -> 16.60 (-39%)",
+    "node_precision": "0.127 -> 0.138",
+    "prompt_chars_p95": "23354 -> 16826 (-28%)",
+    "tables_mean": "5.75 -> 4.13"
+  },
+  "caveat": "Heurística: PODE dropar um vizinho não-semente e não-elegível (smoke test ad-hoc dropou ficha_empreendimento numa pergunta fora do gold). Nas 8 do gold nunca prejudicou, mas 8 casos draft não garantem robustez em produção. A garantia real vem de melhorar seed recall (tabela-gold vira semente). Mantido atrás de EXPANSION_MODE (default 'all').",
+  "decision": "medido seguro no gold atual; adotar como opção. Default a decidir pelo usuário (all=máxima segurança; evidence=contexto menor). Próximo: melhorar seed recall (prefixo GTE) e ampliar o gold para firmar confiança.",
+  "reviewer": null
+}
