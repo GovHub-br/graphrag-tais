@@ -1,6 +1,6 @@
 # ADR-0010: Camada de entrega — das tabelas ao relatório (a, b, c, d)
 
-- **Status**: Proposto
+- **Status**: Aceito — item (d) implementado em 2026-08-10 (ver "Atualização de implementação")
 - **Data**: 2026-07-23
 - **Autores**: Davi (graphrag-tais)
 - **Revisores**: -
@@ -199,6 +199,55 @@ quando o ADR do grafo entrar.
   - Definir, na camada de **serving** (ADR futuro), **como** os quatro artefatos
     chegam à UI (texto em streaming, imagem, link de download do docx).
   - Novas dependências: `docxtpl` (e `wordcloud`, se mantido o renderer de nuvem de palavras).
+
+## Atualização de implementação (2026-08-10)
+
+O item **(d) relatório `.docx`** foi implementado, com **dois desvios** em relação
+à decisão original acima. Registrados aqui por honestidade (a decisão de 2026-07-23
+fica intacta como contexto histórico):
+
+1. **Mecanismo: `python-docx` + tema aplicado por código, não `docxtpl`.** A decisão
+   original previa `docxtpl` (Jinja dentro de um `.docx` pré-montado no Word). Na
+   prática a entrada é **uma única string Markdown** (a mesma que vai ao OpenWebUI:
+   explicação + SQL + dicionário de dados + JOINs + IR + **gráfico já embutido como
+   PNG base64**), então o caminho mais simples e testável foi um **conversor
+   Markdown→docx** (`components/report/docx_writer.py`) escrevendo num documento
+   estilizado por código (`components/report/theme.py`): roxo `#7A34F3` nos títulos,
+   Inter, capa com a logo oficial, tabelas zebradas com header roxo, blocos SQL
+   monoespaçados. A identidade visual do GovHub só existe como CSS/HTML
+   (`govhub-visual-identity`), não há asset `.docx` da marca — por isso é recriada em
+   código, evitando manter um template Word binário à mão. O `InlineImage` do
+   `docxtpl` vira `add_picture` a partir do base64 decodificado. Isso reaproveita a
+   **resposta completa** do chat como fonte do relatório (o briefing "tudo que está na
+   resposta entra no relatório").
+2. **MinIO foi *adicionado* ao stack, não "já disponível".** A decisão dizia "MinIO
+   (já disponível no projeto)" — **incorreto**: não havia serviço MinIO no
+   `docker-compose.yaml` nem config. Foi adicionado agora (serviço `minio` + volume;
+   `MinIOUploader` com `boto3`). **Gotcha registrado**: a URL assinada (SigV4) inclui
+   o host; o upload usa o endpoint **interno** (`minio:9000`) mas a assinatura usa o
+   endpoint **público** (`MINIO_PUBLIC_ENDPOINT`, ex. `localhost:9000`), senão o link
+   quebra no navegador do usuário. Entrega: o `.docx` é enviado ao MinIO e o
+   **link de download** (URL assinada/expirável) é **anexado ao Markdown** da resposta
+   do chat, de forma **aditiva e defensiva** (se o MinIO estiver fora, devolve só o
+   texto — mesmo padrão do gráfico).
+
+**Atualização 2 (2026-08-10): montagem a partir do dado ESTRUTURADO, não do Markdown.**
+A 1ª versão re-parseava a **string Markdown do chat** com um conversor caseiro
+(`docx_writer.render_markdown`), o que deixava marcação crua no `.docx` (crases dentro
+de negrito, `_itálico_` quebrado por underscores de identificadores como `api_ibge_uf`).
+Corrigido montando o relatório direto do **`answer` estruturado** do motor (`explanation`,
+`sql`, `references`, `ir`, `joins`) + o PNG do gráfico + status da execução
+(`report_content.render_answer` → `ReportBuilder.build_from_answer`). Sem parsing de
+Markdown = sem marcação crua, e cada seção é renderizada com controle total (badges do
+tipo real da coluna, descrição em itálico direto, espaçamento enxuto). O conversor de
+Markdown fica como **fallback**. O `_with_delivery` passou a devolver também os dados
+estruturados da entrega (gráfico, sql_final, status), consumidos pelo relatório.
+
+Componentes entregues: `components/report/{theme,docx_writer,report_content,report_builder}.py`
++ `assets/` (logo branca, símbolo, spacer), `components/storage/minio_uploader.py`, config em
+`settings/configs.py` (bloco `REPORT_*`/`MINIO_*`), e o wiring em
+`pipelines/query/pipeline_wrapper.py` (`_attach_report`). Deps novas: `python-docx`,
+`boto3`. Pendente de validação end-to-end: round-trip real do upload/URL no `make up`.
 
 ## Referências
 

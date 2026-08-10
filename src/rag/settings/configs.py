@@ -116,6 +116,42 @@ class Settings(BaseSettings):
     )
 
     # ------------------------------------------------------------------ #
+    # Relatório .docx (ADR-0010): resposta Markdown → Word editável + MinIO
+    # ------------------------------------------------------------------ #
+    REPORT_ENABLED: bool = Field(
+        True, description="Anexa link de download do relatório .docx na resposta do chat"
+    )
+    REPORT_OUTPUT_DIR: str = Field(
+        "/app/reports", description="Diretório local onde o .docx é gerado antes do upload"
+    )
+    REPORT_TITLE: str = Field(
+        "Relatório de Consulta", description="Título exibido na capa do relatório"
+    )
+    REPORT_KICKER: str = Field(
+        "GovHub · Assistente de Dados",
+        description="Eyebrow (linha de contexto em maiúsculas) na capa",
+    )
+    REPORT_FOOTER: str = Field(
+        "GovHub · Assistente de Dados · Metodologia GovHub",
+        description="Assinatura da marca (base da capa e rodapé)",
+    )
+    REPORT_PRESIGN_EXPIRY: int = Field(
+        604800, description="Validade (s) da URL assinada de download (default 7 dias)"
+    )
+    # MinIO (S3-compatível) — armazenamento do .docx.
+    # ENDPOINT: alcançável de dentro da rede do compose (upload).
+    # PUBLIC_ENDPOINT: host que o NAVEGADOR do usuário acessa (assinatura da URL).
+    MINIO_ENDPOINT: str = Field("http://minio:9000", description="Endpoint interno do MinIO")
+    MINIO_PUBLIC_ENDPOINT: str = Field(
+        "http://localhost:9000",
+        description="Endpoint público do MinIO (para assinar o link de download)",
+    )
+    MINIO_ACCESS_KEY: str = Field("minioadmin", description="MinIO access key")
+    MINIO_SECRET_KEY: str = Field("minioadmin", description="MinIO secret key")
+    MINIO_BUCKET: str = Field("relatorios", description="Bucket dos relatórios")
+    MINIO_REGION: str = Field("us-east-1", description="Região (formalidade do SigV4)")
+
+    # ------------------------------------------------------------------ #
     # Redis (memory manager para loops entre componentes Haystack)
     # ------------------------------------------------------------------ #
     REDIS_HOST: str = Field("redis", description="Redis host")

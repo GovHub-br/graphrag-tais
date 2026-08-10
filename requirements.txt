@@ -34,6 +34,14 @@ matplotlib==3.11.1
 pandas==2.3.3
 
 # ------------------------------------------------------------------ #
+# Relatório (ADR-0010): Markdown da resposta → .docx editável + MinIO
+# ------------------------------------------------------------------ #
+# Monta o .docx com o tema govhub aplicado por código (sem docxtpl).
+python-docx==1.1.2
+# Upload do .docx no MinIO (S3-compat) + URL assinada para download.
+boto3==1.35.99
+
+# ------------------------------------------------------------------ #
 # Config / infra
 # ------------------------------------------------------------------ #
 pydantic==2.13.4

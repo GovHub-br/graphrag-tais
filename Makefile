@@ -1,4 +1,4 @@
-RAG_SERVICES := qdrant neo4j hayhooks postgres-mcp
+RAG_SERVICES := qdrant neo4j minio hayhooks postgres-mcp
 
 .PHONY: up eval-quick eval-collect eval-live eval-score eval-full
 up:

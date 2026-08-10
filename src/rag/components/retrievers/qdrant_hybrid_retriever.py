@@ -16,6 +16,7 @@ então pipeline e collector de avaliação continuam chamando igual.
 from typing import List, Optional
 
 from haystack import Document, component
+from haystack.dataclasses import SparseEmbedding
 from haystack_integrations.components.retrievers.qdrant import QdrantHybridRetriever
 from haystack_integrations.document_stores.qdrant import QdrantDocumentStore
 
@@ -48,7 +49,12 @@ class DeterministicHybridRetriever:
         )
 
     @component.output_types(documents=List[Document])
-    def run(self, query_embedding, query_sparse_embedding, top_k: int | None = None) -> dict:
+    def run(
+        self,
+        query_embedding: List[float],
+        query_sparse_embedding: SparseEmbedding,
+        top_k: Optional[int] = None,
+    ) -> dict:
         k = top_k or self.top_k
         pool = max(self.pool_size, k)
         docs = self._inner.run(

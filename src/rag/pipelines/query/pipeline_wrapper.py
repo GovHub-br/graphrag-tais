@@ -13,12 +13,14 @@ Expõe dois contratos:
                         falharem, ainda devolve o texto do motor.
 """
 import sys
+from datetime import datetime
 
 from hayhooks import BasePipelineWrapper, get_last_user_message
 from loguru import logger
 
 from rag.pipelines.query.query_pipeline import build_query_pipeline
 from rag.pipelines.delivery.delivery_pipeline import build_delivery_pipeline
+from rag.settings.configs import settings
 
 _MOTOR_OUTPUTS = ["answer_builder", "subgraph_retriever"]
 _DELIVERY_OUTPUTS = ["mcp_executor", "chart_renderer"]
@@ -29,6 +31,10 @@ class PipelineWrapper(BasePipelineWrapper):
     def setup(self) -> None:
         self.pipeline = build_query_pipeline()
         self.delivery = build_delivery_pipeline()
+        # Ferramentas de relatório: instanciadas sob demanda (lazy) para não
+        # acoplar o boot do wrapper à disponibilidade do MinIO.
+        self._report_builder = None
+        self._minio = None
         logger.info("Wrapper de Query (GraphRAG → SQL → gráfico) inicializado")
 
     def _run(self, query: str, top_k: int = 5) -> dict:
@@ -69,7 +75,9 @@ class PipelineWrapper(BasePipelineWrapper):
             answer = result["answer_builder"]["answer"]
             markdown = result["answer_builder"]["markdown"]
             docs = result.get("subgraph_retriever", {}).get("documents", [])
-            return self._with_delivery(query, answer, markdown, docs)
+            chat_markdown, delivery = self._with_delivery(query, answer, markdown, docs)
+            # Relatório .docx montado do `answer` ESTRUTURADO + gráfico (ADR-0010 opção D).
+            return self._attach_report(query, answer, delivery, chat_markdown)
         except Exception as e:  # noqa: BLE001
             logger.error("!!! [query/chat] ERRO: {}", e)
             import traceback
@@ -77,12 +85,17 @@ class PipelineWrapper(BasePipelineWrapper):
             return f"**Erro ao processar a pergunta:** {e}"
 
     # ------------------------------------------------------------------ #
-    def _with_delivery(self, query: str, answer: dict, markdown: str, docs: list) -> str:
-        """Executa o SQL (via MCP) e anexa o gráfico ao Markdown do motor.
-        Nunca levanta: se a entrega falhar, devolve só o texto."""
+    def _with_delivery(self, query: str, answer: dict, markdown: str, docs: list):
+        """Executa o SQL (via MCP), anexa o gráfico ao Markdown do chat e devolve
+        também os resultados ESTRUTURADOS da entrega (para o relatório).
+        Nunca levanta: se a entrega falhar, devolve o texto + entrega vazia.
+
+        Retorna: (markdown_do_chat, delivery) onde
+          delivery = {chart_image, sql_final, exec_ok, exec_error}."""
+        delivery = {"chart_image": "", "sql_final": "", "exec_ok": False, "exec_error": ""}
         sql = (answer or {}).get("sql", "")
         if not sql.strip():
-            return markdown  # sem SQL (ex.: fora de domínio) → nada a executar
+            return markdown, delivery  # sem SQL (ex.: fora de domínio)
 
         schema_context = "\n\n".join(getattr(d, "content", "") for d in docs)
         try:
@@ -95,24 +108,58 @@ class PipelineWrapper(BasePipelineWrapper):
             )
         except Exception as e:  # noqa: BLE001 — gráfico é aditivo
             logger.warning("[query/chat] entrega/gráfico falhou: {}", e)
-            return markdown
+            return markdown, delivery
 
         execu = out.get("mcp_executor", {})
         image = out.get("chart_renderer", {}).get("image", "")
-        parts = [markdown]
+        delivery.update(
+            chart_image=image,
+            sql_final=execu.get("sql_final", ""),
+            exec_ok=bool(execu.get("exec_ok")),
+            exec_error=execu.get("error", "") or "",
+        )
 
+        parts = [markdown]
         if image:
             parts.append("### Gráfico\n\n![gráfico](" + image + ")")
-
-        sql_final = execu.get("sql_final", "")
-        if execu.get("exec_ok") and sql_final and sql_final.strip() != sql.strip():
+        if delivery["exec_ok"] and delivery["sql_final"] and delivery["sql_final"].strip() != sql.strip():
             parts.append(
                 "> O SQL foi **ajustado na execução** para rodar:\n```sql\n"
-                + sql_final.strip() + "\n```"
+                + delivery["sql_final"].strip() + "\n```"
             )
-        elif not execu.get("exec_ok") and execu.get("error"):
+        elif not delivery["exec_ok"] and delivery["exec_error"]:
             parts.append(
                 "> _Não consegui executar o SQL para gerar o gráfico "
-                f"({execu['error']})._"
+                f"({delivery['exec_error']})._"
             )
-        return "\n\n".join(parts)
+        return "\n\n".join(parts), delivery
+
+    # ------------------------------------------------------------------ #
+    def _attach_report(self, query: str, answer: dict, delivery: dict, chat_markdown: str) -> str:
+        """Gera o relatório .docx do `answer` ESTRUTURADO + gráfico e anexa o link
+        de download. Aditivo e defensivo: se algo falhar, devolve só o texto."""
+        if not settings.REPORT_ENABLED:
+            return chat_markdown
+        try:
+            from rag.components.report import ReportBuilder
+            from rag.components.storage import MinIOUploader
+
+            if self._report_builder is None:
+                self._report_builder = ReportBuilder()
+            if self._minio is None:
+                self._minio = MinIOUploader()
+
+            data = datetime.now().strftime("%d/%m/%Y")
+            subtitle = f'Pergunta: "{query.strip()[:140]}"   ·   {data}'
+            path = self._report_builder.build_from_answer(
+                answer,
+                chart_data_uri=delivery.get("chart_image", ""),
+                exec_info=delivery,
+                subtitle=subtitle,
+            )
+            url = self._minio.upload(path)
+        except Exception as e:  # noqa: BLE001 — relatório é aditivo, nunca quebra o chat
+            logger.warning("[query/chat] geração/upload do relatório falhou: {}", e)
+            return chat_markdown
+
+        return chat_markdown + f"\n\n---\n\n📥 **[Baixar relatório (.docx)]({url})**"
