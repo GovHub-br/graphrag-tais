@@ -44,7 +44,9 @@ SQL gerado (a serialização usa o nome físico, não o FQN do catálogo).
 
 1. Docker Desktop ligado. **VPN/rede da lab conectada** (ver Gotchas). `.env` na raiz —
    ⚠️ **sem cercas markdown (```) no `.env`** (quebra o `docker compose`).
-2. `make up` → rebuild + sobe **qdrant, neo4j, hayhooks, postgres-mcp** (NÃO sobe redis nem webui).
+2. `make up` → rebuild + sobe **qdrant, neo4j, minio, hayhooks, postgres-mcp** (NÃO sobe redis nem webui).
+   MinIO (armazenamento do relatório, ADR-0010): API/S3 `localhost:9000`, console `localhost:9001`
+   (user/senha = `MINIO_ACCESS_KEY`/`SECRET`).
 3. **Ingestão**: `curl -X POST http://localhost:8000/ingest/run -d '{}'` (escopo vem do `.env`).
    Grava Neo4j primeiro; o `GraphWriteGate` só libera embeddings→Qdrant após o Neo4j confirmar.
 4. **Query (JSON, só motor)**: `POST http://localhost:8000/query/run` `{"query":"..."}` — devolve
@@ -100,6 +102,31 @@ Pipeline SEPARADA `pipelines/delivery/` que o `run_chat_completion` compõe (mot
 - **renderers matplotlib** (Agg) → PNG **base64** embutido como `![gráfico](data:image/png;base64,…)`.
 - Aditivo e tolerante a falha: sem execução/gráfico → devolve só o texto.
 
+### Relatório .docx editável (ADR-0010 item d) ✅
+
+A **resposta completa** do chat (o Markdown final, já com o gráfico base64) vira um
+`.docx` **editável no Word** no **estilo editorial GovHub** (o dos PDFs de dicionário de
+dados / livro do projeto: capa roxa full-bleed com logo branca + kicker + título, tabelas
+sem grade com header roxo + zebra, badges de tipo Texto/Número/Data, chips de código,
+callout boxes, rodapé com o símbolo). O **link de download** é anexado à resposta.
+`_attach_report` (em `pipelines/query/pipeline_wrapper.py`) é **aditivo/defensivo**
+(MinIO fora → devolve só o texto). Mecanismo: **python-docx + tema por código**
+(`components/report/theme.py`). O corpo é montado do **`answer` ESTRUTURADO** do motor
+(`report_content.render_answer` → `ReportBuilder.build_from_answer`), **não** parseando o
+Markdown do chat — isso eliminou marcação crua (crases/underscores) e dá controle total
+(badges do tipo real da coluna, descrição em itálico, espaçamento enxuto). `docx_writer.py`
+(conversor Markdown→docx) vira **fallback**. `_with_delivery` devolve `(markdown_chat, delivery)`
+onde `delivery={chart_image, sql_final, exec_ok, exec_error}`.
+**Capa** = **imagem A4 de página inteira** (PIL + fonte Inter em `assets/fonts/`), inserida
+full-page numa seção de margem 0. Isso garante **1 página** (a versão anterior em tabela
+transbordava p/ uma 2ª página fantasma) e rende a borda arredondada + Inter exatas. ⚠️ Para
+verificar `.docx`, **use LibreOffice** (`soffice --headless --convert-to pdf`) + poppler — o
+**QuickLook do macOS NÃO pagina** (renderiza contínuo) e esconde bugs de quebra de página. **Não usa docxtpl** (o ADR previa; a
+entrada é uma string Markdown única, mais simples converter direto). Armazenamento: **MinIO**
+(adicionado ao stack agora) via `boto3`, URL assinada. ⚠️ **Gotcha**: `MINIO_ENDPOINT`
+(interno, upload) ≠ `MINIO_PUBLIC_ENDPOINT` (assina a URL p/ o navegador do usuário) —
+senão o link quebra fora do Docker.
+
 ## Como rodar o eval de retrieval (gate MDD)
 
 O collector ao vivo (`eval/retrieval/live.py`) usa os **componentes de produção** e precisa dos
@@ -128,7 +155,9 @@ docker exec -w /app -e PYTHONPATH=/app:/app/src hayhooks python -m eval.retrieva
 1. 🔴 **Subir seed recall** (~30%): prefixo de instrução no GTE (lado da query, sem reindexar; ADR-0009).
    É o lever de maior alavancagem → deixa a expansão por evidência à prova de bala.
 2. **Ampliar o gold** (8 → 30–50 casos, revisão de domínio) e sair do `draft`.
-3. Entrega: faltam **(c) explicação do resultado executado** e **(d) relatório docx** (`docxtpl` + MinIO) — ADR-0010.
+3. Entrega: falta **(c) explicação do resultado executado** — ADR-0010. **(d) relatório
+   `.docx` já implementado** (python-docx + tema-em-código + MinIO; ver abaixo). Pendente:
+   validar o round-trip real do upload/URL no `make up`.
 4. **Guardrail de grain (E2E)**: `empreendimento`/`ficha_empreendimento` têm APF duplicado (1.646 linhas
    p/ 823 APFs) → o renderer soma duplicatas e **dobra valores** no gráfico. Dedup por APF + não somar.
 5. Sem validador `sqlglot` (a validação vem da execução real). IR completa (`group_by`/`time_range`) + roteamento por conceito.
@@ -155,6 +184,11 @@ docker exec -w /app -e PYTHONPATH=/app:/app/src hayhooks python -m eval.retrieva
 - `src/rag/components/answer/sql_answer_builder.py` — resposta em Markdown.
 - `src/rag/components/executors/mcp_sql_executor.py` — Agent + postgres-mcp.
 - `src/rag/components/charts/` — `chart_spec.py`, `renderers.py`, `chart_renderer.py`.
+- `src/rag/components/report/` — relatório `.docx` (estilo editorial): `theme.py` (capa
+  full-bleed, tabelas, callouts, rodapé), `docx_writer.py` (Markdown→docx + badges de tipo),
+  `report_content.py` (renderização estruturada), `report_builder.py`, `assets/`
+  (`logo_govhub_light.png`, `symbol_govhub.png`, `fonts/Inter-*.ttf`).
+- `src/rag/components/storage/minio_uploader.py` — upload do `.docx` no MinIO + URL assinada.
 - `src/rag/pipelines/query/` (motor) e `pipelines/delivery/` (execução+gráfico); `settings/configs.py` (tudo tunável por env).
 - `scripts/inspect_retrieval.py` — debug do retrieval (sementes + subgrafo, sem LLM).
 - `docs/adr/0013-*.md`, `eval/experiments/20260804-*` (Fase 1/2 + comparativo).

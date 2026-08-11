@@ -44,6 +44,22 @@ services:
     networks:
       - default
 
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    ports:
+      - "9000:9000"   # API S3 (upload + download assinado)
+      - "9001:9001"   # console web
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-minioadmin}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+    networks:
+      - default
+
   hayhooks:
     build:
       context: .
@@ -69,6 +85,7 @@ services:
       - qdrant
       - neo4j
       - redis
+      - minio
     healthcheck:
       test: ["CMD", "bash", "-lc", "curl -fsS http://localhost:8000/docs || exit 1"]
       interval: 10s
@@ -122,6 +139,8 @@ volumes:
   neo4j_logs:
     driver: local
   redis_data:
+    driver: local
+  minio_data:
     driver: local
   open-webui:
     driver: local
