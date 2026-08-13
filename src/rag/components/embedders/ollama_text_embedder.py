@@ -23,13 +23,25 @@ class OllamaTextEmbedderFactory(ComponentFactory):
         self.url = url or settings.OLLAMA_URL
         self.timeout = timeout or settings.OLLAMA_TIMEOUT
 
-    def build(self) -> OllamaTextEmbedder:
+    def build(self):
         if settings.OLLAMA_API_KEY:
             os.environ["OLLAMA_API_KEY"] = settings.OLLAMA_API_KEY
             logger.info("OLLAMA_API_KEY set from settings for text embedder auth")
 
-        return OllamaTextEmbedder(
+        embedder = OllamaTextEmbedder(
             model=self.model,
             url=self.url,
             timeout=self.timeout,
         )
+        if not settings.QUERY_INSTRUCTION_ENABLED:
+            return embedder
+
+        # Modelos instruction-tuned esperam prefixo SÓ na query (documento vai
+        # cru), então isto não invalida a collection. Ver InstructedTextEmbedder.
+        from rag.components.embedders.instructed_text_embedder import (
+            InstructedTextEmbedder,
+        )
+
+        logger.info("Query embedder com prefixo de instrução: '{}'",
+                    settings.QUERY_INSTRUCTION_TASK[:60])
+        return InstructedTextEmbedder(embedder)

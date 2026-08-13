@@ -51,6 +51,7 @@ class McpSqlExecutor:
         self.mcp_url = mcp_url or settings.POSTGRES_MCP_URL
         self.max_steps = max_steps or settings.AGENT_MAX_STEPS
         self.max_rows = max_rows or settings.MAX_EXEC_ROWS
+        self.direct_timeout = settings.MCP_DIRECT_TIMEOUT
         self._agent = None  # construído preguiçosamente
 
     # ------------------------------------------------------------------ #
@@ -96,6 +97,27 @@ class McpSqlExecutor:
             empty["error"] = "SQL vazio."
             return empty
 
+        # Caminho rápido: executa direto pelo MCP, sem LLM. O Agent existe para
+        # AUTOCORRIGIR SQL com erro, mas cobrava duas chamadas de LLM (~5s)
+        # mesmo quando o SQL rodava de primeira — que é o caso quase sempre
+        # (fidelidade ao schema medida em 1,0). Só caímos no Agent se o banco
+        # recusar, preservando a autocorreção onde ela de fato serve.
+        if settings.MCP_DIRECT_FIRST:
+            direct = self._execute_direct(sql)
+            if direct is not None:
+                columns, rows = self._parse_rows(direct)
+                logger.info(
+                    "McpSqlExecutor[direto]: {} linhas, {} colunas", len(rows), len(columns)
+                )
+                return {
+                    "rows": rows[: self.max_rows],
+                    "columns": columns,
+                    "sql_final": sql,
+                    "exec_ok": True,
+                    "error": "",
+                }
+            logger.info("McpSqlExecutor: execução direta falhou; acionando autocorreção")
+
         user_msg = (
             f"Pergunta do usuário: {query}\n\n"
             f"Schema disponível:\n{schema_context}\n\n"
@@ -125,6 +147,43 @@ class McpSqlExecutor:
         }
 
     # ------------------------------------------------------------------ #
+    def _execute_direct(self, sql: str) -> Optional[str]:
+        """Chama `execute_sql` pelo protocolo MCP, sem Agent e sem LLM.
+
+        Devolve o texto cru do resultado, ou None se o banco recusou — nesse
+        caso o chamador aciona o Agent para autocorrigir.
+
+        Usa o transporte SSE clássico (`GET /sse` abre o stream e informa o
+        endpoint de POST); o MCPToolset do Haystack tenta POST no próprio /sse
+        (Streamable HTTP) e recebe 405 desta versão do postgres-mcp.
+        """
+        import asyncio
+
+        async def _call() -> Optional[str]:
+            from mcp import ClientSession
+            from mcp.client.sse import sse_client
+
+            async with sse_client(self.mcp_url) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    res = await session.call_tool("execute_sql", {"sql": sql})
+                    if getattr(res, "isError", False):
+                        return None
+                    text = "\n".join(
+                        c.text for c in res.content
+                        if getattr(c, "type", "") == "text"
+                    )
+                    # O envelope pode trazer erro do banco em vez de linhas.
+                    if not text or '"isError": true' in text.lower():
+                        return None
+                    return text
+
+        try:
+            return asyncio.run(asyncio.wait_for(_call(), timeout=self.direct_timeout))
+        except Exception as exc:  # noqa: BLE001 — degrada para o Agent
+            logger.warning("McpSqlExecutor: execução direta indisponível ({})", exc)
+            return None
+
     @staticmethod
     def _last_successful_execution(messages: list) -> tuple[Optional[str], Optional[str]]:
         """Varre o histórico do agente e pega o ÚLTIMO resultado bem-sucedido da

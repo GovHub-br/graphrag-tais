@@ -1,0 +1,603 @@
+{
+  "schema_version": "0.2.0-draft",
+  "name": "mcid-superset-derived",
+  "version": "0.2.0",
+  "status": "draft",
+  "metadata": {
+    "origem": "derivado dos dashboards de PRODUCAO do Superset (somente leitura)",
+    "data_extracao": "2026-08-13",
+    "escopo_ingestao": [
+      "conjuntura_bronze",
+      "conjuntura_gold",
+      "conjuntura_silver",
+      "empreendimento_far",
+      "entidades_fds"
+    ],
+    "aviso": "As PERGUNTAS sao redacao do assistente a partir dos titulos dos charts. As TABELAS/COLUNAS do tier A sao derivadas mecanicamente do SQL de producao com sqlglot. Nada aqui vale como gold ate revisao humana.",
+    "fora_do_escopo_observado": [
+      "__dados_brutos.* (mart_far_execucao_financeira, bronze_snh_empreendimentos, ...)",
+      "empreendimento_rural.* (programa Rural inteiro, com dashboard proprio)",
+      "ibge.*, abrecip.*, public.*"
+    ],
+    "observacao_join": "NENHUMA das queries de producao lidas faz JOIN. As tabelas gold ja sao marts denormalizados. O gold v0.1.0 tem casos multi_table e o eval mede join_path_recall, mas o uso real e mono-tabela."
+  },
+  "cases": [
+    {
+      "id": "cbic-lancamentos-regiao",
+      "question": "Qual foi a participação do MCMV nos lançamentos imobiliários por região no 4º trimestre de 2025?",
+      "critical": false,
+      "slices": [
+        "conjuntura",
+        "wide_table",
+        "regiao",
+        "period_compare",
+        "pt_br",
+        "mono_table",
+        "dashboard",
+        "tier_a"
+      ],
+      "origem": "dataset virtual do Superset (SQL de analista)",
+      "reference_sql": "SELECT regiao, total, mcmv, perc_mcmv_4t25, perc_mcmv_3t25, perc_mcmv_4t24 FROM conjuntura_gold.gold_cbic_lancamentos_regiao",
+      "expected_tables": [
+        "Cidades.cidades.conjuntura_gold.gold_cbic_lancamentos_regiao"
+      ],
+      "expected_columns": [
+        "mcmv",
+        "perc_mcmv_3t25",
+        "perc_mcmv_4t24",
+        "perc_mcmv_4t25",
+        "regiao",
+        "total"
+      ],
+      "revisao": {
+        "status": "draft",
+        "revisor": null,
+        "conferir": "a pergunta reflete o que um usuário perguntaria? as colunas esperadas estão completas?"
+      }
+    },
+    {
+      "id": "cbic-vendas-regiao",
+      "question": "Como ficaram as vendas por região no 4º trimestre de 2025 e quanto foi MCMV?",
+      "critical": false,
+      "slices": [
+        "conjuntura",
+        "wide_table",
+        "regiao",
+        "period_compare",
+        "pt_br",
+        "mono_table",
+        "dashboard",
+        "tier_a"
+      ],
+      "origem": "dataset virtual do Superset (SQL de analista)",
+      "reference_sql": "SELECT regiao, total, mcmv, perc_mcmv_4t25, perc_mcmv_3t25, perc_mcmv_4t24 FROM conjuntura_gold.gold_cbic_vendas_regiao",
+      "expected_tables": [
+        "Cidades.cidades.conjuntura_gold.gold_cbic_vendas_regiao"
+      ],
+      "expected_columns": [
+        "mcmv",
+        "perc_mcmv_3t25",
+        "perc_mcmv_4t24",
+        "perc_mcmv_4t25",
+        "regiao",
+        "total"
+      ],
+      "revisao": {
+        "status": "draft",
+        "revisor": null,
+        "conferir": "a pergunta reflete o que um usuário perguntaria? as colunas esperadas estão completas?"
+      }
+    },
+    {
+      "id": "financiamentos-habitacionais-uh",
+      "question": "Quantas unidades habitacionais foram financiadas por FGTS e SBPE por trimestre?",
+      "critical": false,
+      "slices": [
+        "conjuntura",
+        "wide_table",
+        "trimestre",
+        "pt_br",
+        "mono_table",
+        "dashboard",
+        "tier_a"
+      ],
+      "origem": "dataset virtual do Superset (SQL de analista)",
+      "reference_sql": "SELECT periodo, fgts_uh, sbpe_uh FROM conjuntura_gold.gold_financiamentos_habitacionais",
+      "expected_tables": [
+        "Cidades.cidades.conjuntura_gold.gold_financiamentos_habitacionais"
+      ],
+      "expected_columns": [
+        "fgts_uh",
+        "periodo",
+        "sbpe_uh"
+      ],
+      "revisao": {
+        "status": "draft",
+        "revisor": null,
+        "conferir": "a pergunta reflete o que um usuário perguntaria? as colunas esperadas estão completas?"
+      }
+    },
+    {
+      "id": "financiamentos-imobiliarios-bacen",
+      "question": "Quais as concessões, taxa de juros e inadimplência de financiamento imobiliário PF e PJ?",
+      "critical": false,
+      "slices": [
+        "conjuntura",
+        "wide_table",
+        "pf_pj",
+        "pt_br",
+        "mono_table",
+        "dashboard",
+        "tier_a"
+      ],
+      "origem": "dataset virtual do Superset (SQL de analista)",
+      "reference_sql": "SELECT periodo, pf_concessoes, pf_taxa_juros, pf_inadimplencia, pj_concessoes, pj_taxa_juros, pj_inadimplencia FROM conjuntura_gold.gold_financiamentos_imobiliarios",
+      "expected_tables": [
+        "Cidades.cidades.conjuntura_gold.gold_financiamentos_imobiliarios"
+      ],
+      "expected_columns": [
+        "periodo",
+        "pf_concessoes",
+        "pf_inadimplencia",
+        "pf_taxa_juros",
+        "pj_concessoes",
+        "pj_inadimplencia",
+        "pj_taxa_juros"
+      ],
+      "revisao": {
+        "status": "draft",
+        "revisor": null,
+        "conferir": "a pergunta reflete o que um usuário perguntaria? as colunas esperadas estão completas?"
+      }
+    },
+    {
+      "id": "pnad-ocupados-construcao",
+      "question": "Quantas pessoas estão ocupadas na construção nos trimestres mais recentes?",
+      "critical": false,
+      "slices": [
+        "conjuntura",
+        "period_decode",
+        "trimestre",
+        "pt_br",
+        "mono_table",
+        "dashboard",
+        "tier_a"
+      ],
+      "origem": "dataset virtual do Superset (SQL de analista)",
+      "reference_sql": "SELECT periodo, pnad_const_milhares, pnad_total_milhares FROM conjuntura_gold.gold_ibge_pnad_construcao WHERE periodo IN ('202603','202512','202503')",
+      "expected_tables": [
+        "Cidades.cidades.conjuntura_gold.gold_ibge_pnad_construcao"
+      ],
+      "expected_columns": [
+        "periodo",
+        "pnad_const_milhares",
+        "pnad_total_milhares"
+      ],
+      "revisao": {
+        "status": "draft",
+        "revisor": null,
+        "conferir": "a pergunta reflete o que um usuário perguntaria? as colunas esperadas estão completas?"
+      }
+    },
+    {
+      "id": "pnad-rendimento-construcao",
+      "question": "Qual o rendimento médio real na construção nos trimestres recentes?",
+      "critical": false,
+      "slices": [
+        "conjuntura",
+        "period_decode",
+        "trimestre",
+        "pt_br",
+        "mono_table",
+        "dashboard",
+        "tier_a"
+      ],
+      "origem": "dataset virtual do Superset (SQL de analista)",
+      "reference_sql": "SELECT periodo, rend_const_rs, rend_total_rs FROM conjuntura_gold.gold_ibge_pnad_construcao WHERE periodo IN ('202603','202512','202503')",
+      "expected_tables": [
+        "Cidades.cidades.conjuntura_gold.gold_ibge_pnad_construcao"
+      ],
+      "expected_columns": [
+        "periodo",
+        "rend_const_rs",
+        "rend_total_rs"
+      ],
+      "revisao": {
+        "status": "draft",
+        "revisor": null,
+        "conferir": "a pergunta reflete o que um usuário perguntaria? as colunas esperadas estão completas?"
+      }
+    },
+    {
+      "id": "novos-financiamentos-por-banco",
+      "question": "Quanto cada banco concedeu em novos financiamentos imobiliários e quantas UH?",
+      "critical": false,
+      "slices": [
+        "conjuntura",
+        "por_banco",
+        "filtro_periodo",
+        "pt_br",
+        "mono_table",
+        "dashboard",
+        "tier_a"
+      ],
+      "origem": "dataset virtual do Superset (SQL de analista)",
+      "reference_sql": "SELECT banco, valor_bi, perc_valor, uh, perc_uh FROM conjuntura_gold.gold_abecip_novos_financiamentos_imobiliarios WHERE ano = 2026 AND mes = 3",
+      "expected_tables": [
+        "Cidades.cidades.conjuntura_gold.gold_abecip_novos_financiamentos_imobiliarios"
+      ],
+      "expected_columns": [
+        "ano",
+        "banco",
+        "mes",
+        "perc_uh",
+        "perc_valor",
+        "uh",
+        "valor_bi"
+      ],
+      "revisao": {
+        "status": "draft",
+        "revisor": null,
+        "conferir": "a pergunta reflete o que um usuário perguntaria? as colunas esperadas estão completas?"
+      }
+    },
+    {
+      "id": "balancos-empresas-vendas",
+      "question": "Como variaram as vendas das construtoras no último trimestre?",
+      "critical": false,
+      "slices": [
+        "conjuntura",
+        "por_empresa",
+        "variacao",
+        "pt_br",
+        "mono_table",
+        "dashboard",
+        "tier_a"
+      ],
+      "origem": "dataset virtual do Superset (SQL de analista)",
+      "reference_sql": "SELECT nome_empresa, variacao_4t25, variacao_1t25, variacao_12m_26_25, variacao_12m_25_24 FROM conjuntura_gold.gold_balancos_empresas_vendas",
+      "expected_tables": [
+        "Cidades.cidades.conjuntura_gold.gold_balancos_empresas_vendas"
+      ],
+      "expected_columns": [
+        "nome_empresa",
+        "variacao_12m_25_24",
+        "variacao_12m_26_25",
+        "variacao_1t25",
+        "variacao_4t25"
+      ],
+      "revisao": {
+        "status": "draft",
+        "revisor": null,
+        "conferir": "a pergunta reflete o que um usuário perguntaria? as colunas esperadas estão completas?"
+      }
+    },
+    {
+      "id": "far-uh-por-regiao",
+      "question": "Quantas unidades habitacionais do FAR existem por região?",
+      "critical": false,
+      "slices": [
+        "far",
+        "operacional",
+        "regiao",
+        "pt_br",
+        "mono_table",
+        "dashboard",
+        "tier_b"
+      ],
+      "origem": "chart do Superset sobre dataset físico",
+      "reference_sql": null,
+      "expected_tables": [
+        "Cidades.cidades.empreendimento_far.mapa_nacional"
+      ],
+      "expected_columns": [
+        "total_uhs",
+        "uf",
+        "nivel"
+      ],
+      "revisao": {
+        "status": "draft",
+        "revisor": null,
+        "conferir": "esta é a tabela certa? faltam colunas? a pergunta é respondível com o escopo atual?"
+      }
+    },
+    {
+      "id": "far-uh-por-uf",
+      "question": "Como as unidades habitacionais do FAR se distribuem por UF?",
+      "critical": false,
+      "slices": [
+        "far",
+        "operacional",
+        "geografico",
+        "pt_br",
+        "mono_table",
+        "dashboard",
+        "tier_b"
+      ],
+      "origem": "chart do Superset sobre dataset físico",
+      "reference_sql": null,
+      "expected_tables": [
+        "Cidades.cidades.empreendimento_far.mapa_nacional"
+      ],
+      "expected_columns": [
+        "total_uhs",
+        "uf"
+      ],
+      "revisao": {
+        "status": "draft",
+        "revisor": null,
+        "conferir": "esta é a tabela certa? faltam colunas? a pergunta é respondível com o escopo atual?"
+      }
+    },
+    {
+      "id": "far-valor-total-por-estado",
+      "question": "Qual o valor total dos empreendimentos FAR por estado?",
+      "critical": false,
+      "slices": [
+        "far",
+        "operacional",
+        "agregacao",
+        "pt_br",
+        "mono_table",
+        "dashboard",
+        "tier_b"
+      ],
+      "origem": "chart do Superset sobre dataset físico",
+      "reference_sql": null,
+      "expected_tables": [
+        "Cidades.cidades.empreendimento_far.panorama_estadual"
+      ],
+      "expected_columns": [
+        "uf"
+      ],
+      "revisao": {
+        "status": "draft",
+        "revisor": null,
+        "conferir": "esta é a tabela certa? faltam colunas? a pergunta é respondível com o escopo atual?"
+      }
+    },
+    {
+      "id": "far-municipios-atendidos",
+      "question": "Quantos municípios são atendidos por empreendimentos FAR?",
+      "critical": false,
+      "slices": [
+        "far",
+        "operacional",
+        "contagem",
+        "pt_br",
+        "mono_table",
+        "dashboard",
+        "tier_b"
+      ],
+      "origem": "chart do Superset sobre dataset físico",
+      "reference_sql": null,
+      "expected_tables": [
+        "Cidades.cidades.empreendimento_far.panorama_estadual"
+      ],
+      "expected_columns": [
+        "uf"
+      ],
+      "revisao": {
+        "status": "draft",
+        "revisor": null,
+        "conferir": "esta é a tabela certa? faltam colunas? a pergunta é respondível com o escopo atual?"
+      }
+    },
+    {
+      "id": "far-situacao-obras",
+      "question": "Qual a situação das obras dos empreendimentos FAR?",
+      "critical": false,
+      "slices": [
+        "far",
+        "operacional",
+        "distribuicao",
+        "pt_br",
+        "mono_table",
+        "dashboard",
+        "tier_b"
+      ],
+      "origem": "chart do Superset sobre dataset físico",
+      "reference_sql": null,
+      "expected_tables": [
+        "Cidades.cidades.empreendimento_far.panorama_estadual"
+      ],
+      "expected_columns": [
+        "uf"
+      ],
+      "revisao": {
+        "status": "draft",
+        "revisor": null,
+        "conferir": "esta é a tabela certa? faltam colunas? a pergunta é respondível com o escopo atual?"
+      }
+    },
+    {
+      "id": "far-execucao-fisica-estado",
+      "question": "Qual o percentual de execução física dos empreendimentos FAR por estado?",
+      "critical": false,
+      "slices": [
+        "far",
+        "operacional",
+        "percentual",
+        "pt_br",
+        "mono_table",
+        "dashboard",
+        "tier_b"
+      ],
+      "origem": "chart do Superset sobre dataset físico",
+      "reference_sql": null,
+      "expected_tables": [
+        "Cidades.cidades.empreendimento_far.panorama_estadual"
+      ],
+      "expected_columns": [
+        "uf"
+      ],
+      "revisao": {
+        "status": "draft",
+        "revisor": null,
+        "conferir": "esta é a tabela certa? faltam colunas? a pergunta é respondível com o escopo atual?"
+      }
+    },
+    {
+      "id": "far-evolucao-fisico-financeira",
+      "question": "Como evoluiu a execução física e financeira do FAR mês a mês?",
+      "critical": false,
+      "slices": [
+        "far",
+        "operacional",
+        "serie_temporal",
+        "pt_br",
+        "mono_table",
+        "dashboard",
+        "tier_b"
+      ],
+      "origem": "chart do Superset sobre dataset físico",
+      "reference_sql": null,
+      "expected_tables": [
+        "Cidades.cidades.empreendimento_far.execucao_fisica_financeira_chart"
+      ],
+      "expected_columns": [
+        "apf"
+      ],
+      "revisao": {
+        "status": "draft",
+        "revisor": null,
+        "conferir": "esta é a tabela certa? faltam colunas? a pergunta é respondível com o escopo atual?"
+      }
+    },
+    {
+      "id": "far-valor-empreendimento",
+      "question": "Qual o valor contratado dos empreendimentos FAR?",
+      "critical": false,
+      "slices": [
+        "far",
+        "operacional",
+        "valor",
+        "pt_br",
+        "mono_table",
+        "dashboard",
+        "tier_b"
+      ],
+      "origem": "chart do Superset sobre dataset físico",
+      "reference_sql": null,
+      "expected_tables": [
+        "Cidades.cidades.empreendimento_far.ficha_empreendimento"
+      ],
+      "expected_columns": [
+        "valor_contratado"
+      ],
+      "revisao": {
+        "status": "draft",
+        "revisor": null,
+        "conferir": "esta é a tabela certa? faltam colunas? a pergunta é respondível com o escopo atual?"
+      }
+    },
+    {
+      "id": "fds-uh-contratadas",
+      "question": "Quantas unidades habitacionais foram contratadas no FDS?",
+      "critical": false,
+      "slices": [
+        "fds",
+        "operacional",
+        "contagem",
+        "pt_br",
+        "mono_table",
+        "dashboard",
+        "tier_b"
+      ],
+      "origem": "chart do Superset sobre dataset físico",
+      "reference_sql": null,
+      "expected_tables": [
+        "Cidades.cidades.entidades_fds.fds_ficha_empreendimento"
+      ],
+      "expected_columns": [
+        "apf"
+      ],
+      "revisao": {
+        "status": "draft",
+        "revisor": null,
+        "conferir": "esta é a tabela certa? faltam colunas? a pergunta é respondível com o escopo atual?"
+      }
+    },
+    {
+      "id": "fds-valor-contratado",
+      "question": "Qual o valor total contratado nos empreendimentos do FDS?",
+      "critical": false,
+      "slices": [
+        "fds",
+        "operacional",
+        "valor",
+        "pt_br",
+        "mono_table",
+        "dashboard",
+        "tier_b"
+      ],
+      "origem": "chart do Superset sobre dataset físico",
+      "reference_sql": null,
+      "expected_tables": [
+        "Cidades.cidades.entidades_fds.fds_ficha_empreendimento"
+      ],
+      "expected_columns": [
+        "apf"
+      ],
+      "revisao": {
+        "status": "draft",
+        "revisor": null,
+        "conferir": "esta é a tabela certa? faltam colunas? a pergunta é respondível com o escopo atual?"
+      }
+    },
+    {
+      "id": "fds-total-eos",
+      "question": "Quantas entidades organizadoras participam do FDS?",
+      "critical": false,
+      "slices": [
+        "fds",
+        "operacional",
+        "contagem",
+        "pt_br",
+        "mono_table",
+        "dashboard",
+        "tier_b"
+      ],
+      "origem": "chart do Superset sobre dataset físico",
+      "reference_sql": null,
+      "expected_tables": [
+        "Cidades.cidades.entidades_fds.fds_ficha_empreendimento"
+      ],
+      "expected_columns": [
+        "apf"
+      ],
+      "revisao": {
+        "status": "draft",
+        "revisor": null,
+        "conferir": "esta é a tabela certa? faltam colunas? a pergunta é respondível com o escopo atual?"
+      }
+    },
+    {
+      "id": "fds-execucao-fisica",
+      "question": "Qual a execução física dos empreendimentos do FDS?",
+      "critical": false,
+      "slices": [
+        "fds",
+        "operacional",
+        "percentual",
+        "pt_br",
+        "mono_table",
+        "dashboard",
+        "tier_b"
+      ],
+      "origem": "chart do Superset sobre dataset físico",
+      "reference_sql": null,
+      "expected_tables": [
+        "Cidades.cidades.entidades_fds.fds_ficha_empreendimento"
+      ],
+      "expected_columns": [
+        "pct_execucao_ts"
+      ],
+      "revisao": {
+        "status": "draft",
+        "revisor": null,
+        "conferir": "esta é a tabela certa? faltam colunas? a pergunta é respondível com o escopo atual?"
+      }
+    }
+  ]
+}

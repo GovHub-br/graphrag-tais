@@ -1,0 +1,310 @@
+{
+  "experiment_id": "20260811-dense-model-instruct-ab",
+  "status": "measured_diagnostic",
+  "hypothesis": "O canal denso perde qualidade por dois motivos independentes: (1) o gte-qwen2-1.5b-instruct recebe a pergunta CRUA, sem o prefixo de instrucao que a familia documenta no lado da query; (2) o proprio modelo pode nao ser o melhor disponivel para PT-BR sobre metadados curtos e estruturados. Testar as duas coisas separadamente, com os MESMOS cards, isolando o canal denso.",
+  "change_scope": [
+    "seed_retrieval",
+    "embedding_model"
+  ],
+  "method": {
+    "channel": "dense_only",
+    "note": "Consulta direta ao Qdrant com o vetor denso, sem BM25 e sem expansao no grafo. Nao passa pela pipeline; nao altera src/. Os cards sao identicos nos dois modelos: a collection de teste foi construida relendo o `content` dos pontos existentes e reembutindo. Documento sempre CRU; o prefixo se aplica so a query.",
+    "collections": {
+      "documents": "gte-qwen2-1.5b-instruct:f16, dim 1536 (producao)",
+      "documents_qwen3": "qwen3-embedding:4b (Q4_K_M), dim 2560 (teste, 1289 pontos, 146s de reindex)"
+    },
+    "instruction_prefix": "Instruct: {task}\\nQuery: {question}",
+    "task_en": "Given a business question in Portuguese, retrieve the database table or column metadata needed to answer it",
+    "task_pt": "Dada uma pergunta de negocio em portugues, recupere os metadados de tabela ou coluna do banco analitico que permitem responde-la"
+  },
+  "dataset": {
+    "name": "mcid-business-retrieval",
+    "version": "0.1.0",
+    "status": "draft",
+    "cases": 8
+  },
+  "results": {
+    "arms": [
+      {
+        "arm": "gte-qwen2 cru (producao)",
+        "gold_at_5": 12,
+        "gold_at_10": 17,
+        "fora_dominio_top5": "6/40",
+        "tabela_gold_at_5": 0.875,
+        "mrr_at_10": 0.625
+      },
+      {
+        "arm": "gte-qwen2 + instruct EN",
+        "gold_at_5": 15,
+        "gold_at_10": 21,
+        "fora_dominio_top5": "6/40",
+        "tabela_gold_at_5": 0.875,
+        "mrr_at_10": 0.583
+      },
+      {
+        "arm": "gte-qwen2 + instruct PT",
+        "gold_at_5": 15,
+        "gold_at_10": 21,
+        "fora_dominio_top5": "8/40",
+        "tabela_gold_at_5": 0.75,
+        "mrr_at_10": null
+      },
+      {
+        "arm": "qwen3-embedding:4b cru",
+        "gold_at_5": 15,
+        "gold_at_10": 23,
+        "fora_dominio_top5": "5/40",
+        "tabela_gold_at_5": 0.875,
+        "mrr_at_10": 0.854
+      },
+      {
+        "arm": "qwen3-embedding:4b + instruct EN",
+        "gold_at_5": 13,
+        "gold_at_10": 20,
+        "fora_dominio_top5": "8/40",
+        "tabela_gold_at_5": 0.75,
+        "mrr_at_10": 0.745
+      }
+    ],
+    "findings": [
+      "O prefixo de instrucao AJUDA o gte-qwen2 (+3 gold@5, +4 gold@10) e a descricao da tarefa em INGLES e estritamente melhor que em portugues (mesmo ganho, sem piorar contaminacao nem table recall).",
+      "O prefixo PREJUDICA o qwen3-embedding:4b (-2 gold@5, contaminacao 5->8, tabela 0.875->0.750). Nao ha explicacao confirmada: o template do Ollama e `{{ .Prompt }}` puro, entao NAO ha injecao automatica de instrucao duplicando o prefixo.",
+      "O melhor arm e qwen3-embedding:4b CRU: melhor gold@10 (23), menor contaminacao (5/40) e MRR@10 0.854 contra 0.625 do baseline (+37%).",
+      "REVERSAO QUALITATIVA no pior caso: em fds-entrega-ts-001 o gte-qwen2 faz 0 gold, 5/5 fora do dominio e tabela-gold 0.0; o qwen3 faz 2 gold, 0/5 fora e tabela-gold 1.0. Este caso e o unico onde o denso de producao falha por completo (o BM25 e que salvava via RRF).",
+      "O qwen3 REGRIDE em far-ranking-valor-001 (tabela 1.0->0.5), fds-evolucao-ritmo-001 (fora 0->2, tabela 1.0->0.5) e conjuntura-pnad (fora 0->2). Nao e dominancia uniforme; e troca."
+    ]
+  },
+  "caveats": [
+    "Gold draft com 8 casos: diferencas de 2-3 acertos entre arms estao dentro do ruido. O unico resultado robusto e a reversao qualitativa de fds-entrega-ts-001 e o salto de MRR.",
+    "Comparacao desigual de quantizacao: qwen3-embedding:4b e Q4_K_M (4 bits) contra gte-qwen2 em f16. O qwen3 venceu APESAR da desvantagem; um variante q8/f16 tende a render mais.",
+    "Canal denso isolado. Nao mede o efeito no hibrido com RRF nem na expansao do grafo, que e onde a producao vive. A adocao exige medir a pipeline inteira.",
+    "Trocar para qwen3 muda QDRANT_EMBEDDING_DIM de 1536 para 2560 e exige collection nova + OM_EMBEDDING_PROFILE novo (ADR-0009 regra 3)."
+  ],
+  "fase2_modelos_alta_precisao": {
+    "note": "Os GGUF `dengcao/Qwen3-Embedding-*:f16` NAO servem como embedder: foram convertidos sem `pooling_type`, entao o Ollama os registra com capabilities=['completion'] e recusa /api/embeddings. As tags oficiais (qwen3-embedding:4b-fp16, 8b-q8_0, 8b-fp16, 4b-q8_0) trazem pooling_type=3 e funcionam.",
+    "dense_only_arms": [
+      {
+        "arm": "gte-qwen2 f16 cru",
+        "gold_at_5": 12,
+        "gold_at_10": 17,
+        "fora_dominio": "6/40",
+        "tab_at_5": 0.875,
+        "mrr": 0.625,
+        "ndcg": 0.368
+      },
+      {
+        "arm": "gte-qwen2 f16 instr",
+        "gold_at_5": 15,
+        "gold_at_10": 21,
+        "fora_dominio": "6/40",
+        "tab_at_5": 0.875,
+        "mrr": 0.583,
+        "ndcg": 0.4
+      },
+      {
+        "arm": "qwen3-4b Q4 cru",
+        "gold_at_5": 15,
+        "gold_at_10": 23,
+        "fora_dominio": "5/40",
+        "tab_at_5": 0.875,
+        "mrr": 0.854,
+        "ndcg": 0.57
+      },
+      {
+        "arm": "qwen3-4b fp16 cru",
+        "gold_at_5": 17,
+        "gold_at_10": 23,
+        "fora_dominio": "4/40",
+        "tab_at_5": 0.875,
+        "mrr": 0.688,
+        "ndcg": 0.529
+      },
+      {
+        "arm": "qwen3-4b fp16 instr",
+        "gold_at_5": 14,
+        "gold_at_10": 20,
+        "fora_dominio": "7/40",
+        "tab_at_5": 0.875,
+        "mrr": 0.771,
+        "ndcg": 0.479
+      },
+      {
+        "arm": "qwen3-8b q8 cru",
+        "gold_at_5": 15,
+        "gold_at_10": 25,
+        "fora_dominio": "5/40",
+        "tab_at_5": 0.875,
+        "mrr": 0.713,
+        "ndcg": 0.549
+      },
+      {
+        "arm": "qwen3-8b q8 instr",
+        "gold_at_5": 17,
+        "gold_at_10": 22,
+        "fora_dominio": "6/40",
+        "tab_at_5": 0.938,
+        "mrr": 0.754,
+        "ndcg": 0.523
+      }
+    ],
+    "dense_only_leitura": "TODOS os arms qwen3 superam TODOS os arms gte em nDCG@10 (pior qwen3 = 0.479 > melhor gte = 0.400). A quantizacao importava: 4b fp16 melhora gold@5 (15->17) e contaminacao (5->4) sobre o Q4. O 8B nao supera o 4B de forma clara e custa 4096 dims."
+  },
+  "fase3_validacao_hibrida": {
+    "note": "TESTE DECISIVO. Collection `documents_v2` com denso do qwen3-4b-fp16 + esparso COPIADO bit a bit da producao (BM25 nao depende do modelo denso), permitindo rodar eval.retrieval.live completo sem reingerir do OpenMetadata.",
+    "run": "eval/reports/20260811-qwen3-4b-fp16-run.json",
+    "report": "eval/reports/20260811-qwen3-4b-fp16-report.json",
+    "baseline": "eval/reports/20260811-live-run.json",
+    "melhorou": {
+      "seed_recall_at_5": "0.3052 -> 0.3552 (+16%)",
+      "seed_table_recall_at_5": "0.6250 -> 0.6875 (+10%)",
+      "mrr_at_10": "0.6042 -> 0.6991 (+16%)",
+      "ndcg_at_10": "0.4223 -> 0.4880 (+16%)",
+      "prompt_p95_chars": "16918 -> 14763 (-13%)"
+    },
+    "REGREDIU_GUARDRAIL": {
+      "structural_sufficiency": "1.000 -> 0.875",
+      "table_recall": "1.000 -> 0.875",
+      "node_recall": "1.000 -> 0.875",
+      "weighted_dependency_recall": "1.000 -> 0.875",
+      "caso_que_quebrou": "far-ranking-valor-001 (critical=true) colapsa para 0.000 em suficiencia, table_recall e node_recall"
+    },
+    "manteve": {
+      "eligible_join_relationship_recall": 1.0,
+      "join_path_recall": 1.0,
+      "unauthorized_join_rate": 0.0,
+      "error_rate": 0.0
+    }
+  },
+  "causa_raiz_do_colapso": {
+    "caso": "far-ranking-valor-001 — 'Quais sao os 10 empreendimentos FAR com maior valor contratado?'",
+    "gold_tables": [
+      "empreendimento_far.empreendimento",
+      "empreendimento_far.ficha_empreendimento"
+    ],
+    "gte_denso_top2": [
+      "empreendimento.valor_contratado",
+      "ficha_empreendimento.valor_contratado"
+    ],
+    "qwen3_denso_top2": [
+      "mapa_nacional.total_valor_contratado",
+      "dados_prioritarios_caixa.valor_contratado"
+    ],
+    "diagnostico": "O qwen3 preferiu tabelas AGREGADAS (mapa_nacional é agregado por UF; total_valor_contratado casa muito bem com 'maior valor contratado') em vez das tabelas de DETALHE que a pergunta exige. A pergunta pede ranking POR EMPREENDIMENTO — e grain de empreendimento so existe nas tabelas de detalhe. E um erro de GRAO manifestado no retrieval.",
+    "conclusao_central": "Os dois modelos falham em eixos COMPLEMENTARES: o gte-qwen2 erra DOMINIO (FAR vs FDS em fds-entrega-ts-001); o qwen3 erra GRAO (detalhe vs agregado em far-ranking-valor-001). Nenhuma troca de modelo resolve os dois. Ambos os eixos precisam de sinal EXPLICITO no card e no roteamento — itens 1.3 (dominio + grao no card), 2.1 (roteador) e 4.1 (grao) do plano."
+  },
+  "fase4_todos_os_arms_no_hibrido": {
+    "note": "CORRECAO DE METODO. A fase 3 validou no hibrido APENAS o qwen3-4b-fp16, e generalizou dele a conclusao 'o qwen3 reprova o gate'. Errado: cada variante se comporta de forma diferente. Aqui todos os 8 arms passaram pelo eval.retrieval.live completo. O prefixo de instrucao no hibrido exigiu implementar o InstructedTextEmbedder (item 1.3), ligado por QUERY_INSTRUCTION_ENABLED.",
+    "arms": [
+      {
+        "arm": "gte f16 cru (producao)",
+        "suf": 1.0,
+        "reach_at_5": 0.938,
+        "reach_at_10": 1.0,
+        "seed_at_5": 0.305,
+        "mrr": 0.604,
+        "ndcg": 0.422,
+        "gate": "OK"
+      },
+      {
+        "arm": "gte f16 instr",
+        "suf": 1.0,
+        "reach_at_5": 0.938,
+        "reach_at_10": 1.0,
+        "seed_at_5": 0.268,
+        "mrr": 0.625,
+        "ndcg": 0.457,
+        "gate": "OK"
+      },
+      {
+        "arm": "qwen3-4b Q4 cru",
+        "suf": 1.0,
+        "reach_at_5": 0.875,
+        "reach_at_10": 0.875,
+        "seed_at_5": 0.364,
+        "mrr": 0.76,
+        "ndcg": 0.506,
+        "gate": "OK"
+      },
+      {
+        "arm": "qwen3-4b Q4 instr",
+        "suf": 0.875,
+        "reach_at_5": 0.75,
+        "reach_at_10": 0.75,
+        "seed_at_5": 0.259,
+        "mrr": 0.698,
+        "ndcg": 0.436,
+        "gate": "REPROVA"
+      },
+      {
+        "arm": "qwen3-4b fp16 cru",
+        "suf": 0.875,
+        "reach_at_5": 0.812,
+        "reach_at_10": 0.875,
+        "seed_at_5": 0.355,
+        "mrr": 0.699,
+        "ndcg": 0.488,
+        "gate": "REPROVA"
+      },
+      {
+        "arm": "qwen3-4b fp16 instr",
+        "suf": 1.0,
+        "reach_at_5": 0.875,
+        "reach_at_10": 0.875,
+        "seed_at_5": 0.309,
+        "mrr": 0.723,
+        "ndcg": 0.467,
+        "gate": "OK"
+      },
+      {
+        "arm": "qwen3-8b q8 cru",
+        "suf": 0.875,
+        "reach_at_5": 0.812,
+        "reach_at_10": 0.875,
+        "seed_at_5": 0.287,
+        "mrr": 0.745,
+        "ndcg": 0.478,
+        "gate": "REPROVA"
+      },
+      {
+        "arm": "qwen3-8b q8 instr",
+        "suf": 0.75,
+        "reach_at_5": 0.688,
+        "reach_at_10": 0.938,
+        "seed_at_5": 0.25,
+        "mrr": 0.721,
+        "ndcg": 0.473,
+        "gate": "REPROVA"
+      }
+    ],
+    "vencedor": "qwen3-embedding:4b (Q4_K_M) SEM prefixo: unico arm que passa o gate E supera a producao em todas as metricas de qualidade — seed@5 0.364 vs 0.305 (+19%), MRR 0.760 vs 0.604 (+26%), nDCG 0.506 vs 0.422 (+20%).",
+    "falhas_sao_todas_no_slice_FAR": {
+      "far-ranking-valor-001": [
+        "fp16 cru",
+        "8b cru",
+        "8b instr"
+      ],
+      "far-ufs-uh-001": [
+        "q4 instr",
+        "8b instr"
+      ],
+      "conjuntura_e_fds": "nenhuma falha em nenhum arm",
+      "leitura": "As duas perguntas FAR que quebram sao de AGREGACAO ('10 empreendimentos com maior valor contratado', '10 UFs com mais UH'), e o schema FAR tem tabelas de detalhe (empreendimento, ficha_empreendimento) competindo com agregadas (mapa_nacional, consolidado, dados_prioritarios_caixa). O eixo e GRAO, nao dominio nem modelo. Nenhuma variante de embedding e robusta ali."
+    },
+    "correcao_sobre_o_prefixo": "No canal denso isolado o prefixo EN rendia +25% de sementes-gold no gte-qwen2. No HIBRIDO o efeito NAO se confirma: seed@5 cai de 0.305 para 0.268 (MRR e nDCG sobem). O RRF ja recuperava boa parte do que o prefixo adicionava. Licao: ganho medido em canal isolado nao se transfere automaticamente para o hibrido.",
+    "fragilidade": "structural_sufficiency de 0.875 vs 1.000 e UM caso em oito. O veredito passa/reprova depende de um unico caso, entao 'q4 cru passa' NAO e evidencia forte. O sinal robusto e o padrao: todas as falhas em FAR, todas em perguntas de agregacao."
+  },
+  "decision_fase3_SUPERADA": "NAO ADOTAR o qwen3 agora. O gate do AGENTS.md e os guardrails deste experimento exigem structural_sufficiency >= 1.0, e ela cai para 0.875 num caso critical. Os ganhos de ranking (+16% em MRR, nDCG e seed recall) sao reais e valem perseguir, mas nao a custo de perder um caso critico. Sequencia correta: (1) Onda 0.1, corrigir a regua; (2) Onda 1.3, card v2 com dominio E grao explicitos; (3) repetir esta comparacao sobre o card v2 — a hipotese e que o card v2 corrige as duas falhas de uma vez, porque cada modelo falha exatamente onde falta o sinal que o card v2 adiciona.",
+  "artifacts": {
+    "baseline_run": "eval/reports/20260811-live-run.json",
+    "candidate_run": "eval/reports/20260811-qwen3-4b-fp16-run.json",
+    "collections_de_teste": [
+      "documents_qwen3",
+      "documents_q3_4b_fp16",
+      "documents_q3_8b_q8",
+      "documents_v2"
+    ],
+    "scripts": "scratchpad: instruct_ab.py, build_v2.py, build_hybrid_v2.py, compare_models.py, compare_all.py"
+  },
+  "reviewer": null,
+  "decision": "Decisao revisada apos a fase 4 (todos os arms no hibrido). O vencedor medido e `qwen3-embedding:4b` (Q4_K_M) SEM prefixo: unico arm que passa o gate e supera a producao em seed@5 (+19%), MRR (+26%) e nDCG (+20%). MESMO ASSIM nao adotar ainda, por dois motivos: (1) o veredito passa/reprova depende de UM caso em oito — evidencia fragil, precisa da Onda 0.4; (2) todas as falhas de todos os arms estao no slice FAR e em perguntas de agregacao, ou seja, o fator limitante e GRAO, nao o modelo — e grao e resolvido pelo card v2 (1.1) + Table.grain_key no grafo (4.1), nao por troca de embedding. Sequencia: 0.5 (destravar o gate) -> 1.1 (card v2) -> 0.4 (ampliar o gold) -> Onda 5 (repetir esta comparacao sobre o card v2, com q4-cru como favorito)."
+}
