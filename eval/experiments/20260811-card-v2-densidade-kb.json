@@ -1,0 +1,60 @@
+{
+  "experiment_id": "20260811-card-v2-densidade-kb",
+  "status": "adopted",
+  "hypothesis": "O card v1 gasta 58,8% do texto embutido com campos ESTRUTURAIS que ja existem no payload do Qdrant e no Neo4j (FQN, caminho da tabela repetido, rotulo de tipo, tipo de dado, 'Chave primaria: nao'). Nos cards de coluna sao 67,2%, e 20,3% do corpus inteiro e apenas a SEGUNDA copia do caminho. Remover isso do vetor e acrescentar dois sinais que faltavam — dominio de negocio e grao — deve melhorar recuperacao e reduzir contexto sem perder suficiencia.",
+  "change_scope": ["card_serialization", "ingestion"],
+  "premissa_verificada": "O conteudo do card e usado APENAS para gerar embedding. O Neo4jSubgraphRetriever le so meta['node_id'] e meta['card_type'] e remonta o contexto do LLM a partir do grafo. Logo o texto do card pode ser otimizado para recuperacao sem afetar a resposta.",
+  "implementacao": {
+    "gate": "OM_CARD_SCHEMA_VERSION=v1|v2; v1 preservado intacto (8 testes de ingestao passam) para reprodutibilidade dos runs ja coletados",
+    "sai_do_vetor": ["Tipo:", "FQN:", "Tabela: <caminho completo>", "Schema:", "Tipo de dado:", "Chave primaria: nao"],
+    "entra": ["Dominio de negocio (via OM_DOMAIN_LABELS, com fallback para o nome curto do schema)", "Grao da tabela (via OM_GRAIN_KEYS)"],
+    "fica": ["nome", "descricao", "nomes das colunas nos cards de tabela", "relacionamentos"]
+  },
+  "dataset": {"name": "mcid-business-retrieval", "version": "0.1.0", "status": "draft", "cases": 8},
+  "baseline_report": "eval/reports/20260811-baseline-qwen3-q4.json",
+  "candidate_report": "eval/reports/20260811-cardv2-report.json",
+  "corpus": {
+    "v1": {"chars": 423445, "por_card": 328, "estrutural_pct": 58.8, "coluna_estrutural_pct": 67.2},
+    "v2": {"chars": 289188, "por_card": 223, "estrutural_pct": 13.3},
+    "reducao": "-31,7% de corpus; estrutural de 58,8% para 13,3% (meta do plano era <25%)"
+  },
+  "results": {
+    "guardrails_mantidos": {
+      "structural_sufficiency": "1.0 -> 1.0",
+      "table_recall": "1.0 -> 1.0",
+      "eligible_join_relationship_recall": "1.0 -> 1.0",
+      "unauthorized_join_rate": "0.0 -> 0.0"
+    },
+    "melhorou": {
+      "seed_table_reachable_at_5": "0.8750 -> 0.9375 (+7%)",
+      "seed_table_reachable_at_10": "0.8750 -> 0.9375 (+7%)",
+      "mrr_at_10": "0.7604 -> 0.8750 (+15%)",
+      "ndcg_at_10": "0.5064 -> 0.5551 (+10%)",
+      "overexpansion": "16.71 -> 12.01 (-28%)",
+      "prompt_p95_chars": "17321 -> 13073 (-25%)"
+    },
+    "regrediu": {
+      "seed_recall_at_5": "0.3641 -> 0.3052 (-16%)",
+      "leitura": "Acerta menos NOS-semente exatos do gold, mas alcanca MAIS tabelas-gold (reach subiu). Como seed_recall e a metrica capada e reach e a que modela o runtime (Onda 0.1), a troca e favoravel. Vale vigiar quando o gold crescer."
+    },
+    "caso_a_caso": "far-ranking-valor-001 foi de reach 0.50 para 1.00 — e exatamente o caso critico que a troca de modelo tinha quebrado. fds-evolucao-ritmo-001 segue em 0.50 (uma tabela-gold nunca alcancada). Os outros 6 casos em 1.00."
+  },
+  "efeito_acumulado_vs_producao_original": {
+    "de": "gte-qwen2 + card v1 (eval/reports/20260811-live-run.json)",
+    "para": "qwen3-embedding:4b + card v2 (eval/reports/20260811-cardv2-report.json)",
+    "mrr_at_10": "0.6042 -> 0.8750 (+45%)",
+    "ndcg_at_10": "0.4223 -> 0.5551 (+31%)",
+    "overexpansion": "16.60 -> 12.01 (-28%)",
+    "prompt_p95_chars": "16826 -> 13073 (-22%)",
+    "seed_table_reachable_at_5": "0.9375 -> 0.9375 (preservado)",
+    "structural_sufficiency": "1.0 -> 1.0 (preservado)"
+  },
+  "caveats": [
+    "A collection foi construida a partir do NEO4J, nao do OpenMetadata: o OM_JWT_TOKEN expirou (HTTP 401 em /tables). Os cards sao funcao pura dos records e o Neo4j guarda os records da ingestao real, entao e equivalente para o experimento — mas a collection DEFINITIVA deve sair de uma reingestao real com token renovado.",
+    "OM_GRAIN_KEYS esta VAZIO. O eixo de grao segue aberto: o MCid nao declara PK (0 de 74 tabelas) nem FK, entao o grao nao e inferivel — precisa ser declarado pelo time de dominio. O mecanismo esta pronto; falta o conteudo.",
+    "Gold draft com 8 casos: um caso vale 12,5 p.p.",
+    "Efeito colateral descoberto: a poda de colunas do Neo4jSubgraphRetriever trata is_pk como criterio 'essencial', mas nenhuma coluna do MCid tem is_primary_key=true. Esse ramo e codigo morto hoje."
+  ],
+  "decision": "ADOTADO em producao. Guardrails preservados e ganho em todas as metricas de ranking, contexto e alcance de tabela. .env: OM_CARD_SCHEMA_VERSION=v2, QDRANT_COLLECTION=documents_cardv2, OM_EMBEDDING_PROFILE=dev-qwen3-embedding-4b__cardv2__qdrant-bm25-v1, OM_DOMAIN_LABELS preenchido para os 5 schemas do MCid. Pendencias: renovar o token do OM e reingerir; declarar OM_GRAIN_KEYS.",
+  "reviewer": null
+}

@@ -29,6 +29,25 @@ class Settings(BaseSettings):
         "Qdrant/bm25",
         description="Modelo esparso do FastEmbed para o retrieval híbrido",
     )
+    # Idioma do BM25 (stemmer + stopwords). O default do fastembed é "english",
+    # que sobre corpus e perguntas em PT-BR não relaciona "habitacionais" com
+    # "habitacional" e não remove "quais/são/com/maior" — que viram termos de
+    # IDF alto e puxam ruído. Vale para os DOIS lados; trocar exige reindexar o
+    # vetor esparso (barato: fastembed roda local, sem tocar no denso).
+    # Dobra acento e underscore antes do BM25, nos DOIS lados. Medido: o stemmer
+    # português do fastembed leva 'situação'->'situaçã' e 'situacao'->'situaca',
+    # então acento QUEBRA o casamento — e o corpus mistura as duas formas,
+    # enquanto os valores do banco vêm sem acento e as perguntas com. Só afeta o
+    # vetor esparso; o denso e o texto do card ficam intactos. Exige reindexar.
+    # Default DESLIGADO: medido em 2026-08-13 e NÃO melhorou a recuperação
+    # (as 2 falhas restantes continuaram). O mecanismo fica disponível para
+    # re-teste, mas ligar exige reindexar — os dois lados têm de casar.
+    SPARSE_FOLD_ACCENTS: bool = Field(
+        False, description="Normaliza acento/underscore no canal esparso"
+    )
+    SPARSE_LANGUAGE: str = Field(
+        "portuguese", description="Idioma do BM25 (stemmer/stopwords do fastembed)"
+    )
 
     # ------------------------------------------------------------------ #
     # Neo4j (knowledge graph + vector index)
@@ -86,11 +105,34 @@ class Settings(BaseSettings):
     # Default "evidence" (medido seguro no gold: 0 tabelas-gold perdidas,
     # over-expansion 27→16.6, prompt p95 acumulado −52%). "all" = fallback seguro.
     EXPANSION_MODE: str = Field("evidence", description="Expansão do subgrafo: all | evidence")
+    # Reranker cross-encoder sobre o pool do híbrido (item 3.1 do plano). O RRF
+    # só conhece POSIÇÃO em cada canal; o cross-encoder lê pergunta e card juntos
+    # e pontua relevância — é o que separa candidatos quase idênticos. Roda local
+    # via fastembed (CPU/ONNX), sem sair da infra. Desligado por default.
+    RERANK_ENABLED: bool = Field(False, description="Reordena o pool com cross-encoder")
+    RERANK_MODEL: str = Field(
+        "jinaai/jina-reranker-v2-base-multilingual",
+        description="Modelo de rerank do fastembed (⚠️ jina-v2 é CC-BY-NC)",
+    )
+    RERANK_TOP_K: int = Field(5, description="Quantos documentos sobrevivem ao rerank")
     # Poda de colunas na serialização do subgrafo. Sempre mantém PK, chaves de
     # JOIN, colunas-semente e colunas casadas com a pergunta; o teto limita o
     # "resto" (colunas por ordinal). Tabela-semente recebe teto maior.
     PRUNE_SEED_TABLE_MAX_COLS: int = Field(25, description="Teto de colunas por tabela-semente")
     PRUNE_EXPANSION_TABLE_MAX_COLS: int = Field(6, description="Teto de colunas por tabela só de expansão")
+    # Prefixo de instrução no embedding da QUERY (modelos instruction-tuned).
+    # Só o lado da query muda → NÃO exige reindexação. Default desligado: o
+    # ganho depende do modelo (medido positivo no gte-qwen2 com tarefa em
+    # inglês, negativo no qwen3-embedding), então precisa ser re-medido a cada
+    # troca de modelo, nunca assumido.
+    QUERY_INSTRUCTION_ENABLED: bool = Field(
+        False, description="Prefixa 'Instruct: {tarefa}\\nQuery: ...' no embedding da query"
+    )
+    QUERY_INSTRUCTION_TASK: str = Field(
+        "Given a business question in Portuguese, retrieve the database table "
+        "or column metadata needed to answer it",
+        description="Descrição da tarefa usada no prefixo de instrução da query",
+    )
 
     # ------------------------------------------------------------------ #
     # Camada de entrega (ADR-0013): execução via postgres-mcp + gráfico
@@ -107,6 +149,20 @@ class Settings(BaseSettings):
     )
     MAX_EXEC_ROWS: int = Field(
         1000, description="LIMIT default aplicado à consulta de dados do gráfico"
+    )
+    # Escolha do gráfico sem LLM quando a forma do resultado já decide
+    # (temporal+métrica = série; categórica+métrica = barras). Custava ~5s por
+    # resposta — 25% da latência. Ambíguo ainda vai ao LLM.
+    CHART_SPEC_HEURISTIC: bool = Field(
+        True, description="Decide o gráfico por regra quando a forma é clara"
+    )
+    # Executa o SQL direto pelo MCP (sem Agent/LLM) e só cai na autocorreção se
+    # o banco recusar. O Agent cobrava ~2 chamadas de LLM mesmo com SQL correto.
+    MCP_DIRECT_FIRST: bool = Field(
+        True, description="Tenta execução direta antes de acionar o Agent"
+    )
+    MCP_DIRECT_TIMEOUT: int = Field(
+        60, description="Timeout (s) da execução direta via MCP"
     )
     CHART_DPI: int = Field(
         120, description="DPI do PNG inline no chat (menor = resposta mais leve)"
@@ -192,7 +248,39 @@ class Settings(BaseSettings):
             "configurada em OM_SEMANTIC_RELATIONSHIPS_PROPERTY"
         ),
     )
-    OM_CARD_SCHEMA_VERSION: str = Field("v1", description="Versão do contrato dos cards")
+    OM_CARD_SCHEMA_VERSION: str = Field(
+        "v1",
+        description=(
+            "Versão do contrato dos cards. 'v1' = layout original (rotulado, "
+            "com FQN e caminho repetidos). 'v2' = card denso em significado: "
+            "campos estruturais saem do texto embutido (continuam no payload e "
+            "no grafo) e entram domínio de negócio e grão."
+        ),
+    )
+    # Rótulo humano por schema, usado na linha "Domínio:" do card v2. O default
+    # é vazio: sem mapa, o card emite o nome curto do schema, que funciona em
+    # qualquer catálogo. O mapa existe para dar nome de negócio ao domínio
+    # (ex.: "empreendimento_far" -> "FAR — Fundo de Arrendamento Residencial"),
+    # sem acoplar o componente genérico a um catálogo específico (ADR-0000).
+    OM_DOMAIN_LABELS: str = Field(
+        "", description='JSON {"<schema_curto>": "<rótulo de negócio>"} para o card v2'
+    )
+    # Grão declarado por tabela (FQN -> descrição do grão). O MCid não declara
+    # PK (0 de 74 tabelas) nem FK, então o grão NÃO é inferível dos metadados:
+    # precisa ser declarado. Caminho de longo prazo é uma Custom Property no
+    # OpenMetadata, igual às relações semânticas; este mapa é a ponte.
+    # Vocabulário de VALOR por tabela: {fqn: {coluna: [valores]}}.
+    # Em tabela EAV/formato longo o significado está nos VALORES, não nos nomes
+    # de coluna — `panorama_estadual` guarda 'situacao' e 'execucao_fisica' como
+    # valores de `secao`, e o card só indexava `secao`. A pergunta cita termos
+    # que não existem em lugar nenhum do texto indexado, e nenhum embedding casa
+    # com o que não está no índice. Medido: 26 tabelas afetadas.
+    OM_VALUE_VOCAB: str = Field(
+        "", description='JSON {fqn: {coluna: [valores]}} injetado no card v2'
+    )
+    OM_GRAIN_KEYS: str = Field(
+        "", description='JSON {"<fqn da tabela>": "<descrição do grão>"} para o card v2'
+    )
     OM_EMBEDDING_PROFILE: str = Field(
         "dev-nomic-embed-text__qdrant-bm25-v1",
         description="Identificador imutável do perfil de embeddings desta collection",

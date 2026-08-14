@@ -22,11 +22,17 @@ CASE_METRIC_NAMES = (
     "seed_precision_at_5",
     "seed_hit_at_5",
     "seed_table_recall_at_5",
+    "seed_table_reachable_at_5",
+    "seed_recall_ceiling_at_5",
+    "seed_recall_headroom_at_5",
     "seed_column_recall_at_5",
     "seed_recall_at_10",
     "seed_precision_at_10",
     "seed_hit_at_10",
     "seed_table_recall_at_10",
+    "seed_table_reachable_at_10",
+    "seed_recall_ceiling_at_10",
+    "seed_recall_headroom_at_10",
     "seed_column_recall_at_10",
     "mrr_at_10",
     "ndcg_at_10",
@@ -74,6 +80,27 @@ def _ordered_unique_seed_ids(seeds: Sequence[RankedSeed]) -> list[str]:
             result.append(seed.node_id)
             seen.add(seed.node_id)
     return result
+
+
+def _resolve_to_tables(
+    node_ids: Iterable[str],
+    node_types: Mapping[str, NodeType] | None,
+) -> set[str]:
+    """Sobe de Column para a Table pai, como o runtime faz antes de expandir.
+
+    Espelha ``_SEED_TABLES_CYPHER`` e o fallback por string do
+    ``Neo4jSubgraphRetriever``: um card de coluna no top-k já traz a tabela
+    dela para o subgrafo. Tipo desconhecido é tratado como coluna, igual à
+    produção.
+    """
+    tables: set[str] = set()
+    for node_id in node_ids:
+        if (node_types or {}).get(node_id) is NodeType.TABLE:
+            tables.add(node_id)
+        else:
+            parent, _, _ = node_id.rpartition(".")
+            tables.add(parent or node_id)
+    return tables
 
 
 def seed_metrics(
@@ -125,6 +152,38 @@ def seed_metrics(
                 if expected
                 else 1.0
             )
+
+        # Recall de TABELA ALCANÇÁVEL — o que o runtime de fato alcança.
+        # `seed_table_recall_*` exige o CARD DE TABELA no top-k, mas o
+        # Neo4jSubgraphRetriever sobe de Column para a Table pai antes de
+        # expandir: uma coluna no top-k já resolve a tabela dela. As duas
+        # métricas convivem porque respondem perguntas diferentes — "o card
+        # de tabela ranqueou?" e "a tabela-gold entrou no subgrafo?".
+        gold_tables = {
+            node_id
+            for node_id in relevant_ids
+            if (node_types or {}).get(node_id) is NodeType.TABLE
+        }
+        metrics[f"seed_table_reachable_at_{cutoff}"] = (
+            safe_divide(
+                len(gold_tables & _resolve_to_tables(retrieved, node_types)),
+                len(gold_tables),
+            )
+            if gold_tables
+            else 1.0
+        )
+
+        # Teto e aproveitamento do teto. `seed_recall` divide por TODAS as
+        # sementes-gold, mas só existem `cutoff` posições: um caso com 14
+        # sementes-gold tem teto 5/14 = 0,357. Publicar o teto evita ler 30%
+        # como "70% faltando" quando parte da diferença é inalcançável por
+        # construção.
+        ceiling = safe_divide(min(cutoff, len(relevant_ids)), len(relevant_ids))
+        metrics[f"seed_recall_ceiling_at_{cutoff}"] = ceiling
+        metrics[f"seed_recall_headroom_at_{cutoff}"] = safe_divide(
+            metrics[f"seed_recall_at_{cutoff}"],
+            ceiling,
+        )
 
     reciprocal_rank = 0.0
     for rank, node_id in enumerate(ordered_ids[:10], start=1):

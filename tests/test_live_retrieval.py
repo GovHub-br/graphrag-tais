@@ -104,11 +104,17 @@ class FakeSubgraphRetriever:
         self.documents = documents
         self.joins = joins
         self.received_node_ids: list[str] = []
+        self.received_query: str | None = None
 
-    def run(self, *, documents: list[FakeDocument]) -> dict:
+    def run(self, *, documents: list[FakeDocument], query: str = "") -> dict:
+        # `query` é obrigatório na assinatura de produção desde a Fase 1: o
+        # Neo4jSubgraphRetriever usa a pergunta para podar colunas. O dublê
+        # precisa aceitá-lo, senão o collector estoura em graph_expansion e
+        # mascara o estágio que o teste queria exercitar.
         self.received_node_ids = [
             document.meta["node_id"] for document in documents
         ]
+        self.received_query = query
         return {"documents": self.documents, "joins": self.joins}
 
 

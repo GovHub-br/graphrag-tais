@@ -41,16 +41,17 @@ class PipelineWrapper(BasePipelineWrapper):
         """Roda o motor e devolve os outputs relevantes (answer + subgrafo)."""
         if not self.pipeline:
             raise RuntimeError("Pipeline não inicializado no setup.")
-        return self.pipeline.run(
-            {
-                "dense_text_embedder": {"text": query},
-                "sparse_text_embedder": {"text": query},
-                "hybrid_retriever": {"top_k": top_k},
-                "subgraph_retriever": {"query": query},
-                "prompt_builder": {"query": query},
-            },
-            include_outputs_from=_MOTOR_OUTPUTS,
-        )
+        inputs = {
+            "dense_text_embedder": {"text": query},
+            "sparse_text_embedder": {"text": query},
+            "hybrid_retriever": {"top_k": top_k},
+            "subgraph_retriever": {"query": query},
+            "prompt_builder": {"query": query},
+        }
+        # Com rerank ligado, o corte do top-k migra do híbrido para o reranker.
+        if "reranker" in self.pipeline.graph.nodes:
+            inputs["reranker"] = {"query": query, "top_k": top_k}
+        return self.pipeline.run(inputs, include_outputs_from=_MOTOR_OUTPUTS)
 
     def run_api(self, query: str, top_k: int = 5) -> dict:
         """Contrato JSON: resposta estruturada (só o motor, sem executar SQL)."""

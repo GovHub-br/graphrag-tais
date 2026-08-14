@@ -55,7 +55,10 @@ class DeterministicHybridRetriever:
         query_sparse_embedding: SparseEmbedding,
         top_k: Optional[int] = None,
     ) -> dict:
-        k = top_k or self.top_k
+        # Com rerank ligado o corte deixa de ser aqui: o pool inteiro segue para
+        # o cross-encoder, que é quem sabe comparar pergunta e card. Cortar antes
+        # jogaria fora justamente os candidatos que o rerank existe para resgatar.
+        k = self.pool_size if settings.RERANK_ENABLED else (top_k or self.top_k)
         pool = max(self.pool_size, k)
         docs = self._inner.run(
             query_embedding=query_embedding,

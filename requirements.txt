@@ -51,3 +51,7 @@ uvicorn[standard]==0.51.0
 redis==8.0.1
 loguru==0.7.3
 httpx==0.28.1        # cliente REST do OpenMetadataSource
+# Parser SQL usado pela validação estrutural e pela métrica de fidelidade:
+# extrai tabelas/colunas/JOINs do SQL gerado para conferir contra o subgrafo
+# recuperado. Puro Python, sem dependência nativa.
+sqlglot==30.16.0

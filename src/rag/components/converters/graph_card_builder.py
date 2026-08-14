@@ -7,6 +7,7 @@ JSON bruto do OpenMetadata e não consulta valores de linha.
 from __future__ import annotations
 
 import hashlib
+import json
 from collections import defaultdict
 from typing import Any, Dict, List
 from uuid import NAMESPACE_URL, uuid5
@@ -35,6 +36,19 @@ class GraphCardBuilder:
             raise ValueError(
                 "OM_CARD_SCHEMA_VERSION e OM_EMBEDDING_PROFILE são obrigatórios"
             )
+        if self.card_schema_version not in {"v1", "v2"}:
+            raise ValueError(
+                f"OM_CARD_SCHEMA_VERSION desconhecida: {self.card_schema_version}"
+            )
+        self._domain_labels = self._parse_json_map(
+            settings.OM_DOMAIN_LABELS, "OM_DOMAIN_LABELS"
+        )
+        self._grain_keys = self._parse_json_map(
+            settings.OM_GRAIN_KEYS, "OM_GRAIN_KEYS"
+        )
+        self._value_vocab = self._parse_nested_map(
+            settings.OM_VALUE_VOCAB, "OM_VALUE_VOCAB"
+        )
 
     @staticmethod
     def _point_id(scope_id: str, card_id: str) -> str:
@@ -44,6 +58,67 @@ class GraphCardBuilder:
     @staticmethod
     def _content_hash(content: str) -> str:
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _short_schema(schema_fqn: str) -> str:
+        """Último segmento do FQN do schema — o nome físico, que é o que casa."""
+        return (schema_fqn or "").rsplit(".", 1)[-1]
+
+    def _domain(self, schema_fqn: str) -> str:
+        """Domínio de negócio do card v2.
+
+        Sem mapa configurado devolve o nome curto do schema, que já é um token
+        discriminante e funciona em qualquer catálogo. Com mapa, devolve o
+        rótulo de negócio — que é o que casa com a pergunta do usuário, escrita
+        em termos de negócio ("MCMV Entidades") e não de schema ("entidades_fds").
+        """
+        short = self._short_schema(schema_fqn)
+        return self._domain_labels.get(short, short)
+
+    def _grain(self, table_fqn: str) -> str:
+        return self._grain_keys.get(table_fqn, "")
+
+    def _vocab_line(self, table_fqn: str) -> str:
+        """Vocabulário de VALOR da tabela, para o texto indexado.
+
+        Em tabela EAV o termo da pergunta ("situação das obras", "execução
+        física") é um VALOR de linha, não um nome de coluna — e o card indexava
+        só os nomes. Sem esta linha, nenhum embedding e nenhum BM25 conseguem
+        casar, porque o termo não existe no índice.
+        """
+        cols = self._value_vocab.get(table_fqn) or {}
+        if not cols:
+            return ""
+        partes = [f"{col} = {', '.join(vals)}" for col, vals in cols.items() if vals]
+        return "Valores: " + "; ".join(partes) if partes else ""
+
+    @staticmethod
+    def _parse_nested_map(raw: str, field: str) -> dict[str, dict[str, list]]:
+        if not (raw or "").strip():
+            return {}
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"{field} não é JSON válido: {exc}") from exc
+        if not isinstance(parsed, dict):
+            raise ValueError(f"{field} precisa ser um objeto JSON")
+        return {
+            str(fqn): {str(c): [str(v) for v in vals] for c, vals in (cols or {}).items()}
+            for fqn, cols in parsed.items()
+            if isinstance(cols, dict)
+        }
+
+    @staticmethod
+    def _parse_json_map(raw: str, field: str) -> dict[str, str]:
+        if not (raw or "").strip():
+            return {}
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"{field} não é JSON válido: {exc}") from exc
+        if not isinstance(parsed, dict):
+            raise ValueError(f"{field} precisa ser um objeto JSON")
+        return {str(k): str(v) for k, v in parsed.items()}
 
     @staticmethod
     def _relationship_summary(
@@ -99,6 +174,122 @@ class GraphCardBuilder:
             "omitted_relationship_count": 0,
             "ingestion_run_id": records["ingestion_run_id"],
         }
+
+    # ------------------------------------------------------------------ #
+    # Conteúdo dos cards
+    #
+    # ATENÇÃO: este texto é usado APENAS para gerar o embedding. O contexto que
+    # vai ao LLM é remontado do Neo4j pelo Neo4jSubgraphRetriever, que lê só
+    # `meta["node_id"]` e `meta["card_type"]` do card. Portanto o texto pode ser
+    # otimizado livremente para recuperação sem afetar a resposta.
+    #
+    # v1 mantido intacto para reprodutibilidade dos runs já coletados.
+    # ------------------------------------------------------------------ #
+
+    def _table_content_v1(self, table, table_columns, table_relationships) -> str:
+        lines = [
+            "Tipo: tabela",
+            f"FQN: {table['node_id']}",
+            f"Nome: {table['name']}",
+        ]
+        if table.get("display_name") and table["display_name"] != table["name"]:
+            lines.append(f"Nome de exibição: {table['display_name']}")
+        lines.extend(
+            [
+                f"Descrição: {table.get('description') or ''}",
+                f"Schema: {table['schema']}",
+                "Colunas: "
+                + "; ".join(
+                    f"{column['name']}:{column['data_type']}"
+                    for column in table_columns
+                ),
+            ]
+        )
+        if table_relationships:
+            lines.append("Relacionamentos:")
+            lines.extend(
+                "- " + self._relationship_summary(rel, node_id=table["node_id"])
+                for rel in table_relationships
+            )
+        return "\n".join(lines)
+
+    def _column_content_v1(self, column, column_relationships) -> str:
+        lines = [
+            "Tipo: coluna",
+            f"FQN: {column['node_id']}",
+            f"Tabela: {column['table_node_id']}",
+            f"Nome: {column['name']}",
+            f"Tipo de dado: {column['data_type_display'] or column['data_type']}",
+            f"Descrição: {column.get('description') or ''}",
+            "Chave primária: " + ("sim" if column["is_primary_key"] else "não"),
+        ]
+        if column_relationships:
+            lines.append("Relacionamentos:")
+            lines.extend(
+                "- " + self._relationship_summary(rel, node_id=column["node_id"])
+                for rel in column_relationships
+            )
+        return "\n".join(lines)
+
+    def _table_content_v2(self, table, table_columns, table_relationships) -> str:
+        """Card de tabela denso em significado.
+
+        Sai do texto: `Tipo:` (está em meta.card_type), `FQN:` (meta.node_id),
+        `Schema:` (meta + grafo) e o tipo de dado de cada coluna (grafo). Entram
+        domínio de negócio e grão. Os NOMES de coluna ficam — são o que casa
+        lexicalmente quando a pergunta cita uma coluna.
+        """
+        name = table["name"]
+        display = table.get("display_name")
+        head = f"{name} — {display}" if display and display != name else name
+        lines = [head]
+        if table.get("description"):
+            lines.append(str(table["description"]).strip())
+        lines.append(f"Domínio: {self._domain(table.get('schema', ''))}")
+        # O grão NÃO entra no card. Medido em 2026-08-12: incluí-lo piora MRR
+        # (0,875 -> 0,792) e infla o prompt, porque "um registro por apf" se
+        # repete em dezenas de tabelas e não discrimina nada. O valor do grão é
+        # gerar SQL correto, e o card é só embedding — ele nunca chega ao LLM.
+        # Por isso o grão é serializado pelo Neo4jSubgraphRetriever, no contexto.
+        if table_columns:
+            lines.append(
+                "Colunas: " + ", ".join(c["name"] for c in table_columns)
+            )
+        vocab = self._vocab_line(table["node_id"])
+        if vocab:
+            lines.append(vocab)
+        if table_relationships:
+            lines.append("Relacionamentos:")
+            lines.extend(
+                "- " + self._relationship_summary(rel, node_id=table["node_id"])
+                for rel in table_relationships
+            )
+        return "\n".join(lines)
+
+    def _column_content_v2(self, column, column_relationships) -> str:
+        """Card de coluna denso em significado.
+
+        O caminho completo saía DUAS vezes (`FQN:` e `Tabela:`) e sozinho valia
+        metade do card. Aqui fica só o nome curto da tabela — que é o que casa —
+        e o tipo de dado migra para o payload/grafo. `Chave primária: não`, que
+        aparecia em todos os 1.215 cards, some quando é falso.
+        """
+        table_name = str(column["table_node_id"]).rsplit(".", 1)[-1]
+        description = str(column.get("description") or "").strip()
+        head = f"{column['name']} — {description}" if description else column["name"]
+        lines = [head, f"Tabela: {table_name}"]
+        schema_fqn = str(column["table_node_id"]).rsplit(".", 1)[0]
+        lines.append(f"Domínio: {self._domain(schema_fqn)}")
+        # Grão fora do card, pelo mesmo motivo do card de tabela — ver acima.
+        if column.get("is_primary_key"):
+            lines.append("Chave primária")
+        if column_relationships:
+            lines.append("Relacionamentos:")
+            lines.extend(
+                "- " + self._relationship_summary(rel, node_id=column["node_id"])
+                for rel in column_relationships
+            )
+        return "\n".join(lines)
 
     @component.output_types(
         documents=List[Document],
@@ -157,34 +348,11 @@ class GraphCardBuilder:
                 relationships_by_table.get(table_fqn, []),
                 key=lambda item: item["relationship_id"],
             )
-            lines = [
-                "Tipo: tabela",
-                f"FQN: {table_fqn}",
-                f"Nome: {table['name']}",
-            ]
-            if table.get("display_name") and table["display_name"] != table["name"]:
-                lines.append(f"Nome de exibição: {table['display_name']}")
-            lines.extend(
-                [
-                    f"Descrição: {table.get('description') or ''}",
-                    f"Schema: {table['schema']}",
-                    "Colunas: "
-                    + "; ".join(
-                        f"{column['name']}:{column['data_type']}"
-                        for column in table_columns
-                    ),
-                ]
+            content = (
+                self._table_content_v2(table, table_columns, table_relationships)
+                if self.card_schema_version == "v2"
+                else self._table_content_v1(table, table_columns, table_relationships)
             )
-            if table_relationships:
-                lines.append("Relacionamentos:")
-                lines.extend(
-                    "- "
-                    + self._relationship_summary(
-                        relationship, node_id=table_fqn
-                    )
-                    for relationship in table_relationships
-                )
-            content = "\n".join(lines)
             relationship_ids = [
                 relationship["relationship_id"]
                 for relationship in table_relationships
@@ -220,26 +388,11 @@ class GraphCardBuilder:
                 relationships_by_column.get(column_fqn, []),
                 key=lambda item: item["relationship_id"],
             )
-            lines = [
-                "Tipo: coluna",
-                f"FQN: {column_fqn}",
-                f"Tabela: {column['table_node_id']}",
-                f"Nome: {column['name']}",
-                f"Tipo de dado: {column['data_type_display'] or column['data_type']}",
-                f"Descrição: {column.get('description') or ''}",
-                "Chave primária: "
-                + ("sim" if column["is_primary_key"] else "não"),
-            ]
-            if column_relationships:
-                lines.append("Relacionamentos:")
-                lines.extend(
-                    "- "
-                    + self._relationship_summary(
-                        relationship, node_id=column_fqn
-                    )
-                    for relationship in column_relationships
-                )
-            content = "\n".join(lines)
+            content = (
+                self._column_content_v2(column, column_relationships)
+                if self.card_schema_version == "v2"
+                else self._column_content_v1(column, column_relationships)
+            )
             relationship_ids = [
                 relationship["relationship_id"]
                 for relationship in column_relationships

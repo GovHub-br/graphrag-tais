@@ -103,6 +103,31 @@ def _col_matches(name: str, description: str, tokens: set) -> bool:
     return any(tok in haystack for tok in tokens)
 
 
+_GRAIN_CACHE: dict | None = None
+
+
+def _grain_for(table_fqn: str) -> str:
+    """Grão declarado da tabela, para o contexto do LLM.
+
+    Vem de `OM_GRAIN_KEYS` (FQN -> frase). O MCid não declara PK nem FK, então o
+    grão foi medido no banco — ver docs/20260812-metodo-profiling-grao.md. A
+    casa definitiva é uma Custom Property no OpenMetadata, virando propriedade
+    do nó `Table`; a config é a ponte até lá.
+    """
+    global _GRAIN_CACHE
+    if _GRAIN_CACHE is None:
+        import json
+
+        from rag.settings.configs import settings
+        raw = (settings.OM_GRAIN_KEYS or "").strip()
+        try:
+            _GRAIN_CACHE = json.loads(raw) if raw else {}
+        except json.JSONDecodeError:
+            logger.warning("OM_GRAIN_KEYS não é JSON válido; grão desativado")
+            _GRAIN_CACHE = {}
+    return _GRAIN_CACHE.get(table_fqn, "")
+
+
 def _schema_short(schema_fqn: str | None, table_fqn: str) -> str:
     """Último segmento do FQN do schema (ex.: 'Cidades.cidades.conjuntura_gold'
     → 'conjuntura_gold'). É o schema físico usado no SQL do Postgres."""
@@ -191,7 +216,8 @@ class Neo4jSubgraphRetriever:
             )
             total_cols += len(kept)
             out.append(Document(
-                content=self._serialize_table(row, sql_name, kept),
+                content=self._serialize_table(row, sql_name, kept,
+                                              grain=_grain_for(table_fqn)),
                 meta={
                     "node_id": table_fqn,
                     "fqn": table_fqn,
@@ -260,10 +286,22 @@ class Neo4jSubgraphRetriever:
         return [c for c in all_cols if c["name"] in keep_names]
 
     @staticmethod
-    def _serialize_table(row: dict, sql_name: str, columns: list) -> str:
+    def _serialize_table(row: dict, sql_name: str, columns: list,
+                         grain: str = "") -> str:
         """DDL-compacto pro contexto do LLM. Mostra o nome físico (schema.table)
-        que deve ir no SQL e, entre parênteses, o FQN completo do catálogo."""
+        que deve ir no SQL e, entre parênteses, o FQN completo do catálogo.
+
+        O `grain` é o que impede agregação errada: sem ele o gerador soma linhas
+        repetidas e infla o resultado. Em 8 tabelas do MCid as linhas estão
+        exatamente duplicadas (2x a 8x), e a frase de grão carrega a instrução
+        de deduplicar."""
         lines = [f"Tabela: {sql_name}   (FQN: {row['table_fqn']})"]
+        # Grão e descrição vêm ANTES das colunas e nessa ordem: são o que
+        # distingue tabelas irmãs que falam do mesmo assunto em níveis de
+        # agregação diferentes, e é por essa linha que o SYSTEM_PROMPT manda
+        # escolher. Enterrá-las depois de 25 colunas era desperdiçar o sinal.
+        if grain:
+            lines.append(f"  Grão: {grain}")
         if row.get("table_desc"):
             lines.append(f"  Descrição: {row['table_desc']}")
         lines.append("  Colunas:")

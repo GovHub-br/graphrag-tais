@@ -1,0 +1,60 @@
+{
+  "experiment_id": "20260812-bm25-idioma-e-reranker",
+  "status": "measured",
+  "dataset": {"name": "mcid-business-retrieval", "version": "0.1.0", "status": "draft", "cases": 8},
+  "contexto": "Itens 1.2 e 3.1 do plano, medidos sobre o card v2 + qwen3-embedding:4b + grao no contexto.",
+
+  "parte_1_bm25_idioma": {
+    "hipotese": "O embedder esparso roda com o default do fastembed (`english`): stemmer e stopwords inglesas sobre corpus e perguntas em PT-BR. Trocar para `portuguese` nos DOIS lados deve melhorar o casamento lexical.",
+    "implementacao": "O wrapper do Haystack nao expoe `language`; vai por `model_kwargs={'language': ...}`. Nova env SPARSE_LANGUAGE (default portuguese). Exige reindexar o vetor esparso.",
+    "evidencia_de_tokenizacao": {
+      "ingles":     {"unidades habitacionais entregues": ["unidad","habitacionai","entregu"], "unidade habitacional entregue": ["unidad","habitacion","entregu"]},
+      "portugues":  {"unidades habitacionais entregues": ["unidad","habitacion","entregu"], "unidade habitacional entregue": ["unidad","habitacional","entreg"]},
+      "leitura": "AMBOS erram o par habitacionais/habitacional — o stemmer portugues do fastembed tambem e inconsistente. O ganho real do portugues vem de (a) stemizar mais fundo onde importa (empreendimento->empreend, contratado->contrat, casando todas as flexoes) e (b) remover stopwords PT: a pergunta completa cai de 9 para 7 termos, tirando 'quais/sao/os' que viravam termos de IDF alto."
+    },
+    "resultados": {
+      "canal_sparse_isolado": {
+        "structural_sufficiency": "0.7500 -> 0.8750",
+        "table_recall": "0.7500 -> 0.8750",
+        "seed_table_reachable_at_5": "0.6250 -> 0.6875",
+        "seed_recall_at_5": "0.1901 -> 0.2212 (+16%)",
+        "mrr_at_10": "0.6042 -> 0.6250",
+        "ndcg_at_10": "0.3634 -> 0.4457 (+23%)"
+      },
+      "canal_hibrido": {
+        "structural_sufficiency": "1.0 -> 1.0",
+        "table_recall": "1.0 -> 1.0",
+        "seed_table_reachable_at_5": "0.9375 -> 0.9375",
+        "seed_recall_at_5": "0.3052 -> 0.3510 (+15%)",
+        "ndcg_at_10": "0.5545 -> 0.5609",
+        "mrr_at_10": "0.8750 -> 0.8125 (-7%)"
+      }
+    },
+    "decisao": "ADOTADO. No canal esparso isolado o portugues ganha em TODAS as metricas, com nDCG +23% e suficiencia 0.75->0.875. No hibrido preserva os guardrails com seed@5 +15% e nDCG levemente acima; a queda de MRR (-7%) fica registrada como o custo. .env: SPARSE_LANGUAGE=portuguese, QDRANT_COLLECTION=documents_mcid_ptbm25."
+  },
+
+  "parte_2_reranker": {
+    "hipotese": "O RRF so conhece POSICAO em cada canal; um cross-encoder le pergunta e card juntos e pontua relevancia — deveria separar candidatos quase identicos (FAR x FDS) e permitir cortar mais contexto.",
+    "implementacao": "Componente FastembedReranker (fastembed TextCrossEncoder, CPU/ONNX, on-prem). Com RERANK_ENABLED=true o hibrido devolve o POOL inteiro e o corte migra para o reranker. Desligado por default.",
+    "nota_sobre_ollama": "O `qllama/bge-reranker-v2-m3` ja baixado no Ollama NAO serve: /api/embeddings devolve embedding (nao score de relevancia) e /api/generate devolve texto degenerado. Ollama nao expoe cross-encoder. Por isso fastembed.",
+    "benchmark_de_latencia_microtest": {
+      "Xenova/ms-marco-MiniLM-L-6-v2": "0.83s / 30 docs — mas e modelo SO INGLES",
+      "BAAI/bge-reranker-base": "4.44s / 30 docs",
+      "jinaai/jina-reranker-v2-base-multilingual": "4.38s / 30 docs"
+    },
+    "resultados_no_gold": {
+      "modelo": "jinaai/jina-reranker-v2-base-multilingual",
+      "gold_at_5": "18 -> 18 (sem ganho)",
+      "fora_dominio": "3/40 -> 1/40 (melhora)",
+      "seed_table_reachable_at_5": "0.9375 -> 0.7500 (REGRESSAO de 20%)",
+      "latencia_rerank": "p50 49.71s, p95 103.95s com cards reais (o microteste usava cards curtos e repetidos, subestimando em ~10x)"
+    },
+    "decisao": "NAO ADOTAR. Reprova em dois eixos independentes: (1) qualidade — zero ganho de sementes-gold e queda de 20% no reach@5, que e a metrica que modela o runtime e alimenta a suficiencia estrutural; (2) latencia — 49.7s de p50 contra o criterio de 800ms do plano. Fica implementado atras de RERANK_ENABLED=false para reavaliacao futura (GPU, modelo menor multilingue, ou pool reduzido).",
+    "hipoteses_para_retomar": [
+      "O reranker foi treinado em prosa; nossos cards sao registros estruturados curtos. O ganho tipico de cross-encoder pode simplesmente nao se transferir para este tipo de texto.",
+      "Com GPU a latencia cairia uma ordem de grandeza, mas a REGRESSAO de qualidade continuaria — entao GPU sozinha nao resolve.",
+      "Vale testar reranking apenas do top-10 (nao do pool de 30) e so em perguntas ambiguas, se algum dia o custo/beneficio virar."
+    ]
+  },
+  "reviewer": null
+}
