@@ -1,0 +1,27 @@
+{
+  "schema_version": "1",
+  "name": "explore-synthetic",
+  "version": "0.0.1",
+  "status": "draft",
+  "metadata": {
+    "description": "Dataset sintético para exercitar as fórmulas do scorer sem Qdrant, Neo4j, Ollama ou OpenAI. Os valores de cada métrica são calculáveis à mão e estão assertados em tests/test_explore_eval.py."
+  },
+  "cases": [
+    {
+      "id": "syn-graded-001",
+      "question": "o que existe sobre o assunto A?",
+      "critical": true,
+      "slices": ["sintetico", "graduado"],
+      "table_relevance": {"a.t1": 3, "a.t2": 2, "b.t3": 1},
+      "expected_domains": ["a"],
+      "expected_gaps": ["custo unitário"]
+    },
+    {
+      "id": "syn-single-002",
+      "question": "e sobre o assunto estreito?",
+      "slices": ["sintetico", "estreito"],
+      "table_relevance": {"a.t1": 3},
+      "expected_domains": ["a"]
+    }
+  ]
+}

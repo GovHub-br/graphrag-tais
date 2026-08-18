@@ -54,6 +54,7 @@ inclusive o próprio autor daqui a seis meses — entenda *por que* o sistema é
 | [0011](./0011-contrato-detalhado-da-ingestao-openmetadata-neo4j-qdrant.md) | Contrato detalhado da ingestão OpenMetadata → Neo4j e Qdrant | Proposto |
 | [0012](./0012-desenvolvimento-orientado-a-metricas-no-retrieval.md) | Desenvolvimento orientado a métricas no retrieval | Proposto |
 | [0013](./0013-execucao-via-postgres-mcp-e-grafico-chart-spec-no-v1.md) | Execução via postgres-mcp com auto-correção e gráfico por chart-spec | Proposto |
+| [0014](./0014-personas-e-modos-de-uso-do-assistente.md) | Duas personas como dois modos de uso do assistente | Proposto |
 
 ### Temas candidatos a ADR (backlog)
 

@@ -1,0 +1,30 @@
+{
+  "policy_version": "0.1.0",
+  "persona": "1 — explorar",
+  "description": "Política de aceite do modo Explorar. Os pisos NÃO são metas de qualidade: são o mínimo abaixo do qual a resposta engana quem está explorando. Só vale como gate com gold `accepted` — em `draft`, o CLI marca o resultado como não conclusivo.",
+  "min": {
+    "catalog_fidelity": 1.0,
+    "answered_rate": 1.0,
+    "question_groundedness": 1.0,
+    "sample_sql_grounded": 1.0,
+    "core_recall_at_10": 0.8,
+    "table_recall_at_10": 0.7,
+    "mrr_at_10": 0.6,
+    "ndcg_at_10": 0.6,
+    "domain_recall": 0.8
+  },
+  "max_regression": {
+    "table_recall_at_10": 0.03,
+    "core_recall_at_10": 0.03,
+    "mrr_at_10": 0.05,
+    "ndcg_at_10": 0.05,
+    "map_at_10": 0.05,
+    "domain_recall": 0.05,
+    "gap_disclosure": 0.05
+  },
+  "notes": {
+    "catalog_fidelity": "Único piso absoluto em 1,0: uma tabela inventada é entregue como verdade a quem não tem como conferir.",
+    "listed_ratio": "Sem piso e sem teto por enquanto — precisa de uma rodada real para saber o que é despejo de catálogo neste corpus. Ler sempre ao lado de precision@k.",
+    "core_recall_at_10": "A métrica que responde 'a pessoa saiu sabendo da tabela principal?'. É a que mais importa das de ranking."
+  }
+}

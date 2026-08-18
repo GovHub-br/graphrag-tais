@@ -6,9 +6,29 @@ schema (Qdrant + Neo4j) → gera SQL → executa (read-only) → devolve explica
 entrega imediata é o MinC, mas o **desenvolvimento/validação é sobre o MCid**
 (ADR-0000). Servido pelo **open-webui** (chat).
 
+**Duas personas = dois modelos no dropdown do open-webui** (ADR-0014). Escolha
+explícita, sem classificador de intenção:
+
+| nome exibido | id / pipeline / rota | persona | entrega |
+|---|---|---|---|
+| **Indicador** | `query` · `/query/run` | 2 — já sabe o que medir | bases, SQL, explicação, **gráfico**, relatório `.docx` |
+| **Explorar** | `explore` · `/explore/run` | 1 — não conhece as bases | panorama, tabelas + **grão**, SQL de amostra, **lacunas** |
+
+⚠️ **Nome exibido ≠ id.** O Hayhooks deriva o id do modelo do NOME DO DIRETÓRIO da
+pipeline (`pipeline_name = pipeline_dir.name`), sem hook de override — renomear o
+diretório mudaria as rotas HTTP e quebraria o histórico de conversas do open-webui
+(que guarda o id). Por isso os nomes bonitos ficam na **camada do open-webui**
+(Workspace → Models → Edit → Name), e o código mantém `query` e `explore`.
+
+⚠️ **A Persona 2 é território calibrado e medido** — `pipelines/query`,
+`pipelines/delivery`, `Neo4jSubgraphRetriever`, poda, `EXPANSION_MODE`. O modo
+Explorar é **estritamente aditivo** (componentes e pipeline próprios; só
+`configs.py` foi tocado, e só para acrescentar campos `EXPLORE_*`). Mudança no
+modo Explorar **não** deve alterar arquivo do caminho da Persona 2.
+
 ## Verdade da arquitetura: os ADRs
 
-Todas as decisões estão em `docs/adr/` (**0000–0013**) — índice em `docs/adr/README.md`.
+Todas as decisões estão em `docs/adr/` (**0000–0014**) — índice em `docs/adr/README.md`.
 **Leia os ADRs antes de decidir algo de arquitetura.** Regra: um ADR só cita ADR de
 número menor. Destaques recentes: **0011** (contrato da ingestão, substitui o 0005),
 **0012** (eval orientado a métricas), **0013** (execução via postgres-mcp + gráfico por
@@ -51,8 +71,11 @@ SQL gerado (a serialização usa o nome físico, não o FQN do catálogo).
    Grava Neo4j primeiro; o `GraphWriteGate` só libera embeddings→Qdrant após o Neo4j confirmar.
 4. **Query (JSON, só motor)**: `POST http://localhost:8000/query/run` `{"query":"..."}` — devolve
    explicação + SQL + IR + referências (NÃO executa SQL).
-5. **Chat (motor + execução + gráfico)**: `docker compose up -d webui` (:3000) → modelo **`query`**.
+5. **Chat (motor + execução + gráfico)**: `docker compose up -d webui` (:3000) → modelo **`Indicador`**.
    O `run_chat_completion` compõe motor + entrega e embute o gráfico (PNG base64) no Markdown.
+6. **Explorar (Persona 1)**: modelo **`Explorar`** no mesmo webui, ou
+   `POST http://localhost:8000/explore/run` `{"query":"..."}`. Sem execução, sem gráfico,
+   sem `.docx` — uma chamada de LLM só.
 
 ## Acessos (dev — trocar em prod)
 
@@ -127,6 +150,57 @@ entrada é uma string Markdown única, mais simples converter direto). Armazenam
 (interno, upload) ≠ `MINIO_PUBLIC_ENDPOINT` (assina a URL p/ o navegador do usuário) —
 senão o link quebra fora do Docker.
 
+### Modo Explorar — Persona 1 (ADR-0014) ✅
+
+Pipeline SEPARADA `pipelines/explore/`, exposta como o modelo **`Explorar`**. Reusa a
+primeira metade da Persona 2 (embedding híbrido + Qdrant) via factory, com `top_k`
+**15** (cobertura > precisão), e troca o passo de grafo:
+
+- **`Neo4jCatalogRetriever`** (não é variante do `Neo4jSubgraphRetriever` — é outro
+  componente, para não tocar no caminho medido da Persona 2): (a) devolve os documentos
+  **ordenados por relevância** (sementes na ordem do híbrido, depois vizinhos herdando a
+  posição de quem os puxou) — a ordem É o contrato que o eval pontua, não reordenar por
+  FQN; (b) expansão **ampla** (todos os vizinhos de 1 hop, elegíveis ou não); (c)
+  **panorama de domínios** por Cypher agregado → "quais bases existem" tem resposta
+  determinística, sem passar por embedding. Importa (só leitura) `_tokenize`,
+  `_grain_for` e `_schema_short` do retriever da Persona 2: fonte da verdade única.
+- **`ExploreAnswerBuilder`**: resposta em ordem de LEITURA — resumo direto →
+  **tabela-resumo** (Markdown, agrupada por domínio, uma linha por tabela) → detalhe
+  longo **só das destacadas** → JOINs (tabela) → perguntas sugeridas (tabela) → SQL de
+  amostra → **o que não existe**. Duas invariantes: **nada fora do catálogo** (tabela
+  citada pelo LLM que não existe é descartada e contada em `off_catalog_tables`) e
+  **cobertura não limitada pelo LLM** (ele prioriza, não filtra — o resto do recuperado
+  segue listado). `ranked_tables` é a ordem de apresentação e é o que o eval pontua.
+  ⚠️ Célula de tabela passa por `_cell` (escapa `|`, corta em fronteira de palavra).
+- **Pergunta de catálogo** ("quais bases vocês têm?"): o retriever devolve top-k para
+  QUALQUER texto, então o caminho "sem sementes" **nunca dispara na prática** — sem
+  tratamento, uma amostra do índice sairia apresentada como se fosse o catálogo.
+  `_is_catalog_question` reconhece pela frase (com guarda negativa em "sobre/isso",
+  que denuncia tema) e põe o **panorama determinístico** no topo; as tabelas
+  recuperadas viram "uma amostra".
+- **`SCOPE_GAPS`** (env JSON `{conceito: mensagem}`): transforma "refine a pergunta" na
+  recusa informativa do item C2 ("não tenho execução orçamentária; tenho contratado e
+  desembolsado"). **Vazio por default** → `gap_disclosure` mede pouco até ser preenchido.
+- Sem execução de SQL, sem gráfico, sem `.docx`: 1 chamada de LLM.
+
+## Como rodar o eval do modo Explorar (Persona 1)
+
+Benchmark próprio em `eval/explore/` — separado porque a **unidade do gabarito muda**
+(conjunto graduado de tabelas, não subgrafo mínimo). Métricas de ranking
+(`recall@k`, `core_recall@k`, `MRR@k`, `nDCG@k` graduado, `MAP@k` em k ∈ 5/10/15) +
+contrato da persona (`catalog_fidelity`, `gap_disclosure`, `domain_recall`, …).
+
+```bash
+make explore-quick    # offline: contrato do gold + 42 testes do motor de métricas
+make eval-explore     # live: chama o LLM, roda no container, já pontua
+make explore-score    # repontua um run salvo, sem gastar LLM
+```
+
+⚠️ **`table_recall` é gameável** — listar o catálogo inteiro dá 1,0. Ler sempre com
+`table_precision@k` e `listed_ratio` ao lado (assertado em `TestAntiGaming`).
+Gold `mcid-explore-v0.1.0` = **`draft`, 18 casos, sem revisão de domínio** → diagnóstico,
+não gate; o CLI marca o gate como não conclusivo enquanto não for `accepted`.
+
 ## Como rodar o eval de retrieval (gate MDD)
 
 O collector ao vivo (`eval/retrieval/live.py`) usa os **componentes de produção** e precisa dos
@@ -190,5 +264,9 @@ docker exec -w /app -e PYTHONPATH=/app:/app/src hayhooks python -m eval.retrieva
   (`logo_govhub_light.png`, `symbol_govhub.png`, `fonts/Inter-*.ttf`).
 - `src/rag/components/storage/minio_uploader.py` — upload do `.docx` no MinIO + URL assinada.
 - `src/rag/pipelines/query/` (motor) e `pipelines/delivery/` (execução+gráfico); `settings/configs.py` (tudo tunável por env).
+- **Persona 1 (ADR-0014)**: `components/retrievers/neo4j_catalog_retriever.py`,
+  `components/answer/explore_answer_builder.py`, `pipelines/explore/`,
+  `eval/explore/` (métricas + gold + política), `tests/test_explore_eval.py` (host) e
+  `tests/test_explore_components.py` (precisa do Haystack → container).
 - `scripts/inspect_retrieval.py` — debug do retrieval (sementes + subgrafo, sem LLM).
 - `docs/adr/0013-*.md`, `eval/experiments/20260804-*` (Fase 1/2 + comparativo).
