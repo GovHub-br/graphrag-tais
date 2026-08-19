@@ -12,7 +12,7 @@ explícita, sem classificador de intenção:
 | nome exibido | id / pipeline / rota | persona | entrega |
 |---|---|---|---|
 | **Indicador** | `query` · `/query/run` | 2 — já sabe o que medir | bases, SQL, explicação, **gráfico**, relatório `.docx` |
-| **Explorar** | `explore` · `/explore/run` | 1 — não conhece as bases | panorama, tabelas + **grão**, SQL de amostra, **lacunas** |
+| **Explorar** | `explore` · `/explore/run` | 1 — não conhece as bases | panorama, tabelas + **grão**, **amostra de linhas reais + CSV**, **lacunas** |
 
 ⚠️ **Nome exibido ≠ id.** O Hayhooks deriva o id do modelo do NOME DO DIRETÓRIO da
 pipeline (`pipeline_name = pipeline_dir.name`), sem hook de override — renomear o
@@ -74,8 +74,8 @@ SQL gerado (a serialização usa o nome físico, não o FQN do catálogo).
 5. **Chat (motor + execução + gráfico)**: `docker compose up -d webui` (:3000) → modelo **`Indicador`**.
    O `run_chat_completion` compõe motor + entrega e embute o gráfico (PNG base64) no Markdown.
 6. **Explorar (Persona 1)**: modelo **`Explorar`** no mesmo webui, ou
-   `POST http://localhost:8000/explore/run` `{"query":"..."}`. Sem execução, sem gráfico,
-   sem `.docx` — uma chamada de LLM só.
+   `POST http://localhost:8000/explore/run` `{"query":"..."}`. Sem gráfico e sem `.docx`;
+   **executa só o SQL de amostra** (ADR-0015), que no caminho normal não gasta LLM.
 
 ## Acessos (dev — trocar em prod)
 
@@ -202,7 +202,19 @@ primeira metade da Persona 2 (embedding híbrido + Qdrant) via factory, com `top
 - **`SCOPE_GAPS`** (env JSON `{conceito: mensagem}`): transforma "refine a pergunta" na
   recusa informativa do item C2 ("não tenho execução orçamentária; tenho contratado e
   desembolsado"). **Vazio por default** → `gap_disclosure` mede pouco até ser preenchido.
-- Sem execução de SQL, sem gráfico, sem `.docx`: 1 chamada de LLM.
+- **Amostra de dados reais (ADR-0015)** ✅: o `sample_sql` é executado e a resposta traz
+  **10 linhas** numa tabela + link do **CSV** (100 linhas) + a consulta que rodou.
+  Escada em `components/samples/`: guarda `sqlglot` (uma instrução, leitura só, envelope
+  `SELECT * FROM (…) LIMIT n`) → execução **direta** pelo MCP (0 LLM) → autocorreção do
+  `Agent` com contexto **enxuto** (só a tabela alvo; `EXPLORE_SAMPLE_AUTOCORRECT`) →
+  **reconstrução pelo catálogo** (`SELECT <colunas do Neo4j> FROM <tabela> LIMIT n`, 0 LLM),
+  que é o degrau que **garante** amostra. `origin` ∈ {llm, corrigido, catalogo} vai no
+  `answer["sample"]` e é o que o eval pontua. CSV `utf-8-sig` + `;` (abre no Excel pt-BR),
+  bucket **`amostras`** e URL assinada **curta** (15 min) — separado dos relatórios porque
+  é o primeiro conteúdo do sistema que **não é metadado**. ⚠️ Sem filtro de PII: a ingestão
+  guarda `tags` por coluna, o gancho existe, não está implementado (escopo MCid é público).
+- Sem gráfico e sem `.docx`. O caminho normal segue em **1 chamada de LLM** (a amostra usa o
+  MCP direto); só a autocorreção da amostra gasta modelo, e só quando o banco recusa.
 
 ## Como rodar o eval do modo Explorar (Persona 1)
 

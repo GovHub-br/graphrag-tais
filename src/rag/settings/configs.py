@@ -164,8 +164,26 @@ class Settings(BaseSettings):
     EXPLORE_LLM_REORDER: bool = Field(
         True, description="LLM reordena o topo do panorama (vs. ordem do retrieval)"
     )
+    # Amostra de dados reais na resposta da Persona 1: executa o `sample_sql`,
+    # mostra as primeiras linhas no chat e publica o CSV para download.
     EXPLORE_EXECUTE_SAMPLE: bool = Field(
-        False, description="Executa o SQL de amostra (desligado até ser medido)"
+        True, description="Executa o SQL de amostra e mostra linhas reais na resposta"
+    )
+    EXPLORE_SAMPLE_ROWS: int = Field(
+        100, description="Linhas buscadas na amostra (vão inteiras para o CSV)"
+    )
+    EXPLORE_SAMPLE_PREVIEW_ROWS: int = Field(
+        10, description="Linhas da amostra exibidas na tabela do chat"
+    )
+    # A escada da amostra tenta a consulta do LLM, depois a autocorreção e, por
+    # fim, reconstrói a consulta pelo catálogo (sem LLM). Desligar a
+    # autocorreção não tira a amostra — tira a preservação da INTENÇÃO da
+    # consulta quando o banco recusa a versão do modelo.
+    EXPLORE_SAMPLE_AUTOCORRECT: bool = Field(
+        True, description="Deixa o Agent corrigir o SQL da amostra quando o banco recusa"
+    )
+    EXPLORE_SAMPLE_AGENT_STEPS: int = Field(
+        3, description="Teto de passos do Agent na autocorreção da amostra"
     )
     # Lacunas conhecidas de escopo: {conceito: "o que existe no lugar"}. É o que
     # transforma "refine a pergunta" em recusa informativa ("não tenho execução
@@ -246,6 +264,12 @@ class Settings(BaseSettings):
     MINIO_ACCESS_KEY: str = Field("minioadmin", description="MinIO access key")
     MINIO_SECRET_KEY: str = Field("minioadmin", description="MinIO secret key")
     MINIO_BUCKET: str = Field("relatorios", description="Bucket dos relatórios")
+    # Linhas do banco não moram junto com relatórios, e a URL delas expira
+    # antes: é o primeiro conteúdo do sistema que não é metadado.
+    SAMPLE_BUCKET: str = Field("amostras", description="Bucket dos CSVs de amostra")
+    SAMPLE_PRESIGN_EXPIRY: int = Field(
+        900, description="Validade (s) da URL do CSV de amostra (default 15 min)"
+    )
     MINIO_REGION: str = Field("us-east-1", description="Região (formalidade do SigV4)")
 
     # ------------------------------------------------------------------ #

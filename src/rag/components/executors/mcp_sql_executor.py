@@ -56,11 +56,17 @@ class McpSqlExecutor:
         mcp_url: str | None = None,
         max_steps: int | None = None,
         max_rows: int | None = None,
+        direct_only: bool = False,
     ) -> None:
         self.mcp_url = mcp_url or settings.POSTGRES_MCP_URL
         self.max_steps = max_steps or settings.AGENT_MAX_STEPS
         self.max_rows = max_rows or settings.MAX_EXEC_ROWS
         self.direct_timeout = settings.MCP_DIRECT_TIMEOUT
+        # `direct_only=True`: executa só pelo caminho direto, sem Agent e sem
+        # LLM. Aditivo — o default preserva a Persona 2. Existe para a amostra
+        # da Persona 1, que tem escada própria de recuperação (reconstrói a
+        # consulta pelo catálogo em vez de pedir correção ao modelo).
+        self.direct_only = direct_only
         self._agent = None  # construído preguiçosamente
 
     # ------------------------------------------------------------------ #
@@ -111,7 +117,7 @@ class McpSqlExecutor:
         # mesmo quando o SQL rodava de primeira — que é o caso quase sempre
         # (fidelidade ao schema medida em 1,0). Só caímos no Agent se o banco
         # recusar, preservando a autocorreção onde ela de fato serve.
-        if settings.MCP_DIRECT_FIRST:
+        if settings.MCP_DIRECT_FIRST or self.direct_only:
             direct = self._execute_direct(sql)
             if direct is not None:
                 columns, rows, parse_error = self._parse_rows(direct)
@@ -129,6 +135,9 @@ class McpSqlExecutor:
                         "exec_ok": True,
                         "error": "",
                     }
+            if self.direct_only:
+                empty["error"] = "o banco recusou o SQL (execução direta, sem autocorreção)"
+                return empty
             logger.info("McpSqlExecutor: execução direta falhou; acionando autocorreção")
 
         user_msg = (

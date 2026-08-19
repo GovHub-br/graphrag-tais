@@ -247,6 +247,64 @@ class TestExploreAnswerBuilder(unittest.TestCase):
         self.assertIn("1 linha por empreendimento", markdown)  # grão exposto
         self.assertIn("Indicador", markdown)  # handoff (nome exibido) para a Persona 2
 
+    # ------------------------------------------------------------------ #
+    # Amostra de dados: a Persona 1 vê LINHAS reais, não só o SQL que as traria
+    # ------------------------------------------------------------------ #
+    _SAMPLE = {
+        "ok": True,
+        "sql": "SELECT uf, total FROM far.alfa LIMIT 100",
+        "origin": "llm",
+        "table": "far.alfa",
+        "columns": ["uf", "total", "obs"],
+        "rows": [{"uf": "SP", "total": 412, "obs": None},
+                 {"uf": "MG", "total": 118, "obs": None}],
+        "row_count": 2,
+        "preview_rows": 10,
+        "url": "http://minio.local/amostra.csv",
+        "file_name": "amostra.csv",
+    }
+
+    def _answer_with_sample(self, sample: dict | None = None) -> tuple[dict, str]:
+        builder = ExploreAnswerBuilder()
+        out = builder.run(
+            replies=self._reply({
+                "summary": "resumo",
+                "tables": [{"table": "far.alfa", "why": "porque sim"}],
+                "sample_sql": "SELECT uf FROM far.alfa LIMIT 20",
+                "sample_sql_rationale": "amostra",
+            }),
+            documents=self._docs(), catalog=["far.alfa", "far.beta"], query="q",
+        )
+        answer = out["answer"]
+        answer["sample"] = self._SAMPLE if sample is None else sample
+        return answer, builder.render(answer, [])
+
+    def test_sample_rows_replace_the_sql_only_block(self):
+        _, markdown = self._answer_with_sample()
+        self.assertIn("Uma amostra do dado", markdown)
+        self.assertNotIn("SQL de amostra (para ver o dado)", markdown)
+        self.assertIn("| `uf` |", markdown)
+        self.assertIn("| SP |", markdown.replace(" | 412 |", " |"))
+        # o SQL que produziu a amostra continua na resposta, depois das linhas
+        self.assertLess(markdown.index("Uma amostra"), markdown.index("```sql"))
+        self.assertIn("SELECT uf, total FROM far.alfa", markdown)
+
+    def test_sample_offers_the_csv_download(self):
+        _, markdown = self._answer_with_sample()
+        self.assertIn("Baixar a amostra", markdown)
+        self.assertIn("http://minio.local/amostra.csv", markdown)
+
+    def test_numeric_column_is_right_aligned_and_null_is_visible(self):
+        _, markdown = self._answer_with_sample()
+        linha_alinhamento = [l for l in markdown.splitlines() if l.startswith("| :--")][-1]
+        self.assertIn("--:", linha_alinhamento)   # a coluna numérica alinha à direita
+        self.assertIn("—", markdown)              # nulo aparece como nulo
+
+    def test_without_sample_the_answer_is_the_one_from_before(self):
+        _, markdown = self._answer_with_sample(sample={"ok": False})
+        self.assertIn("SQL de amostra (para ver o dado)", markdown)
+        self.assertNotIn("Uma amostra do dado", markdown)
+
     def test_tables_are_rendered_as_a_markdown_table(self):
         out = ExploreAnswerBuilder().run(
             replies=self._reply({
