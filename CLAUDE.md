@@ -114,6 +114,8 @@ Fluxo: `pergunta → dense(Ollama)+sparse(BM25) → Qdrant híbrido → subgrafo
 - **LLM = OpenAI `gpt-4o`** (saída JSON) só na geração. **IR mínima** (intent/metric/filters) gerada
   junto e exposta na resposta (ponto de controle ADR-0006/0007), ainda não roteia a recuperação.
 - **`SqlAnswerBuilder`**: explicação + SQL + dicionário de dados (só colunas usadas) + IR + JOINs.
+  O Markdown é montado por `render_markdown(answer, exec_info)` — **função de módulo**, porque o
+  wrapper do chat a chama DE NOVO depois da execução (ver invariante do SQL abaixo).
 
 ### Camada de entrega — execução + gráfico (ADR-0013) ✅
 
@@ -124,6 +126,25 @@ Pipeline SEPARADA `pipelines/delivery/` que o `run_chat_completion` compõe (mot
 - **`ChartSpecBuilder`** (LLM JSON): escolhe bar/line/none, validado nas colunas reais.
 - **renderers matplotlib** (Agg) → PNG **base64** embutido como `![gráfico](data:image/png;base64,…)`.
 - Aditivo e tolerante a falha: sem execução/gráfico → devolve só o texto.
+
+⚠️ **Invariante do SQL exibido: UM bloco só, o do SQL que RODOU.** O `_with_delivery`
+**re-renderiza** a resposta com `exec_info` depois de executar (`render_markdown(answer,
+exec_info)`). Executou → `### SQL executado`, com a versão **ajustada** quando a autocorreção
+mexeu (a tentativa recusada não aparece, só a nota "ajustado na execução"); não executou →
+`### SQL gerado`, **limpo**. O **dicionário de dados deriva do SQL efetivo**. Antes, o Markdown
+vinha pronto da pipeline (montado ANTES da execução): a primeira tentativa do LLM aparecia como
+"SQL gerado" mesmo recusada pelo banco, e o dicionário documentava as colunas dela.
+
+⚠️ **Erro de execução NÃO vai para a resposta** (decisão de produto, 19/08): sem mensagem de
+banco no chat nem callout no `.docx` — quem lê quer a consulta, não o diagnóstico. O erro fica
+no `delivery["exec_error"]` e num `logger.warning` do `_with_delivery`; **é lá que se debuga**
+uma resposta que saiu sem gráfico. Mesma regra no `.docx` (`report_content.render_answer`).
+
+⚠️ **`_scan_executions` (era `_last_successful_execution`)**: o postgres-mcp devolve erro de banco
+como TEXTO com `isError=False`, então filtrar por `res.error` fazia "última bem-sucedida" virar
+"última tentativa" — um resultado bom seguido de uma tentativa recusada era descartado (resposta
+sem gráfico à toa) e o `sql_final` podia ser um SQL que nunca rodou. Agora a função devolve
+`(ok, failed)`, decidindo o que é utilizável pelo `_parse_rows` (fonte única).
 
 ### Relatório .docx editável (ADR-0010 item d) ✅
 

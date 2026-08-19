@@ -114,5 +114,39 @@ class ReportContentTest(unittest.TestCase):
         self.assertEqual(len(imgs), 1)
 
 
+class ReportSqlInvariantTest(unittest.TestCase):
+    """O .docx segue a mesma invariante do chat: em destaque, o SQL que RODOU."""
+
+    def _render(self, exec_info: dict, answer: dict | None = None):
+        doc = Document()
+        theme.apply_base_styles(doc)
+        report_content.render_answer(doc, answer or _ANSWER, exec_info=exec_info)
+        return _body_text(doc)
+
+    def test_corrected_sql_replaces_the_generated_one(self) -> None:
+        corrigido = "SELECT uf, total FROM empreendimento_far.mapa_nacional;"
+        body = self._render({"exec_ok": True, "sql_final": corrigido})
+        self.assertIn("SQL executado", body)
+        self.assertIn("SELECT uf, total", body)
+        # a caixa de código do SQL gerado (que não rodou) some do relatório
+        self.assertNotIn("WHERE nivel", body)
+        self.assertIn("ajustado na execução", body)
+
+    def test_failed_execution_shows_the_generated_sql_without_noise(self) -> None:
+        body = self._render({
+            "exec_ok": False,
+            "sql_final": _ANSWER["sql"],
+            "exec_error": 'Error: column "x" does not exist',
+        })
+        self.assertIn("SQL gerado", body)
+        self.assertIn("WHERE nivel", body)      # o SQL gerado, inteiro
+        self.assertNotIn("does not exist", body)
+
+    def test_without_exec_info_nothing_is_claimed(self) -> None:
+        body = self._render({})
+        self.assertIn("SQL gerado", body)
+        self.assertNotIn("SQL executado", body)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -118,7 +118,11 @@ def main() -> int:
     check("traz SQL", "```sql" in md2)
     check("traz gráfico embutido", "data:image/png;base64" in md2)
     check("traz link do relatório .docx", ".docx" in md2)
-    check("não emitiu aviso de falha de execução", "Não consegui executar" not in md2)
+    # Invariante de exibição: UM bloco de SQL, o que RODOU. O título é a
+    # evidência — "SQL executado" só sai quando o banco de fato executou; se a
+    # execução falhar, o bloco vira "SQL gerado" e esta checagem acusa.
+    check("mostra o SQL que rodou (não a tentativa)", "### SQL executado" in md2)
+    check("um único bloco de SQL na resposta", md2.count("```sql") == 1)
     check(f"latência aceitável ({secs2:.1f}s)", secs2 < 90)
 
     print("\n[6] Degradação — pergunta fora do escopo não pode inventar")
