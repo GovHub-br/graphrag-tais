@@ -135,6 +135,47 @@ class Settings(BaseSettings):
     )
 
     # ------------------------------------------------------------------ #
+    # Persona 1 — modo Explorar (ADR-0014)
+    # ------------------------------------------------------------------ #
+    # Knobs EXCLUSIVOS da pipeline `explore`. Nenhum deles é lido pelo caminho
+    # da Persona 2: os dois modos querem coisas opostas do retrieval (cobertura
+    # vs. precisão), e o baseline medido da Persona 2 vive nos defaults acima.
+    EXPLORE_TOP_K: int = Field(
+        15, description="Sementes do híbrido no modo Explorar (cobertura > precisão)"
+    )
+    EXPLORE_MAX_TABLES: int = Field(
+        25, description="Teto de tabelas no panorama (sementes + expansão)"
+    )
+    EXPLORE_MAX_COLUMNS: int = Field(
+        8, description="Colunas por tabela no card de catálogo"
+    )
+    EXPLORE_EXPAND_NEIGHBORS: bool = Field(
+        True, description="Inclui vizinhos de 1 hop por SEMANTIC_JOIN (elegíveis ou não)"
+    )
+    EXPLORE_QUESTIONS_PER_TABLE: int = Field(
+        3, description="Máx. de perguntas sugeridas por tabela"
+    )
+    EXPLORE_MAX_LISTED_TABLES: int = Field(
+        12, description="Tabelas detalhadas na resposta (o resto vira menção curta)"
+    )
+    # O LLM promove as tabelas que julgou mais pertinentes para o topo da lista.
+    # Muda MRR/nDCG para melhor ou pior — é knob para poder medir os dois lados
+    # contra o ranking puro do retrieval.
+    EXPLORE_LLM_REORDER: bool = Field(
+        True, description="LLM reordena o topo do panorama (vs. ordem do retrieval)"
+    )
+    EXPLORE_EXECUTE_SAMPLE: bool = Field(
+        False, description="Executa o SQL de amostra (desligado até ser medido)"
+    )
+    # Lacunas conhecidas de escopo: {conceito: "o que existe no lugar"}. É o que
+    # transforma "refine a pergunta" em recusa informativa ("não tenho execução
+    # orçamentária; tenho valor contratado e desembolsado"). Mesmo padrão do
+    # OM_GRAIN_KEYS: conhecimento de escopo mora em env, não em código.
+    SCOPE_GAPS: str = Field(
+        "", description='JSON {"<conceito>": "<mensagem de lacuna>"} para o modo Explorar'
+    )
+
+    # ------------------------------------------------------------------ #
     # Camada de entrega (ADR-0013): execução via postgres-mcp + gráfico
     # ------------------------------------------------------------------ #
     # O postgres-mcp (crystaldba) já roda em modo RESTRICTED (read-only) e é o

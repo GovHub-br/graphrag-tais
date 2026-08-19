@@ -1,0 +1,43 @@
+{
+  "run_id": "explore-fixture-degraded",
+  "dataset_name": "explore-synthetic",
+  "dataset_version": "0.0.1",
+  "dataset_status": "draft",
+  "config": {"fixture": true},
+  "cases": [
+    {
+      "case_id": "syn-graded-001",
+      "latency_ms": 100.0,
+      "error": "",
+      "answer": {
+        "summary": "Achei estas tabelas.",
+        "ranked_tables": ["c.t9", "b.t3", "a.t1"],
+        "domains": [{"schema": "c", "domain": "c", "matched": 1, "table_count": 4}],
+        "tables": [
+          {"table": "c.t9", "questions": ["algo?"]},
+          {"table": "b.t3", "questions": []},
+          {"table": "a.t1", "questions": []}
+        ],
+        "sample_sql": "SELECT col FROM z.inexistente LIMIT 20",
+        "gaps": [],
+        "off_catalog_tables": ["z.zz"],
+        "catalog_size": 10
+      }
+    },
+    {
+      "case_id": "syn-single-002",
+      "latency_ms": 200.0,
+      "error": "",
+      "answer": {
+        "summary": "",
+        "ranked_tables": [],
+        "domains": [],
+        "tables": [],
+        "sample_sql": "",
+        "gaps": [],
+        "off_catalog_tables": [],
+        "catalog_size": 10
+      }
+    }
+  ]
+}

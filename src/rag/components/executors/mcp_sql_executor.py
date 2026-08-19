@@ -105,17 +105,21 @@ class McpSqlExecutor:
         if settings.MCP_DIRECT_FIRST:
             direct = self._execute_direct(sql)
             if direct is not None:
-                columns, rows = self._parse_rows(direct)
-                logger.info(
-                    "McpSqlExecutor[direto]: {} linhas, {} colunas", len(rows), len(columns)
-                )
-                return {
-                    "rows": rows[: self.max_rows],
-                    "columns": columns,
-                    "sql_final": sql,
-                    "exec_ok": True,
-                    "error": "",
-                }
+                columns, rows, parse_error = self._parse_rows(direct)
+                if parse_error:
+                    logger.warning("McpSqlExecutor[direto]: {}", parse_error)
+                else:
+                    logger.info(
+                        "McpSqlExecutor[direto]: {} linhas, {} colunas",
+                        len(rows), len(columns),
+                    )
+                    return {
+                        "rows": rows[: self.max_rows],
+                        "columns": columns,
+                        "sql_final": sql,
+                        "exec_ok": True,
+                        "error": "",
+                    }
             logger.info("McpSqlExecutor: execução direta falhou; acionando autocorreção")
 
         user_msg = (
@@ -136,7 +140,12 @@ class McpSqlExecutor:
             empty["error"] = "Nenhuma execução de SQL bem-sucedida."
             return empty
 
-        columns, rows = self._parse_rows(raw)
+        columns, rows, parse_error = self._parse_rows(raw)
+        if parse_error:
+            logger.warning("McpSqlExecutor: execução não utilizável ({})", parse_error)
+            empty["sql_final"] = sql_final or sql
+            empty["error"] = parse_error
+            return empty
         logger.info("McpSqlExecutor: {} linhas, {} colunas", len(rows), len(columns))
         return {
             "rows": rows[: self.max_rows],
@@ -176,6 +185,12 @@ class McpSqlExecutor:
                     # O envelope pode trazer erro do banco em vez de linhas.
                     if not text or '"isError": true' in text.lower():
                         return None
+                    db_error = self._db_error(text)
+                    if db_error:
+                        logger.info(
+                            "McpSqlExecutor: banco recusou o SQL ({})", db_error[:160]
+                        )
+                        return None
                     return text
 
         try:
@@ -201,23 +216,49 @@ class McpSqlExecutor:
                 last_sql = args.get("sql") or args.get("query") or last_sql
         return last_sql, last_raw
 
+    # O postgres-mcp NÃO usa o campo `isError` do MCP para erro de banco: ele
+    # devolve isError=False e o erro como TEXTO ("Error: column x does not
+    # exist"). Sem reconhecer isso, o erro passa por resultado válido, a
+    # autocorreção do Agent (ADR-0013) nunca é acionada e o `eval` do repr
+    # quebra com "invalid syntax" — sobrando 0 linhas com exec_ok=True, ou
+    # seja, resposta sem gráfico e sem aviso nenhum para o usuário.
+    _DB_ERROR_MARKERS = ("error:", "erro:", "exception:", "traceback")
+
     @classmethod
-    def _parse_rows(cls, raw: Any) -> tuple[List[str], List[Dict[str, Any]]]:
-        """Parse do resultado do execute_sql em (colunas, linhas).
+    def _db_error(cls, text: str) -> str:
+        """Mensagem de erro do banco, ou string vazia se o texto for resultado."""
+        head = (text or "").strip()[:200].lower()
+        if any(head.startswith(m) for m in cls._DB_ERROR_MARKERS):
+            return " ".join((text or "").strip().splitlines())[:300]
+        return ""
+
+    @classmethod
+    def _parse_rows(cls, raw: Any) -> tuple[List[str], List[Dict[str, Any]], str]:
+        """Parse do resultado do execute_sql em (colunas, linhas, erro).
 
         O postgres-mcp devolve um envelope MCP JSON cujo `content[].text` é o
         **repr Python** das linhas (aspas simples, `Decimal('...')`, datas como
         `datetime.date(...)`). Desembrulhamos o envelope e avaliamos o repr num
-        namespace restrito (só Decimal/datetime), normalizando os valores."""
+        namespace restrito (só Decimal/datetime), normalizando os valores.
+
+        O terceiro elemento é o que separa "consulta sem resultado" (válido, 0
+        linhas, erro vazio) de "não entendi a resposta" (falha). Sem essa
+        distinção, um erro do banco virava sucesso com 0 linhas — sem gráfico e
+        sem aviso."""
         text = cls._unwrap_mcp_text(raw)
         if not text:
-            return [], []
+            return [], [], "o executor não devolveu resultado"
+        db_error = cls._db_error(text)
+        if db_error:
+            return [], [], db_error
         data = cls._eval_repr(text)
         if isinstance(data, list) and data and isinstance(data[0], dict):
             rows = [cls._normalize_row(r) for r in data if isinstance(r, dict)]
             columns = list(rows[0].keys()) if rows else []
-            return columns, rows
-        return [], []
+            return columns, rows, ""
+        if text.strip() in {"[]", "()"}:
+            return [], [], ""  # consulta válida, sem linhas
+        return [], [], "não consegui interpretar o resultado da execução"
 
     @staticmethod
     def _unwrap_mcp_text(raw: Any) -> str:

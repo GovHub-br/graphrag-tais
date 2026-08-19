@@ -40,7 +40,13 @@ CODE_TREE_HASH="$(
   # the code revision. Datasets and experiment records have their own hashes;
   # including a record that is updated after the run makes reproduction
   # impossible without changing the retrieval implementation.
-  rg --files src/rag eval/retrieval eval/config \
+  # `rg` é mais rápido, mas não está em toda máquina; `find` é o fallback
+  # portátil e produz a MESMA lista (arquivos versionáveis, sem __pycache__).
+  if command -v rg >/dev/null 2>&1; then
+    rg --files src/rag eval/retrieval eval/config
+  else
+    find src/rag eval/retrieval eval/config -type f ! -path "*/__pycache__/*"
+  fi \
     | sort \
     | while IFS= read -r source_file; do sha256sum "${source_file}"; done \
     | sha256sum \

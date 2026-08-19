@@ -1,6 +1,15 @@
 RAG_SERVICES := qdrant neo4j minio hayhooks postgres-mcp
+PYTHON ?= python3
 
-.PHONY: up eval-quick eval-collect eval-live eval-score eval-full eval-answer
+# Persona 1 (modo Explorar, ADR-0014)
+EXPLORE_DATASET ?= eval/datasets/explore/mcid-explore-v0.1.0.json
+EXPLORE_RUN ?= eval/reports/explore-run.json
+EXPLORE_REPORT ?= eval/reports/explore-report.json
+EXPLORE_MARKDOWN ?= eval/reports/explore-report.md
+EXPLORE_POLICY ?= eval/config/explore-policy-v0.1.0.json
+
+.PHONY: up eval-quick eval-collect eval-live eval-score eval-full eval-answer \
+	explore-quick eval-explore explore-score explore-gate
 up:
 	docker compose up -d --build --no-deps $(RAG_SERVICES)
 
@@ -39,6 +48,47 @@ eval-answer:
 		--output /tmp/answer-run.json
 	docker cp hayhooks:/tmp/answer-run.json \
 		"$(or $(EVAL_ANSWER_OUT),eval/reports/answer-run.json)"
+
+# --------------------------------------------------------------------------- #
+# Persona 1 — modo Explorar (ADR-0014)
+# --------------------------------------------------------------------------- #
+# Offline: valida o contrato do gold e exercita o motor de métricas em fixtures.
+# Não toca em serviço nenhum e não chama LLM — roda no host, em segundos.
+explore-quick:
+	$(PYTHON) -m eval.explore.cli validate --dataset "$(EXPLORE_DATASET)"
+	$(PYTHON) -m unittest tests.test_explore_eval
+	$(PYTHON) -m eval.explore.cli score \
+		--dataset eval/fixtures/explore/synthetic-dataset.json \
+		--run eval/fixtures/explore/perfect-run.json \
+		--output-json /tmp/graphrag-explore-smoke.json >/dev/null
+
+# Live: CHAMA O LLM e precisa dos serviços — roda dentro do container, como o
+# eval-answer. Os testes de componente vão junto: eles precisam do Haystack.
+eval-explore:
+	docker exec hayhooks rm -rf /app/eval /app/tests
+	docker cp eval hayhooks:/app/eval
+	docker cp tests hayhooks:/app/tests
+	docker exec -w /app -e PYTHONPATH=/app:/app/src hayhooks \
+		$(PYTHON) -m unittest tests.test_explore_components
+	docker exec -w /app -e PYTHONPATH=/app:/app/src hayhooks \
+		$(PYTHON) -m eval.explore.live \
+		--dataset "/app/$(EXPLORE_DATASET)" --output /tmp/explore-run.json
+	docker cp hayhooks:/tmp/explore-run.json "$(EXPLORE_RUN)"
+	$(MAKE) explore-score
+
+# Pontuação offline do run coletado — reprocessável sem gastar LLM de novo.
+explore-score:
+	$(PYTHON) -m eval.explore.cli score \
+		--dataset "$(EXPLORE_DATASET)" --run "$(EXPLORE_RUN)" \
+		--output-json "$(EXPLORE_REPORT)" --output-md "$(EXPLORE_MARKDOWN)"
+
+# Política de aceite. Com gold em `draft` o resultado sai marcado como NÃO
+# conclusivo de propósito: gabarito não revisado não reprova nem aprova ninguém.
+explore-gate:
+	$(PYTHON) -m eval.explore.cli gate \
+		--candidate "$(EXPLORE_REPORT)" --policy "$(EXPLORE_POLICY)" \
+		$(if $(EXPLORE_BASELINE),--baseline "$(EXPLORE_BASELINE)",) \
+		--output-json eval/reports/explore-gate.json
 
 eval-full:
 	$(MAKE) -C eval full \

@@ -1,0 +1,236 @@
+{
+  "schema_version": "1",
+  "name": "mcid-explore",
+  "version": "0.1.0",
+  "status": "draft",
+  "metadata": {
+    "scope_id": "mcid",
+    "language": "pt-BR",
+    "review_status": "pending_domain_review",
+    "persona": "1 — pessoa que não conhece as bases e quer explorar",
+    "description": "Perguntas EXPLORATÓRIAS: quem pergunta não sabe o que existe e quer o mapa do território. O gabarito é um CONJUNTO graduado de tabelas (3 = central, 2 = útil, 1 = tangencial), não a tabela única de um indicador. Provisório: escrito a partir do catálogo MCid ingerido, sem revisão de domínio — não promover automaticamente.",
+    "relevance_scale": {
+      "3": "central — a pessoa sairia perdida sem essa tabela",
+      "2": "útil — complementa ou dá outro recorte do mesmo assunto",
+      "1": "tangencial — vale mencionar, não vale destacar"
+    },
+    "known_limitations": [
+      "Escrito por quem implementou o modo, não por quem usa o dado — vale como bootstrap diagnóstico, não como gabarito aceito.",
+      "Cobre os 4 schemas ingeridos (74 tabelas); as 20 tabelas citadas são as confirmadas pelos golds de retrieval existentes.",
+      "expected_gaps depende de SCOPE_GAPS estar configurado no .env; sem isso a métrica mede só o que o LLM declarar por conta."
+    ]
+  },
+  "cases": [
+    {
+      "id": "catalogo-panorama-001",
+      "question": "Quais bases de dados vocês têm disponíveis? Quero entender o que dá para analisar aqui.",
+      "critical": true,
+      "slices": ["pt_br", "catalogo_puro", "sem_tema"],
+      "table_relevance": {},
+      "expected_domains": ["empreendimento_far", "entidades_fds", "conjuntura_gold", "conjuntura_silver"],
+      "notes": "Pergunta sem tema: a resposta certa é o panorama de domínios, que vem por Cypher agregado e não depende do retrieval semântico."
+    },
+    {
+      "id": "far-o-que-existe-001",
+      "question": "Estou começando a olhar o programa MCMV FAR. O que existe de dado sobre isso?",
+      "critical": true,
+      "slices": ["pt_br", "far", "tema_amplo"],
+      "table_relevance": {
+        "empreendimento_far.empreendimento": 3,
+        "empreendimento_far.ficha_empreendimento": 3,
+        "empreendimento_far.panorama_estadual": 3,
+        "empreendimento_far.mapa_nacional": 2,
+        "empreendimento_far.execucao_fisica_financeira_chart": 2
+      },
+      "expected_domains": ["empreendimento_far"]
+    },
+    {
+      "id": "far-empreendimento-individual-001",
+      "question": "Quero olhar um empreendimento específico do FAR e ver a situação dele. Que dado tem?",
+      "slices": ["pt_br", "far", "tema_estreito", "grao_individual"],
+      "table_relevance": {
+        "empreendimento_far.ficha_empreendimento": 3,
+        "empreendimento_far.empreendimento": 2,
+        "empreendimento_far.execucao_fisica_financeira_chart": 2
+      },
+      "expected_domains": ["empreendimento_far"],
+      "notes": "Distinguir a ficha (visão individual) das tabelas agregadas é o valor central da resposta."
+    },
+    {
+      "id": "far-visao-estadual-001",
+      "question": "O que vocês têm sobre o FAR que já venha agregado por estado?",
+      "slices": ["pt_br", "far", "tema_estreito", "grao_agregado"],
+      "table_relevance": {
+        "empreendimento_far.panorama_estadual": 3,
+        "empreendimento_far.mapa_nacional": 2,
+        "empreendimento_far.empreendimento": 1
+      },
+      "expected_domains": ["empreendimento_far"]
+    },
+    {
+      "id": "far-comparacao-irmas-001",
+      "question": "Qual a diferença entre as tabelas de empreendimento do FAR? Quero entender qual devo usar.",
+      "critical": true,
+      "slices": ["pt_br", "far", "tabelas_irmas", "grao"],
+      "table_relevance": {
+        "empreendimento_far.empreendimento": 3,
+        "empreendimento_far.ficha_empreendimento": 3,
+        "empreendimento_far.panorama_estadual": 2,
+        "empreendimento_far.mapa_nacional": 2
+      },
+      "expected_domains": ["empreendimento_far"],
+      "notes": "É a pergunta que mais depende de o grão aparecer na resposta."
+    },
+    {
+      "id": "far-mapa-001",
+      "question": "Quero ver os empreendimentos no mapa, por município. Tem esse dado?",
+      "slices": ["pt_br", "far", "geografia"],
+      "table_relevance": {
+        "empreendimento_far.mapa_nacional": 3,
+        "empreendimento_far.empreendimento": 2,
+        "empreendimento_far.ficha_empreendimento": 1
+      },
+      "expected_domains": ["empreendimento_far"]
+    },
+    {
+      "id": "fds-o-que-existe-001",
+      "question": "Nunca mexi com MCMV Entidades. O que tem disponível sobre isso?",
+      "critical": true,
+      "slices": ["pt_br", "fds", "tema_amplo"],
+      "table_relevance": {
+        "entidades_fds.fds_panorama_entidade": 3,
+        "entidades_fds.fds_ficha_empreendimento": 3,
+        "entidades_fds.fds_cadastro_pj": 3,
+        "entidades_fds.fds_trabalho_social": 2,
+        "entidades_fds.fds_evolucao_financeira_chart": 2
+      },
+      "expected_domains": ["entidades_fds"]
+    },
+    {
+      "id": "fds-entidades-organizadoras-001",
+      "question": "Quero entender quem são as entidades organizadoras. Existe um cadastro delas?",
+      "slices": ["pt_br", "fds", "tema_estreito", "cadastro"],
+      "table_relevance": {
+        "entidades_fds.fds_cadastro_pj": 3,
+        "entidades_fds.fds_panorama_entidade": 2
+      },
+      "expected_domains": ["entidades_fds"],
+      "notes": "fds_cadastro_pj é hub do grafo (grau 6) — deve aparecer no topo."
+    },
+    {
+      "id": "fds-trabalho-social-001",
+      "question": "Tem algum dado sobre o trabalho social nos empreendimentos?",
+      "slices": ["pt_br", "fds", "tema_estreito", "social"],
+      "table_relevance": {
+        "entidades_fds.fds_trabalho_social": 3,
+        "entidades_fds.fds_ficha_empreendimento": 1
+      },
+      "expected_domains": ["entidades_fds"]
+    },
+    {
+      "id": "conjuntura-financiamento-001",
+      "question": "O que existe sobre financiamento habitacional?",
+      "critical": true,
+      "slices": ["pt_br", "conjuntura", "credito", "tema_amplo"],
+      "table_relevance": {
+        "conjuntura_gold.gold_financiamentos_habitacionais": 3,
+        "conjuntura_gold.gold_financiamentos_imobiliarios": 3,
+        "conjuntura_gold.gold_abecip_novos_financiamentos_imobiliarios": 2
+      },
+      "expected_domains": ["conjuntura_gold"],
+      "notes": "Três tabelas próximas: a resposta precisa dizer o que separa habitacional de imobiliário e o que a ABECIP acrescenta."
+    },
+    {
+      "id": "conjuntura-mercado-001",
+      "question": "Quero entender o mercado imobiliário — lançamentos, vendas. Tem alguma coisa?",
+      "slices": ["pt_br", "conjuntura", "mercado", "tema_amplo"],
+      "table_relevance": {
+        "conjuntura_gold.gold_cbic_lancamentos_regiao": 3,
+        "conjuntura_gold.gold_cbic_vendas_regiao": 3,
+        "conjuntura_gold.gold_balancos_empresas_vendas": 2
+      },
+      "expected_domains": ["conjuntura_gold"]
+    },
+    {
+      "id": "conjuntura-emprego-001",
+      "question": "Tem dado de emprego na construção civil?",
+      "slices": ["pt_br", "conjuntura", "emprego"],
+      "table_relevance": {
+        "conjuntura_gold.gold_ibge_pnad_construcao": 3,
+        "conjuntura_silver.silver_ibge_pnadc_ocupados_construcao": 2,
+        "conjuntura_silver.silver_ibge_pnadc_rendimento_construcao": 1
+      },
+      "expected_domains": ["conjuntura_gold", "conjuntura_silver"],
+      "notes": "Caso que cruza camadas gold e silver — a resposta deve preferir gold e mencionar silver como detalhe."
+    },
+    {
+      "id": "conjuntura-renda-001",
+      "question": "Quero ver o rendimento de quem trabalha na construção. Existe?",
+      "slices": ["pt_br", "conjuntura", "emprego", "tema_estreito"],
+      "table_relevance": {
+        "conjuntura_silver.silver_ibge_pnadc_rendimento_construcao": 3,
+        "conjuntura_gold.gold_ibge_pnad_construcao": 2
+      },
+      "expected_domains": ["conjuntura_silver", "conjuntura_gold"]
+    },
+    {
+      "id": "conjuntura-precos-001",
+      "question": "Existe algo sobre custo ou preço da construção?",
+      "slices": ["pt_br", "conjuntura", "precos", "tema_estreito"],
+      "table_relevance": {
+        "conjuntura_gold.gold_precos_construcao": 3
+      },
+      "expected_domains": ["conjuntura_gold"]
+    },
+    {
+      "id": "tema-amplo-habitacao-001",
+      "question": "O que vocês têm sobre habitação, de forma geral? Quero ter uma visão do todo.",
+      "critical": true,
+      "slices": ["pt_br", "tema_amplo", "multi_dominio"],
+      "table_relevance": {
+        "empreendimento_far.panorama_estadual": 2,
+        "empreendimento_far.empreendimento": 2,
+        "entidades_fds.fds_panorama_entidade": 2,
+        "conjuntura_gold.gold_financiamentos_habitacionais": 2,
+        "empreendimento_far.ficha_empreendimento": 1,
+        "entidades_fds.fds_ficha_empreendimento": 1
+      },
+      "expected_domains": ["empreendimento_far", "entidades_fds", "conjuntura_gold"],
+      "notes": "Nenhuma tabela é central sozinha: o acerto é atravessar os domínios, e é o caso onde listar demais é mais tentador."
+    },
+    {
+      "id": "serie-temporal-001",
+      "question": "Tem alguma base com série ao longo do tempo, para eu ver evolução?",
+      "slices": ["pt_br", "tema_amplo", "temporal", "multi_dominio"],
+      "table_relevance": {
+        "entidades_fds.fds_evolucao_financeira_chart": 3,
+        "empreendimento_far.execucao_fisica_financeira_chart": 3,
+        "conjuntura_gold.gold_cbic_vendas_regiao": 2,
+        "conjuntura_gold.gold_financiamentos_habitacionais": 2
+      },
+      "expected_domains": ["empreendimento_far", "entidades_fds", "conjuntura_gold"]
+    },
+    {
+      "id": "lacuna-execucao-orcamentaria-001",
+      "question": "Quero ver a execução orçamentária do FAR — quanto foi efetivamente gasto, o valor executado.",
+      "critical": true,
+      "slices": ["pt_br", "far", "lacuna", "recusa_informativa"],
+      "table_relevance": {
+        "empreendimento_far.execucao_fisica_financeira_chart": 2,
+        "empreendimento_far.empreendimento": 1
+      },
+      "expected_domains": ["empreendimento_far"],
+      "expected_gaps": ["execução orçamentária"],
+      "notes": "O conceito de gasto/valor executado está em __dados_brutos, fora da ingestão. O acerto é dizer o que existe no lugar (contratado, desembolsado), não recuar para 'refine a pergunta'."
+    },
+    {
+      "id": "lacuna-rural-001",
+      "question": "Tem dado do MCMV rural?",
+      "slices": ["pt_br", "lacuna", "recusa_informativa"],
+      "table_relevance": {},
+      "expected_domains": ["empreendimento_far"],
+      "expected_gaps": ["rural"],
+      "notes": "empreendimento_rural está fora da ingestão. Aqui o sistema acerta ao recusar — o que se mede é se recusou de forma útil."
+    }
+  ]
+}
