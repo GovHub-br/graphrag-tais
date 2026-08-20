@@ -1,0 +1,287 @@
+{
+  "resumo": {
+    "casos": 19,
+    "tokens_media": 2214,
+    "tokens_p95": 3489,
+    "tokens_max": 3792,
+    "colunas_total_media": 101.1,
+    "latencia_media_s": 0.15,
+    "latencia_p95_s": 0.22,
+    "recall_coluna_medio": 0.575,
+    "sondas_total": 6,
+    "config": {
+      "EXPLORE_TOP_K": 15,
+      "EXPLORE_MAX_TABLES": 25,
+      "EXPLORE_MAX_COLUMNS": 10,
+      "EXPLORE_MAX_COLUMNS_EXPANSION": 6
+    }
+  },
+  "casos": [
+    {
+      "id": "catalogo-panorama-001",
+      "tabelas": 11,
+      "colunas_total": 88,
+      "colunas_por_tabela": 8,
+      "chars": 7223,
+      "tokens_estimados": 1806,
+      "latencia_s": 0.25,
+      "cobertura": null
+    },
+    {
+      "id": "far-o-que-existe-001",
+      "tabelas": 8,
+      "colunas_total": 68,
+      "colunas_por_tabela": 8.5,
+      "chars": 5192,
+      "tokens_estimados": 1298,
+      "latencia_s": 0.15,
+      "cobertura": null
+    },
+    {
+      "id": "far-empreendimento-individual-001",
+      "tabelas": 11,
+      "colunas_total": 93,
+      "colunas_por_tabela": 8.5,
+      "chars": 7986,
+      "tokens_estimados": 1996,
+      "latencia_s": 0.12,
+      "cobertura": {
+        "relevantes_catalogo": 31,
+        "relevantes_card": 21,
+        "recall": 0.677,
+        "faltando": [
+          "empreendimento_far.consolidado.uf",
+          "empreendimento_far.empreendimento.percentual_execucao_financeira",
+          "empreendimento_far.empreendimento.percentual_execucao_fisica",
+          "empreendimento_far.empreendimento.uf",
+          "empreendimento_far.evolucao_financeira_chart.uf",
+          "empreendimento_far.ficha_empreendimento.municipio",
+          "empreendimento_far.ficha_empreendimento.municipio_uf",
+          "empreendimento_far.ficha_empreendimento.percentual_execucao_financeira",
+          "empreendimento_far.ficha_empreendimento.percentual_execucao_fisica",
+          "empreendimento_far.ficha_empreendimento.uf"
+        ]
+      }
+    },
+    {
+      "id": "far-visao-estadual-001",
+      "tabelas": 12,
+      "colunas_total": 108,
+      "colunas_por_tabela": 9,
+      "chars": 9285,
+      "tokens_estimados": 2321,
+      "latencia_s": 0.12,
+      "cobertura": null
+    },
+    {
+      "id": "far-comparacao-irmas-001",
+      "tabelas": 11,
+      "colunas_total": 101,
+      "colunas_por_tabela": 9.2,
+      "chars": 8212,
+      "tokens_estimados": 2053,
+      "latencia_s": 0.14,
+      "cobertura": null
+    },
+    {
+      "id": "far-mapa-001",
+      "tabelas": 7,
+      "colunas_total": 66,
+      "colunas_por_tabela": 9.4,
+      "chars": 5076,
+      "tokens_estimados": 1269,
+      "latencia_s": 0.12,
+      "cobertura": {
+        "relevantes_catalogo": 16,
+        "relevantes_card": 12,
+        "recall": 0.75,
+        "faltando": [
+          "empreendimento_far.cadastro_pj.uf",
+          "empreendimento_far.consolidado.uf",
+          "empreendimento_far.empreendimento.uf",
+          "empreendimento_far.ficha_empreendimento.uf"
+        ]
+      }
+    },
+    {
+      "id": "fds-o-que-existe-001",
+      "tabelas": 15,
+      "colunas_total": 126,
+      "colunas_por_tabela": 8.4,
+      "chars": 11207,
+      "tokens_estimados": 2802,
+      "latencia_s": 0.12,
+      "cobertura": null
+    },
+    {
+      "id": "fds-entidades-organizadoras-001",
+      "tabelas": 18,
+      "colunas_total": 139,
+      "colunas_por_tabela": 7.7,
+      "chars": 13489,
+      "tokens_estimados": 3372,
+      "latencia_s": 0.13,
+      "cobertura": null
+    },
+    {
+      "id": "fds-trabalho-social-001",
+      "tabelas": 20,
+      "colunas_total": 171,
+      "colunas_por_tabela": 8.6,
+      "chars": 15170,
+      "tokens_estimados": 3792,
+      "latencia_s": 0.13,
+      "cobertura": null
+    },
+    {
+      "id": "conjuntura-financiamento-001",
+      "tabelas": 11,
+      "colunas_total": 94,
+      "colunas_por_tabela": 8.5,
+      "chars": 8671,
+      "tokens_estimados": 2168,
+      "latencia_s": 0.12,
+      "cobertura": null
+    },
+    {
+      "id": "conjuntura-mercado-001",
+      "tabelas": 4,
+      "colunas_total": 33,
+      "colunas_por_tabela": 8.2,
+      "chars": 2850,
+      "tokens_estimados": 712,
+      "latencia_s": 0.1,
+      "cobertura": null
+    },
+    {
+      "id": "conjuntura-emprego-001",
+      "tabelas": 20,
+      "colunas_total": 146,
+      "colunas_por_tabela": 7.3,
+      "chars": 13957,
+      "tokens_estimados": 3489,
+      "latencia_s": 0.12,
+      "cobertura": {
+        "relevantes_catalogo": 3,
+        "relevantes_card": 0,
+        "recall": 0.0,
+        "faltando": [
+          "empreendimento_far.cadastro_pj.vr_trabalho_social",
+          "entidades_fds.fds_cadastro_pj.vr_trabalho_social",
+          "entidades_fds.fds_empreendimento.co_situacao_trabalho_social"
+        ]
+      }
+    },
+    {
+      "id": "conjuntura-renda-001",
+      "tabelas": 8,
+      "colunas_total": 71,
+      "colunas_por_tabela": 8.9,
+      "chars": 5720,
+      "tokens_estimados": 1430,
+      "latencia_s": 0.12,
+      "cobertura": {
+        "relevantes_catalogo": 3,
+        "relevantes_card": 3,
+        "recall": 1.0,
+        "faltando": []
+      }
+    },
+    {
+      "id": "conjuntura-precos-001",
+      "tabelas": 18,
+      "colunas_total": 144,
+      "colunas_por_tabela": 8,
+      "chars": 13463,
+      "tokens_estimados": 3366,
+      "latencia_s": 0.17,
+      "cobertura": null
+    },
+    {
+      "id": "tema-amplo-habitacao-001",
+      "tabelas": 13,
+      "colunas_total": 110,
+      "colunas_por_tabela": 8.5,
+      "chars": 9763,
+      "tokens_estimados": 2441,
+      "latencia_s": 0.19,
+      "cobertura": null
+    },
+    {
+      "id": "serie-temporal-001",
+      "tabelas": 10,
+      "colunas_total": 77,
+      "colunas_por_tabela": 7.7,
+      "chars": 7622,
+      "tokens_estimados": 1906,
+      "latencia_s": 0.22,
+      "cobertura": {
+        "relevantes_catalogo": 65,
+        "relevantes_card": 22,
+        "recall": 0.338,
+        "faltando": [
+          "empreendimento_far.cadastro_pj.dt_apresentacao_orcamento",
+          "empreendimento_far.cadastro_pj.dt_contratacao",
+          "empreendimento_far.cadastro_pj.dt_inicio_obra",
+          "empreendimento_far.cadastro_pj.dt_movimento",
+          "empreendimento_far.cadastro_pj.dt_previsao_conclusao",
+          "empreendimento_far.evolucao_financeira.vr_pago_equipamentos_mes",
+          "empreendimento_far.evolucao_financeira.vr_pago_legalizacao_mes",
+          "empreendimento_far.evolucao_financeira.vr_pago_manutencao_mes",
+          "empreendimento_far.evolucao_financeira_chart.vr_liberado_mes",
+          "empreendimento_far.evolucao_financeira_chart.vr_pago_incc_mes",
+          "empreendimento_far.evolucao_financeira_chart.vr_pago_obra_mes",
+          "empreendimento_far.evolucao_financeira_chart.vr_pago_pts_mes"
+        ]
+      }
+    },
+    {
+      "id": "lacuna-execucao-orcamentaria-001",
+      "tabelas": 11,
+      "colunas_total": 105,
+      "colunas_por_tabela": 9.5,
+      "chars": 8668,
+      "tokens_estimados": 2167,
+      "latencia_s": 0.13,
+      "cobertura": null
+    },
+    {
+      "id": "lacuna-rural-001",
+      "tabelas": 5,
+      "colunas_total": 42,
+      "colunas_por_tabela": 8.4,
+      "chars": 3399,
+      "tokens_estimados": 850,
+      "latencia_s": 0.18,
+      "cobertura": null
+    },
+    {
+      "id": "localizacao-censitario",
+      "tabelas": 15,
+      "colunas_total": 138,
+      "colunas_por_tabela": 9.2,
+      "chars": 11306,
+      "tokens_estimados": 2826,
+      "latencia_s": 0.14,
+      "cobertura": {
+        "relevantes_catalogo": 38,
+        "relevantes_card": 26,
+        "recall": 0.684,
+        "faltando": [
+          "empreendimento_far.cadastro_pj.municipio",
+          "empreendimento_far.cadastro_pj.uf",
+          "empreendimento_far.consolidado.uf",
+          "entidades_fds.fds_cadastro_pj.cep",
+          "entidades_fds.fds_cadastro_pj.uf",
+          "entidades_fds.fds_cadastro_pj.vr_contrapartida_municipio_complementar",
+          "entidades_fds.fds_cadastro_pj.vr_contrapartida_municipio_infra",
+          "entidades_fds.fds_cadastro_pj.vr_contrapartida_municipio_terreno",
+          "entidades_fds.fds_empreendimento.uf",
+          "entidades_fds.fds_ficha_empreendimento.municipio_uf",
+          "entidades_fds.fds_ficha_empreendimento.uf",
+          "entidades_fds.fds_int_059_caixa_pj.uf"
+        ]
+      }
+    }
+  ]
+}

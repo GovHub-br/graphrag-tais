@@ -41,6 +41,19 @@ class TestGuard(unittest.TestCase):
         self.assertIn("LIMIT 100", sql)
         self.assertIn("AS amostra", sql)
 
+    def test_row_cap_replaces_a_smaller_limit_from_the_llm(self):
+        # O prompt sugere `LIMIT 20` ao modelo; quem manda é o teto configurado.
+        sql, _ = sample_sql.guard("SELECT uf FROM far.mapa LIMIT 20", 100)
+        self.assertNotIn("LIMIT 20", sql)
+        self.assertTrue(sql.rstrip().endswith("LIMIT 100"))
+
+    def test_limit_with_order_by_is_intent_and_survives(self):
+        # "os 10 maiores" é ranking, não corte: o LIMIT interno fica.
+        sql, _ = sample_sql.guard(
+            "SELECT uf, valor FROM far.mapa ORDER BY valor DESC LIMIT 10", 100)
+        self.assertIn("LIMIT 10", sql)
+        self.assertTrue(sql.rstrip().endswith("LIMIT 100"))
+
     def test_cap_wins_over_a_bigger_limit_from_the_llm(self):
         # O envelope é externo: o LIMIT de fora corta, mesmo com LIMIT interno maior.
         sql, _ = sample_sql.guard("SELECT uf FROM far.mapa LIMIT 100000", 10)

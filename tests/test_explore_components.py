@@ -149,6 +149,119 @@ class TestCatalogRetrieverOrdering(unittest.TestCase):
 
 
 @unittest.skipUnless(HAYSTACK, "Haystack indisponível no host — rode no container")
+class TestColumnRelevance(unittest.TestCase):
+    """Relevância de coluna: o que decide QUEM ocupa as vagas do card.
+
+    O caso que motivou tudo: numa pergunta sobre *localização*, `municipio`
+    ficava de fora (a descrição dela diz "localizado", não "localização") e
+    `situacao_empreendimento` entrava por ter a palavra "dados" na descrição —
+    palavra que estava na pergunta só como enchimento."""
+
+    COLUNAS = [
+        {"name": "apf", "description": "Chave principal do empreendimento."},
+        {"name": "municipio", "description": "Municipio onde o empreendimento esta localizado."},
+        {"name": "uf", "description": "Unidade federativa onde o empreendimento esta localizado."},
+        {"name": "situacao_empreendimento",
+         "description": "Situacao gerencial do empreendimento, a partir dos dados da CAIXA."},
+        {"name": "valor_contratado", "description": "Valor total contratado no empreendimento."},
+    ]
+    PERGUNTA = ("Quais dados granulares de localização sobre os empreendimentos posso "
+                "cruzar com setores censitários do ibge?")
+
+    def _pontos(self, pergunta: str) -> dict:
+        from rag.components.retrievers.neo4j_catalog_retriever import (
+            _pontua_colunas, _radicais_da_pergunta,
+        )
+        return _pontua_colunas(self.COLUNAS, _radicais_da_pergunta(pergunta))
+
+    def test_accent_and_inflection_do_not_hide_a_column(self):
+        # "localização" (pergunta) precisa encontrar "localizado" (descrição).
+        pontos = self._pontos(self.PERGUNTA)
+        self.assertGreater(pontos.get("municipio", 0), 0)
+        self.assertGreater(pontos.get("uf", 0), 0)
+
+    def test_location_columns_outrank_the_rest(self):
+        pontos = self._pontos(self.PERGUNTA)
+        melhor = max(pontos, key=pontos.get)
+        self.assertIn(melhor, {"municipio", "uf"})
+        self.assertGreater(pontos["municipio"], pontos.get("valor_contratado", 0))
+
+    def test_generic_catalog_words_decide_nothing(self):
+        # "dados"/"tabela"/"base" aparecem em quase toda descrição: são ruído.
+        self.assertEqual(self._pontos("Quais dados essa tabela tem na base?"), {})
+
+    def test_rare_term_beats_ubiquitous_term(self):
+        # "empreendimento" está em quase toda descrição desta tabela e não
+        # distingue nada; "localização" está em duas e distingue tudo.
+        pontos = self._pontos(self.PERGUNTA)
+        self.assertGreater(pontos["municipio"], pontos.get("situacao_empreendimento", 0))
+
+    def test_stem_matches_related_words(self):
+        from rag.components.retrievers.neo4j_catalog_retriever import _radical
+        self.assertEqual(_radical("localizacao"), _radical("localizado"))
+        self.assertEqual(_radical("empreendimentos"), _radical("empreendimento"))
+
+
+@unittest.skipUnless(HAYSTACK, "Haystack indisponível no host — rode no container")
+class TestColumnBudget(unittest.TestCase):
+    """Orçamento de colunas: melhorar a relevância NÃO pode engordar o prompt.
+
+    O teto vale para o total do card — inclusive para as colunas estruturais e
+    para as relevantes. Antes, "essencial" entrava sem teto: quem melhorasse o
+    casamento pagava em contexto. Aqui as vagas são fixas; muda quem as ocupa."""
+
+    def _retriever(self, **kwargs):
+        store = FakeGraphStore(
+            seeds=[{"tid": "C.c.far.alfa", "rank": 0}], neighbors=[],
+            tables=[_table_row(
+                "C.c.far.alfa", "alfa", "far",
+                [{"name": "municipio", "type": "text", "is_pk": False,
+                  "description": "Municipio onde o empreendimento esta localizado."}]
+                + [{"name": f"c{i}", "type": "text", "is_pk": False,
+                    "description": "Localizacao do empreendimento."} for i in range(20)],
+            )],
+            joins=[], domains=[],
+        )
+        return Neo4jCatalogRetriever(graph_store=store, **kwargs)
+
+    def _docs(self):
+        return [Document(content="", meta={"node_id": "C.c.far.alfa", "label": "Table"})]
+
+    def test_budget_is_never_exceeded_even_with_many_relevant_columns(self):
+        # 21 colunas casam com a pergunta; o card continua com 5.
+        out = self._retriever(max_columns=5).run(
+            documents=self._docs(), query="onde fica a localização do empreendimento?")
+        self.assertEqual(len(out["documents"][0].meta["columns"]), 5)
+
+    def test_relevant_column_takes_the_slot_from_ordinal_filler(self):
+        out = self._retriever(max_columns=2).run(
+            documents=self._docs(), query="qual o município do empreendimento?")
+        nomes = [c["name"] for c in out["documents"][0].meta["columns"]]
+        self.assertIn("municipio", nomes)
+
+    def test_expansion_table_gets_the_smaller_budget(self):
+        retriever = self._retriever(max_columns=10, max_columns_expansion=3)
+        colunas = retriever._select_columns(  # noqa: SLF001
+            [{"name": f"c{i}", "type": "text", "is_pk": False, "description": ""}
+             for i in range(20)],
+            table_fqn="C.c.far.beta", seed_column_fqns=set(), join_key_names=set(),
+            query_tokens=set(), is_seed_table=False,
+        )
+        self.assertEqual(len(colunas), 3)
+
+    def test_structural_columns_come_first(self):
+        retriever = self._retriever(max_columns=2)
+        colunas = retriever._select_columns(  # noqa: SLF001
+            [{"name": "id", "type": "int", "is_pk": True, "description": ""},
+             {"name": "chave_join", "type": "text", "is_pk": False, "description": ""},
+             {"name": "outra", "type": "text", "is_pk": False, "description": "localizacao"}],
+            table_fqn="C.c.far.beta", seed_column_fqns=set(),
+            join_key_names={"chave_join"}, query_tokens={"localiz"}, is_seed_table=True,
+        )
+        self.assertEqual([c["name"] for c in colunas], ["id", "chave_join"])
+
+
+@unittest.skipUnless(HAYSTACK, "Haystack indisponível no host — rode no container")
 class TestExploreAnswerBuilder(unittest.TestCase):
     def _docs(self):
         return [

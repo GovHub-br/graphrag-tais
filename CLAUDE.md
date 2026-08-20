@@ -185,6 +185,22 @@ primeira metade da Persona 2 (embedding híbrido + Qdrant) via factory, com `top
   **panorama de domínios** por Cypher agregado → "quais bases existem" tem resposta
   determinística, sem passar por embedding. Importa (só leitura) `_tokenize`,
   `_grain_for` e `_schema_short` do retriever da Persona 2: fonte da verdade única.
+- **Poda de colunas própria (19/08, `eval/experiments/20260819-poda-colunas-explore.md`)**:
+  a P1 **não usa mais o `_col_matches` da P2** (substring crua). Numa pergunta sobre
+  *localização*, `municipio` ficava de fora (a descrição diz "localiza**do**") e
+  `situacao_empreendimento` entrava por ter "**dados**" na prosa — palavra que estava na
+  pergunta como enchimento. Agora: acento removido, casamento por **radical**, ruído de
+  catálogo descartado (`dados`, `tabela`, `base`, `contem`…) e relevância por **IDF local**
+  (peso = 1/nº de colunas que o termo atinge naquela tabela; match no NOME pesa 3×). ⚠️ O
+  **orçamento é estrito**: o teto vale para o card inteiro, inclusive estruturais e
+  relevantes (antes "essencial" entrava sem teto) — é o que garante que melhorar a
+  relevância **não engorde o prompt**. Prioridade: estruturais → relevantes → sementes →
+  ordinal. Tetos: semente `EXPLORE_MAX_COLUMNS=10`, expansão `EXPLORE_MAX_COLUMNS_EXPANSION=6`.
+  Medido: recall de coluna **0,489 → 0,575** com prompt médio −0,3% e p95 −0,9%
+  (`scripts/measure_explore_context.py`). `EXPLORE_MAX_OMITTED_NAMES` (listar o NOME das
+  colunas podadas) existe e está **desligado**: custa ~10% de prompt e o ganho ainda não é
+  mensurável. 🔴 **A P2 tem o mesmo defeito de casamento** (tetos 25/6) — corrigir lá exige
+  o gate do ADR-0012.
 - **`ExploreAnswerBuilder`**: resposta em ordem de LEITURA — resumo direto →
   **tabela-resumo** (Markdown, agrupada por domínio, uma linha por tabela) → detalhe
   longo **só das destacadas** → JOINs (tabela) → perguntas sugeridas (tabela) → SQL de

@@ -128,6 +128,7 @@ def build_explore_pipeline(collection: str | None = None, top_k: int | None = No
         max_seeds=top_k,
         max_tables=settings.EXPLORE_MAX_TABLES,
         max_columns=settings.EXPLORE_MAX_COLUMNS,
+        max_columns_expansion=settings.EXPLORE_MAX_COLUMNS_EXPANSION,
         expand_neighbors=settings.EXPLORE_EXPAND_NEIGHBORS,
     ))
 

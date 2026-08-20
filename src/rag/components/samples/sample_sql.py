@@ -63,6 +63,16 @@ def guard(sql: str, limit: int) -> Tuple[str, str]:
     if any(isinstance(node, _WRITE_NODES) for node in statement.walk()):
         return "", "contém instrução de escrita"
 
+    # O LIMIT que o modelo escreve é um teto ARBITRÁRIO dele (o prompt sugere 20),
+    # e como ele fica DENTRO do envelope, seria ele a mandar — a amostra sairia
+    # com 20 linhas mesmo com EXPLORE_SAMPLE_ROWS=100. Sem `ORDER BY`, esse LIMIT
+    # não carrega intenção nenhuma (é corte, não ranking), então cai e quem manda
+    # passa a ser o teto configurado. Com `ORDER BY` ele É a intenção ("os 10
+    # maiores") e fica intocado.
+    if isinstance(statement, exp.Select) and statement.args.get("limit") and not statement.args.get("order"):
+        statement = statement.copy()
+        statement.set("limit", None)
+
     return f"SELECT * FROM ({statement.sql(dialect=_DIALECT)}) AS amostra LIMIT {int(limit)}", ""
 
 

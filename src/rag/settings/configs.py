@@ -147,7 +147,20 @@ class Settings(BaseSettings):
         25, description="Teto de tabelas no panorama (sementes + expansão)"
     )
     EXPLORE_MAX_COLUMNS: int = Field(
-        8, description="Colunas por tabela no card de catálogo"
+        10, description="Colunas no card de uma tabela-SEMENTE (a que a busca elegeu)"
+    )
+    # Orçamento diferenciado, como na Persona 2 (25/6): a tabela-semente é a
+    # resposta e merece mais colunas; a de expansão é contexto de vizinhança.
+    # Diferenciar redistribui o MESMO custo — há mais tabelas de expansão que
+    # sementes, então apertar lá paga o alargamento aqui.
+    EXPLORE_MAX_COLUMNS_EXPANSION: int = Field(
+        6, description="Colunas no card de uma tabela que entrou só por expansão"
+    )
+    # Nomes das colunas PODADAS listados no card (só o nome, sem tipo/descrição).
+    # É o que impede a resposta de negar uma coluna que existe. Custa tokens, então
+    # é teto por tabela — e vale só para tabela-semente (ver `_serialize`).
+    EXPLORE_MAX_OMITTED_NAMES: int = Field(
+        0, description="Nomes de colunas omitidas listados por tabela-semente (0 = nenhum)"
     )
     EXPLORE_EXPAND_NEIGHBORS: bool = Field(
         True, description="Inclui vizinhos de 1 hop por SEMANTIC_JOIN (elegíveis ou não)"
