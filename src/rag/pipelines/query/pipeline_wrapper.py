@@ -18,6 +18,7 @@ from datetime import datetime
 from hayhooks import BasePipelineWrapper, get_last_user_message
 from loguru import logger
 
+from rag.components.answer.sql_answer_builder import render_markdown
 from rag.pipelines.query.query_pipeline import build_query_pipeline
 from rag.pipelines.delivery.delivery_pipeline import build_delivery_pipeline
 from rag.settings.configs import settings
@@ -87,7 +88,8 @@ class PipelineWrapper(BasePipelineWrapper):
 
     # ------------------------------------------------------------------ #
     def _with_delivery(self, query: str, answer: dict, markdown: str, docs: list):
-        """Executa o SQL (via MCP), anexa o gráfico ao Markdown do chat e devolve
+        """Executa o SQL (via MCP), RE-RENDERIZA a resposta com o que a execução
+        apurou (o SQL exibido passa a ser o que rodou), anexa o gráfico e devolve
         também os resultados ESTRUTURADOS da entrega (para o relatório).
         Nunca levanta: se a entrega falhar, devolve o texto + entrega vazia.
 
@@ -109,7 +111,8 @@ class PipelineWrapper(BasePipelineWrapper):
             )
         except Exception as e:  # noqa: BLE001 — gráfico é aditivo
             logger.warning("[query/chat] entrega/gráfico falhou: {}", e)
-            return markdown, delivery
+            delivery["exec_error"] = f"execução indisponível: {e}"
+            return render_markdown(answer, delivery), delivery
 
         execu = out.get("mcp_executor", {})
         image = out.get("chart_renderer", {}).get("image", "")
@@ -120,19 +123,22 @@ class PipelineWrapper(BasePipelineWrapper):
             exec_error=execu.get("error", "") or "",
         )
 
-        parts = [markdown]
+        # A falha de execução NÃO vai para a resposta (decisão de produto: o
+        # usuário leva o SQL, não o diagnóstico) — então ela precisa ficar
+        # visível aqui, senão some.
+        if not delivery["exec_ok"]:
+            logger.warning(
+                "[query/chat] SQL não executado ({}) — resposta sai sem gráfico",
+                delivery["exec_error"] or "sem detalhe",
+            )
+
+        # Re-renderiza AGORA que se sabe o que rodou: o bloco de SQL da resposta
+        # passa a ser o SQL executado (e o dicionário de dados, derivado dele).
+        # Antes, o Markdown vinha pronto da pipeline — montado antes da execução
+        # — e a correção do SQL só aparecia como nota no fim.
+        parts = [render_markdown(answer, delivery)]
         if image:
             parts.append("### Gráfico\n\n![gráfico](" + image + ")")
-        if delivery["exec_ok"] and delivery["sql_final"] and delivery["sql_final"].strip() != sql.strip():
-            parts.append(
-                "> O SQL foi **ajustado na execução** para rodar:\n```sql\n"
-                + delivery["sql_final"].strip() + "\n```"
-            )
-        elif not delivery["exec_ok"] and delivery["exec_error"]:
-            parts.append(
-                "> _Não consegui executar o SQL para gerar o gráfico "
-                f"({delivery['exec_error']})._"
-            )
         return "\n\n".join(parts), delivery
 
     # ------------------------------------------------------------------ #

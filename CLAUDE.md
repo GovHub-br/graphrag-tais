@@ -12,7 +12,7 @@ explícita, sem classificador de intenção:
 | nome exibido | id / pipeline / rota | persona | entrega |
 |---|---|---|---|
 | **Indicador** | `query` · `/query/run` | 2 — já sabe o que medir | bases, SQL, explicação, **gráfico**, relatório `.docx` |
-| **Explorar** | `explore` · `/explore/run` | 1 — não conhece as bases | panorama, tabelas + **grão**, SQL de amostra, **lacunas** |
+| **Explorar** | `explore` · `/explore/run` | 1 — não conhece as bases | panorama, tabelas + **grão**, **amostra de linhas reais + CSV**, **lacunas** |
 
 ⚠️ **Nome exibido ≠ id.** O Hayhooks deriva o id do modelo do NOME DO DIRETÓRIO da
 pipeline (`pipeline_name = pipeline_dir.name`), sem hook de override — renomear o
@@ -74,8 +74,8 @@ SQL gerado (a serialização usa o nome físico, não o FQN do catálogo).
 5. **Chat (motor + execução + gráfico)**: `docker compose up -d webui` (:3000) → modelo **`Indicador`**.
    O `run_chat_completion` compõe motor + entrega e embute o gráfico (PNG base64) no Markdown.
 6. **Explorar (Persona 1)**: modelo **`Explorar`** no mesmo webui, ou
-   `POST http://localhost:8000/explore/run` `{"query":"..."}`. Sem execução, sem gráfico,
-   sem `.docx` — uma chamada de LLM só.
+   `POST http://localhost:8000/explore/run` `{"query":"..."}`. Sem gráfico e sem `.docx`;
+   **executa só o SQL de amostra** (ADR-0015), que no caminho normal não gasta LLM.
 
 ## Acessos (dev — trocar em prod)
 
@@ -114,6 +114,8 @@ Fluxo: `pergunta → dense(Ollama)+sparse(BM25) → Qdrant híbrido → subgrafo
 - **LLM = OpenAI `gpt-4o`** (saída JSON) só na geração. **IR mínima** (intent/metric/filters) gerada
   junto e exposta na resposta (ponto de controle ADR-0006/0007), ainda não roteia a recuperação.
 - **`SqlAnswerBuilder`**: explicação + SQL + dicionário de dados (só colunas usadas) + IR + JOINs.
+  O Markdown é montado por `render_markdown(answer, exec_info)` — **função de módulo**, porque o
+  wrapper do chat a chama DE NOVO depois da execução (ver invariante do SQL abaixo).
 
 ### Camada de entrega — execução + gráfico (ADR-0013) ✅
 
@@ -124,6 +126,25 @@ Pipeline SEPARADA `pipelines/delivery/` que o `run_chat_completion` compõe (mot
 - **`ChartSpecBuilder`** (LLM JSON): escolhe bar/line/none, validado nas colunas reais.
 - **renderers matplotlib** (Agg) → PNG **base64** embutido como `![gráfico](data:image/png;base64,…)`.
 - Aditivo e tolerante a falha: sem execução/gráfico → devolve só o texto.
+
+⚠️ **Invariante do SQL exibido: UM bloco só, o do SQL que RODOU.** O `_with_delivery`
+**re-renderiza** a resposta com `exec_info` depois de executar (`render_markdown(answer,
+exec_info)`). Executou → `### SQL executado`, com a versão **ajustada** quando a autocorreção
+mexeu (a tentativa recusada não aparece, só a nota "ajustado na execução"); não executou →
+`### SQL gerado`, **limpo**. O **dicionário de dados deriva do SQL efetivo**. Antes, o Markdown
+vinha pronto da pipeline (montado ANTES da execução): a primeira tentativa do LLM aparecia como
+"SQL gerado" mesmo recusada pelo banco, e o dicionário documentava as colunas dela.
+
+⚠️ **Erro de execução NÃO vai para a resposta** (decisão de produto, 19/08): sem mensagem de
+banco no chat nem callout no `.docx` — quem lê quer a consulta, não o diagnóstico. O erro fica
+no `delivery["exec_error"]` e num `logger.warning` do `_with_delivery`; **é lá que se debuga**
+uma resposta que saiu sem gráfico. Mesma regra no `.docx` (`report_content.render_answer`).
+
+⚠️ **`_scan_executions` (era `_last_successful_execution`)**: o postgres-mcp devolve erro de banco
+como TEXTO com `isError=False`, então filtrar por `res.error` fazia "última bem-sucedida" virar
+"última tentativa" — um resultado bom seguido de uma tentativa recusada era descartado (resposta
+sem gráfico à toa) e o `sql_final` podia ser um SQL que nunca rodou. Agora a função devolve
+`(ok, failed)`, decidindo o que é utilizável pelo `_parse_rows` (fonte única).
 
 ### Relatório .docx editável (ADR-0010 item d) ✅
 
@@ -164,6 +185,22 @@ primeira metade da Persona 2 (embedding híbrido + Qdrant) via factory, com `top
   **panorama de domínios** por Cypher agregado → "quais bases existem" tem resposta
   determinística, sem passar por embedding. Importa (só leitura) `_tokenize`,
   `_grain_for` e `_schema_short` do retriever da Persona 2: fonte da verdade única.
+- **Poda de colunas própria (19/08, `eval/experiments/20260819-poda-colunas-explore.md`)**:
+  a P1 **não usa mais o `_col_matches` da P2** (substring crua). Numa pergunta sobre
+  *localização*, `municipio` ficava de fora (a descrição diz "localiza**do**") e
+  `situacao_empreendimento` entrava por ter "**dados**" na prosa — palavra que estava na
+  pergunta como enchimento. Agora: acento removido, casamento por **radical**, ruído de
+  catálogo descartado (`dados`, `tabela`, `base`, `contem`…) e relevância por **IDF local**
+  (peso = 1/nº de colunas que o termo atinge naquela tabela; match no NOME pesa 3×). ⚠️ O
+  **orçamento é estrito**: o teto vale para o card inteiro, inclusive estruturais e
+  relevantes (antes "essencial" entrava sem teto) — é o que garante que melhorar a
+  relevância **não engorde o prompt**. Prioridade: estruturais → relevantes → sementes →
+  ordinal. Tetos: semente `EXPLORE_MAX_COLUMNS=10`, expansão `EXPLORE_MAX_COLUMNS_EXPANSION=6`.
+  Medido: recall de coluna **0,489 → 0,575** com prompt médio −0,3% e p95 −0,9%
+  (`scripts/measure_explore_context.py`). `EXPLORE_MAX_OMITTED_NAMES` (listar o NOME das
+  colunas podadas) existe e está **desligado**: custa ~10% de prompt e o ganho ainda não é
+  mensurável. 🔴 **A P2 tem o mesmo defeito de casamento** (tetos 25/6) — corrigir lá exige
+  o gate do ADR-0012.
 - **`ExploreAnswerBuilder`**: resposta em ordem de LEITURA — resumo direto →
   **tabela-resumo** (Markdown, agrupada por domínio, uma linha por tabela) → detalhe
   longo **só das destacadas** → JOINs (tabela) → perguntas sugeridas (tabela) → SQL de
@@ -181,7 +218,19 @@ primeira metade da Persona 2 (embedding híbrido + Qdrant) via factory, com `top
 - **`SCOPE_GAPS`** (env JSON `{conceito: mensagem}`): transforma "refine a pergunta" na
   recusa informativa do item C2 ("não tenho execução orçamentária; tenho contratado e
   desembolsado"). **Vazio por default** → `gap_disclosure` mede pouco até ser preenchido.
-- Sem execução de SQL, sem gráfico, sem `.docx`: 1 chamada de LLM.
+- **Amostra de dados reais (ADR-0015)** ✅: o `sample_sql` é executado e a resposta traz
+  **10 linhas** numa tabela + link do **CSV** (100 linhas) + a consulta que rodou.
+  Escada em `components/samples/`: guarda `sqlglot` (uma instrução, leitura só, envelope
+  `SELECT * FROM (…) LIMIT n`) → execução **direta** pelo MCP (0 LLM) → autocorreção do
+  `Agent` com contexto **enxuto** (só a tabela alvo; `EXPLORE_SAMPLE_AUTOCORRECT`) →
+  **reconstrução pelo catálogo** (`SELECT <colunas do Neo4j> FROM <tabela> LIMIT n`, 0 LLM),
+  que é o degrau que **garante** amostra. `origin` ∈ {llm, corrigido, catalogo} vai no
+  `answer["sample"]` e é o que o eval pontua. CSV `utf-8-sig` + `;` (abre no Excel pt-BR),
+  bucket **`amostras`** e URL assinada **curta** (15 min) — separado dos relatórios porque
+  é o primeiro conteúdo do sistema que **não é metadado**. ⚠️ Sem filtro de PII: a ingestão
+  guarda `tags` por coluna, o gancho existe, não está implementado (escopo MCid é público).
+- Sem gráfico e sem `.docx`. O caminho normal segue em **1 chamada de LLM** (a amostra usa o
+  MCP direto); só a autocorreção da amostra gasta modelo, e só quando o banco recusa.
 
 ## Como rodar o eval do modo Explorar (Persona 1)
 

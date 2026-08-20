@@ -26,8 +26,11 @@ _DOCX_CONTENT_TYPE = (
 
 
 class MinIOUploader:
-    def __init__(self):
-        self.bucket = settings.MINIO_BUCKET
+    def __init__(self, bucket: str | None = None, presign_expiry: int | None = None):
+        # Parametrizável para a amostra de dados da Persona 1: LINHAS do banco
+        # não moram no mesmo bucket que relatórios, e a URL delas expira antes.
+        self.bucket = bucket or settings.MINIO_BUCKET
+        self.presign_expiry = presign_expiry or settings.REPORT_PRESIGN_EXPIRY
         common = dict(
             aws_access_key_id=settings.MINIO_ACCESS_KEY,
             aws_secret_access_key=settings.MINIO_SECRET_KEY,
@@ -54,19 +57,21 @@ class MinIOUploader:
             except ClientError as e:  # noqa: BLE001 — corrida/permite existir
                 logger.warning("[report] create_bucket: {}", e)
 
-    def upload(self, local_path: str, object_name: str | None = None) -> str:
+    def upload(self, local_path: str, object_name: str | None = None,
+               content_type: str | None = None) -> str:
         """Sobe o arquivo e devolve uma URL assinada de download (attachment)."""
         object_name = object_name or os.path.basename(local_path)
+        content_type = content_type or _DOCX_CONTENT_TYPE
         self._internal.upload_file(
             local_path,
             self.bucket,
             object_name,
-            ExtraArgs={"ContentType": _DOCX_CONTENT_TYPE},
+            ExtraArgs={"ContentType": content_type},
         )
-        logger.info("[report] .docx enviado ao MinIO: {}/{}", self.bucket, object_name)
-        return self._presigned_url(object_name)
+        logger.info("[storage] enviado ao MinIO: {}/{}", self.bucket, object_name)
+        return self._presigned_url(object_name, content_type)
 
-    def _presigned_url(self, object_name: str) -> str:
+    def _presigned_url(self, object_name: str, content_type: str) -> str:
         disposition = f'attachment; filename="{object_name}"'
         return self._public.generate_presigned_url(
             "get_object",
@@ -74,7 +79,7 @@ class MinIOUploader:
                 "Bucket": self.bucket,
                 "Key": object_name,
                 "ResponseContentDisposition": disposition,
-                "ResponseContentType": _DOCX_CONTENT_TYPE,
+                "ResponseContentType": content_type,
             },
-            ExpiresIn=settings.REPORT_PRESIGN_EXPIRY,
+            ExpiresIn=self.presign_expiry,
         )

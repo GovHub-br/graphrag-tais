@@ -27,6 +27,8 @@ o `ExploreAnswerBuilder` descarta qualquer tabela citada pelo LLM que não estej
 from __future__ import annotations
 
 import json
+import re
+import unicodedata
 from typing import Any, Dict, List
 
 from haystack import Document, component
@@ -39,11 +41,117 @@ from rag.components.graphstore.neo4j import Neo4jGraphStore
 # UMA fonte da verdade. Importar evita divergência silenciosa entre as personas
 # e não altera nada do caminho da Persona 2.
 from rag.components.retrievers.neo4j_subgraph_retriever import (
-    _col_matches,
     _grain_for,
     _schema_short,
     _tokenize,
 )
+
+# `_col_matches` da Persona 2 NÃO é reusado aqui — ver `_pontua_coluna`. Ele
+# casa substring crua, o que nesta persona custava caro: numa pergunta sobre
+# "localização", `municipio` (descrição: "…esta localizado") ficava de fora e
+# `situacao_empreendimento` entrava por conter a palavra "dados". Como a
+# Persona 2 é território medido, a correção nasce aqui e só depois (com o gate
+# do ADR-0012) se decide levá-la para lá.
+
+# ---------------------------------------------------------------------- #
+# Relevância de coluna (Persona 1)
+# ---------------------------------------------------------------------- #
+# Palavras que aparecem em quase toda descrição de catálogo e em quase toda
+# pergunta: casar por elas é ruído puro. Foi assim que `situacao_empreendimento`
+# ("…priorizada a partir dos DADOS da CAIXA") entrou no card de uma pergunta
+# sobre localização, e `municipio` ficou de fora.
+_RUIDO_CATALOGO = {
+    "dado", "dados", "tabela", "tabelas", "base", "bases", "banco", "campo",
+    "campos", "coluna", "colunas", "registro", "registros", "informacao",
+    "informacoes", "contem", "conter", "existe", "existem", "tenho", "quero",
+    "consolida", "consolidado", "partir", "priorizada", "priorizando",
+}
+
+# Sufixos flexionais do português, do mais longo para o mais curto: o radical é
+# o que faz "localização" (pergunta) encontrar "localizado" (descrição).
+_SUFIXOS = (
+    "mentos", "mento", "acoes", "acao", "coes", "idades", "idade", "ados",
+    "adas", "idos", "idas", "ores", "ado", "ada", "ido", "ida", "oes", "eis",
+    "es", "s",
+)
+
+
+def _sem_acento(texto: str) -> str:
+    return "".join(
+        c for c in unicodedata.normalize("NFKD", (texto or "").lower())
+        if not unicodedata.combining(c)
+    )
+
+
+def _radical(palavra: str) -> str:
+    """Radical aproximado: tira o sufixo flexional mais longo que ainda deixa
+    4 caracteres. Não é stemmer de verdade — é o suficiente para casar as
+    flexões que aparecem em nome de coluna e em descrição de catálogo."""
+    for sufixo in _SUFIXOS:
+        if palavra.endswith(sufixo) and len(palavra) - len(sufixo) >= 4:
+            return palavra[: -len(sufixo)]
+    return palavra
+
+
+def _radicais(texto: str) -> set:
+    return {
+        _radical(parte)
+        for parte in re.split(r"[^0-9a-z]+", _sem_acento(texto))
+        if len(parte) >= 4 and parte not in _RUIDO_CATALOGO
+    }
+
+
+def _radicais_da_pergunta(query: str) -> set:
+    """Radicais úteis da pergunta. Reusa a tokenização da Persona 2 (stopwords
+    gerais) e tira ainda as palavras genéricas de catálogo."""
+    return {
+        _radical(_sem_acento(token))
+        for token in _tokenize(query)
+        if _sem_acento(token) not in _RUIDO_CATALOGO
+    }
+
+
+def _casa_radical(radical: str, alvo: str) -> bool:
+    """Dois radicais casam por igualdade ou por prefixo de 4. Aplicado DEPOIS da
+    remoção de sufixo, o prefixo curto erra pouco: `rend` liga renda/rendimento,
+    e as palavras genéricas que ele ligaria por acaso já saíram no ruído."""
+    return radical == alvo or (min(len(radical), len(alvo)) >= 4
+                               and radical[:4] == alvo[:4])
+
+
+def _pontua_colunas(all_cols: list, termos: set) -> Dict[str, float]:
+    """Relevância de cada coluna para a pergunta, por sobreposição de radicais
+    **ponderada por raridade dentro da tabela** (IDF local).
+
+    A raridade é o que separa sinal de ruído sem dicionário nenhum: numa tabela
+    de empreendimentos, "empreendimento" aparece na descrição de quase toda
+    coluna e não distingue nada, enquanto "localiz" aparece em duas — e são
+    exatamente as duas que a pergunta queria. O nome da coluna pesa mais que a
+    descrição: quem se chama `municipio` fala de município; quem só menciona a
+    palavra na prosa, talvez."""
+    if not termos:
+        return {}
+
+    nomes = {c["name"]: _radicais(c["name"]) for c in all_cols}
+    descricoes = {c["name"]: _radicais(c.get("description", "")) for c in all_cols}
+
+    casados: Dict[str, set] = {}
+    for termo in termos:
+        atingidas = {
+            col["name"] for col in all_cols
+            if any(_casa_radical(termo, r) for r in nomes[col["name"]] | descricoes[col["name"]])
+        }
+        if atingidas:
+            casados[termo] = atingidas
+
+    pontos: Dict[str, float] = {}
+    for termo, atingidas in casados.items():
+        raridade = 1.0 / len(atingidas)          # IDF local, sem log: tabela é pequena
+        for nome in atingidas:
+            peso = 3.0 if any(_casa_radical(termo, r) for r in nomes[nome]) else 1.0
+            pontos[nome] = pontos.get(nome, 0.0) + raridade * peso
+    return pontos
+
 
 # Panorama do catálogo: um registro por schema, com contagem e nomes das tabelas.
 # É o bloco 1 da resposta e a fonte do `catalog` (âncora anti-alucinação).
@@ -141,6 +249,7 @@ class Neo4jCatalogRetriever:
         max_seeds: int = 15,
         max_tables: int = 25,
         max_columns: int = 8,
+        max_columns_expansion: int | None = None,
         expand_neighbors: bool = True,
     ):
         self.store = graph_store
@@ -148,6 +257,8 @@ class Neo4jCatalogRetriever:
         self.max_seeds = max_seeds
         self.max_tables = max_tables
         self.max_columns = max_columns
+        self.max_columns_expansion = (max_columns if max_columns_expansion is None
+                                      else max_columns_expansion)
         self.expand_neighbors = expand_neighbors
 
     @component.output_types(
@@ -194,7 +305,7 @@ class Neo4jCatalogRetriever:
             joins_by_table.setdefault(j["left_table_fqn"], []).append(j)
             joins_by_table.setdefault(j["right_table_fqn"], []).append(j)
 
-        query_tokens = _tokenize(query)
+        query_tokens = _radicais_da_pergunta(query)
         out: List[Document] = []
         for table_fqn in table_ids:  # a ORDEM aqui é a relevância — não reordenar
             row = rows.get(table_fqn)
@@ -209,10 +320,15 @@ class Neo4jCatalogRetriever:
                 seed_column_fqns=seed_column_fqns,
                 join_key_names=join_key_cols.get(table_fqn, set()),
                 query_tokens=query_tokens,
+                is_seed_table=table_fqn in seed_table_fqns,
             )
             neighbors = self._neighbor_labels(table_fqn, joins_by_table.get(table_fqn, []))
+            mantidas = {c["name"] for c in kept}
+            e_semente = table_fqn in seed_table_fqns
+            omitidas = ([c["name"] for c in all_cols if c["name"] not in mantidas]
+                        if e_semente else [])
             out.append(Document(
-                content=self._serialize(row, sql_name, schema, kept, neighbors),
+                content=self._serialize(row, sql_name, schema, kept, neighbors, omitidas),
                 meta={
                     "node_id": table_fqn,
                     "fqn": table_fqn,
@@ -300,27 +416,47 @@ class Neo4jCatalogRetriever:
         seed_column_fqns: set,
         join_key_names: set,
         query_tokens: set,
+        is_seed_table: bool = True,
     ) -> list:
-        """Colunas que ajudam a ENTENDER a tabela: PK, chaves de JOIN, colunas
-        que vieram como semente e as que casam com a pergunta; completa por
-        ordinal até o teto. Tetos menores que os da Persona 2 de propósito — quem
-        explora quer reconhecer a tabela, não o dicionário completo."""
-        keep: List[dict] = []
+        """Colunas que ajudam a ENTENDER a tabela, **dentro de um orçamento fixo**.
+
+        A seleção é por prioridade, e o teto (`max_columns`) vale para o total —
+        inclusive para as essenciais. É o que garante que melhorar a relevância
+        não engorde o prompt: as vagas são as mesmas, muda quem as ocupa.
+
+        Ordem: (1) estruturais — PK e chave de JOIN, que sustentam grão e JOIN e
+        são poucas; (2) colunas-semente, que a busca vetorial já elegeu; (3) as
+        mais relevantes para a pergunta, por `_pontua_colunas`; (4) preenchimento
+        por ordinal, que é só contexto de reconhecimento.
+
+        Antes, "essencial" entrava sem teto e o teto só cortava o preenchimento —
+        então uma coluna importante nunca era cortada por falta de espaço, e sim
+        por não ser RECONHECIDA como importante (poda por substring crua)."""
+        orcamento = self.max_columns if is_seed_table else self.max_columns_expansion
+        estruturais, sementes = [], []
         for col in all_cols:
             name = col["name"]
-            if (
-                col.get("is_pk")
-                or name in join_key_names
-                or f"{table_fqn}.{name}" in seed_column_fqns
-                or _col_matches(name, col.get("description", ""), query_tokens)
-            ):
-                keep.append(col)
-        keep_names = {c["name"] for c in keep}
-        for col in all_cols:
-            if len(keep_names) >= self.max_columns:
-                break
-            keep_names.add(col["name"])
-        return [c for c in all_cols if c["name"] in keep_names]
+            if col.get("is_pk") or name in join_key_names:
+                estruturais.append(name)
+            elif f"{table_fqn}.{name}" in seed_column_fqns:
+                sementes.append(name)
+
+        pontos = _pontua_colunas(all_cols, query_tokens)
+        relevantes = [
+            nome for nome, _ in sorted(pontos.items(), key=lambda kv: (-kv[1], kv[0]))
+            if pontos[nome] > 0
+        ]
+
+        keep_names: List[str] = []
+        for grupo in (estruturais, relevantes, sementes, [c["name"] for c in all_cols]):
+            for nome in grupo:
+                if len(keep_names) >= orcamento:
+                    break
+                if nome not in keep_names:
+                    keep_names.append(nome)
+
+        escolhidas = set(keep_names)
+        return [c for c in all_cols if c["name"] in escolhidas]
 
     @staticmethod
     def _neighbor_labels(table_fqn: str, table_joins: List[dict]) -> List[str]:
@@ -339,7 +475,7 @@ class Neo4jCatalogRetriever:
 
     @staticmethod
     def _serialize(row: dict, sql_name: str, schema: str, columns: list,
-                   neighbors: List[str]) -> str:
+                   neighbors: List[str], omitidas: List[str] | None = None) -> str:
         """Card de catálogo para o LLM: o que a tabela é, em que grão, com quem
         conversa. Mais enxuto que a serialização da Persona 2 (que precisa de
         tipo e descrição de cada coluna para escrever SQL de indicador)."""
@@ -361,4 +497,17 @@ class Neo4jCatalogRetriever:
             for c in columns
         )
         lines.append(f"  Colunas principais: {cols}")
+        # Nunca esconder a EXISTÊNCIA de uma coluna. O detalhe (tipo, descrição)
+        # é caro e fica só nas escolhidas; o nome custa ~3 tokens e é o que
+        # impede a resposta de afirmar que a tabela não tem algo que ela tem —
+        # o modo Explorar fala com quem não pode conferir.
+        if omitidas:
+            from rag.settings.configs import settings
+
+            teto = settings.EXPLORE_MAX_OMITTED_NAMES
+            mostradas = omitidas[:teto] if teto > 0 else []
+            if mostradas:
+                resto = len(omitidas) - len(mostradas)
+                sufixo = f" (+{resto})" if resto > 0 else ""
+                lines.append(f"  Outras colunas (só o nome): {', '.join(mostradas)}{sufixo}")
         return "\n".join(lines)

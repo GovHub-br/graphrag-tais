@@ -17,7 +17,7 @@ from __future__ import annotations
 import datetime as _dt
 import json
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, NamedTuple, Optional
 
 from loguru import logger
 from haystack import component
@@ -40,6 +40,15 @@ Regras: só SELECT; não invente colunas; mantenha o LIMIT quando houver.\
 """
 
 
+class _Attempt(NamedTuple):
+    """Uma chamada de `execute_sql` no histórico do agente, já interpretada.
+    `error` vazio = a chamada rodou e o resultado é utilizável."""
+    sql: Optional[str]
+    columns: List[str]
+    rows: List[Dict[str, Any]]
+    error: str
+
+
 @component
 class McpSqlExecutor:
     def __init__(
@@ -47,11 +56,17 @@ class McpSqlExecutor:
         mcp_url: str | None = None,
         max_steps: int | None = None,
         max_rows: int | None = None,
+        direct_only: bool = False,
     ) -> None:
         self.mcp_url = mcp_url or settings.POSTGRES_MCP_URL
         self.max_steps = max_steps or settings.AGENT_MAX_STEPS
         self.max_rows = max_rows or settings.MAX_EXEC_ROWS
         self.direct_timeout = settings.MCP_DIRECT_TIMEOUT
+        # `direct_only=True`: executa só pelo caminho direto, sem Agent e sem
+        # LLM. Aditivo — o default preserva a Persona 2. Existe para a amostra
+        # da Persona 1, que tem escada própria de recuperação (reconstrói a
+        # consulta pelo catálogo em vez de pedir correção ao modelo).
+        self.direct_only = direct_only
         self._agent = None  # construído preguiçosamente
 
     # ------------------------------------------------------------------ #
@@ -102,7 +117,7 @@ class McpSqlExecutor:
         # mesmo quando o SQL rodava de primeira — que é o caso quase sempre
         # (fidelidade ao schema medida em 1,0). Só caímos no Agent se o banco
         # recusar, preservando a autocorreção onde ela de fato serve.
-        if settings.MCP_DIRECT_FIRST:
+        if settings.MCP_DIRECT_FIRST or self.direct_only:
             direct = self._execute_direct(sql)
             if direct is not None:
                 columns, rows, parse_error = self._parse_rows(direct)
@@ -120,6 +135,9 @@ class McpSqlExecutor:
                         "exec_ok": True,
                         "error": "",
                     }
+            if self.direct_only:
+                empty["error"] = "o banco recusou o SQL (execução direta, sem autocorreção)"
+                return empty
             logger.info("McpSqlExecutor: execução direta falhou; acionando autocorreção")
 
         user_msg = (
@@ -135,22 +153,23 @@ class McpSqlExecutor:
             empty["error"] = f"Execução indisponível: {exc}"
             return empty
 
-        sql_final, raw = self._last_successful_execution(result.get("messages", []))
-        if raw is None:
-            empty["error"] = "Nenhuma execução de SQL bem-sucedida."
+        ok, failed = self._scan_executions(result.get("messages", []))
+        if ok is None:
+            if failed is None:
+                empty["error"] = "Nenhuma execução de SQL bem-sucedida."
+                return empty
+            logger.warning("McpSqlExecutor: execução não utilizável ({})", failed.error)
+            empty["sql_final"] = failed.sql or sql
+            empty["error"] = failed.error
             return empty
 
-        columns, rows, parse_error = self._parse_rows(raw)
-        if parse_error:
-            logger.warning("McpSqlExecutor: execução não utilizável ({})", parse_error)
-            empty["sql_final"] = sql_final or sql
-            empty["error"] = parse_error
-            return empty
-        logger.info("McpSqlExecutor: {} linhas, {} colunas", len(rows), len(columns))
+        logger.info(
+            "McpSqlExecutor: {} linhas, {} colunas", len(ok.rows), len(ok.columns)
+        )
         return {
-            "rows": rows[: self.max_rows],
-            "columns": columns,
-            "sql_final": sql_final or sql,
+            "rows": ok.rows[: self.max_rows],
+            "columns": ok.columns,
+            "sql_final": ok.sql or sql,
             "exec_ok": True,
             "error": "",
         }
@@ -199,22 +218,39 @@ class McpSqlExecutor:
             logger.warning("McpSqlExecutor: execução direta indisponível ({})", exc)
             return None
 
-    @staticmethod
-    def _last_successful_execution(messages: list) -> tuple[Optional[str], Optional[str]]:
-        """Varre o histórico do agente e pega o ÚLTIMO resultado bem-sucedido da
-        tool `execute_sql`, com o SQL que o gerou."""
+    @classmethod
+    def _scan_executions(cls, messages: list) -> tuple[Optional["_Attempt"], Optional["_Attempt"]]:
+        """Varre o histórico do agente e separa a última execução que de fato
+        RODOU da última que o banco RECUSOU.
+
+        Antes isto se chamava `_last_successful_execution` e filtrava só por
+        `res.error` — mas o postgres-mcp não marca erro de banco no envelope
+        (ver `_db_error`: `isError=False` e o erro vem como TEXTO). Na prática
+        a função devolvia a última TENTATIVA, não a última bem-sucedida. Dois
+        efeitos: um resultado bom seguido de uma tentativa recusada era
+        descartado (resposta sem gráfico à toa), e o `sql_final` exibido podia
+        ser um SQL que nunca rodou."""
+        ok: Optional[_Attempt] = None
+        failed: Optional[_Attempt] = None
         last_sql: Optional[str] = None
-        last_raw: Optional[str] = None
         for msg in messages or []:
             for res in (getattr(msg, "tool_call_results", None) or []):
                 origin = getattr(res, "origin", None)
-                tool_name = getattr(origin, "tool_name", None)
-                if tool_name != "execute_sql" or getattr(res, "error", False):
+                if getattr(origin, "tool_name", None) != "execute_sql":
                     continue
-                last_raw = getattr(res, "result", None)
                 args = getattr(origin, "arguments", None) or {}
                 last_sql = args.get("sql") or args.get("query") or last_sql
-        return last_sql, last_raw
+                raw = getattr(res, "result", None)
+                if getattr(res, "error", False):
+                    failed = _Attempt(last_sql, [], [], "a ferramenta execute_sql falhou")
+                    continue
+                # O que conta como resultado utilizável é decidido num lugar só.
+                columns, rows, error = cls._parse_rows(raw)
+                if error:
+                    failed = _Attempt(last_sql, [], [], error)
+                else:
+                    ok = _Attempt(last_sql, columns, rows, "")
+        return ok, failed
 
     # O postgres-mcp NÃO usa o campo `isError` do MCP para erro de banco: ele
     # devolve isError=False e o erro como TEXTO ("Error: column x does not

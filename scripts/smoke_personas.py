@@ -97,6 +97,16 @@ def main() -> int:
           str(a.get("off_catalog_tables")))
     check("traz SQL de amostra", bool(a.get("sample_sql")))
     check("oferece o próximo passo (handoff)", "Indicador" in (a.get("next_step") or ""))
+    # Amostra de dados (ADR-0015): a escada tem degrau determinístico, então
+    # "não veio amostra" com o banco de pé é falha, não degradação esperada.
+    amostra = a.get("sample") or {}
+    check("amostra de dados executada", bool(amostra.get("ok")),
+          amostra.get("reason", "sem campo sample"))
+    check("amostra traz linhas reais", len(amostra.get("rows") or []) > 0)
+    check("amostra veio de um SQL que rodou", bool(amostra.get("sql")))
+    check("origem da amostra declarada",
+          amostra.get("origin") in {"llm", "corrigido", "catalogo"},
+          str(amostra.get("origin")))
 
     print("\n[3] Explorar — pergunta de catálogo")
     a2 = post(f"{base}/explore/run", {"query": "Quais bases de dados vocês têm disponíveis?"})
@@ -111,6 +121,8 @@ def main() -> int:
     check("sem célula truncada em reticências",
           not any(l.startswith("|") and "…" in l for l in md.splitlines()))
     check("colunas consistentes em toda tabela Markdown", _tabelas_consistentes(md))
+    check("mostra a amostra do dado no chat", "Uma amostra do dado" in md)
+    check("oferece o download do CSV", "Baixar a amostra" in md and ".csv" in md)
     check(f"latência aceitável ({secs:.1f}s)", secs < 40)
 
     print("\n[5] Indicador — resposta completa com gráfico")
@@ -118,7 +130,11 @@ def main() -> int:
     check("traz SQL", "```sql" in md2)
     check("traz gráfico embutido", "data:image/png;base64" in md2)
     check("traz link do relatório .docx", ".docx" in md2)
-    check("não emitiu aviso de falha de execução", "Não consegui executar" not in md2)
+    # Invariante de exibição: UM bloco de SQL, o que RODOU. O título é a
+    # evidência — "SQL executado" só sai quando o banco de fato executou; se a
+    # execução falhar, o bloco vira "SQL gerado" e esta checagem acusa.
+    check("mostra o SQL que rodou (não a tentativa)", "### SQL executado" in md2)
+    check("um único bloco de SQL na resposta", md2.count("```sql") == 1)
     check(f"latência aceitável ({secs2:.1f}s)", secs2 < 90)
 
     print("\n[6] Degradação — pergunta fora do escopo não pode inventar")

@@ -38,27 +38,37 @@ def render_answer(doc: _Document, answer: Dict[str, Any],
     else:
         w.add_muted(doc, "(sem explicação)")
 
-    # 2) SQL gerado (+ SQL ajustado na execução, se houver)
-    w.add_heading(doc, "SQL gerado", 3)
-    if sql:
+    # 2) SQL — em destaque fica o que RODOU, e só ele (mesma invariante do
+    #    chat). Execução falhada não vira ruído no relatório: mostra-se o SQL
+    #    gerado, limpo; o erro do banco vive no log e no `exec_info`.
+    executed = (exec_info.get("sql_final") or "").strip()
+    exec_ok = bool(exec_info.get("exec_ok"))
+    sql_efetivo = executed if (exec_ok and executed) else sql
+
+    if exec_ok and (executed or sql):
+        w.add_heading(doc, "SQL executado", 3)
+        w.add_code_box(doc, sql_efetivo)
+        if executed and sql and executed != sql:
+            w.add_muted(doc, "O SQL foi ajustado na execução para rodar.")
+    elif sql:
+        w.add_heading(doc, "SQL gerado", 3)
         w.add_code_box(doc, sql)
     else:
+        w.add_heading(doc, "SQL gerado", 3)
         w.add_muted(
             doc,
             "Não foi possível gerar SQL com o schema recuperado. Refine a "
             "pergunta ou verifique se as tabelas necessárias foram ingeridas.",
         )
-    sql_final = (exec_info.get("sql_final") or "").strip()
-    if exec_info.get("exec_ok") and sql_final and sql_final != sql:
-        w.add_muted(doc, "SQL ajustado na execução para rodar:", italic=False)
-        w.add_code_box(doc, sql_final)
 
     # 3) Dados de referência (dicionário por tabela, ancorado no subgrafo)
     if references:
         used = [r for r in references if r.get("used")] or references
         w.add_heading(doc, "Dados de referência", 3)
-        tokens = _sql_identifiers(sql)
-        select_star = bool(re.search(r"select\s+(\w+\.)?\*", sql.lower()))
+        # Derivado do SQL EFETIVO: se a execução corrigiu uma coluna, é a
+        # coluna corrigida que precisa ser documentada.
+        tokens = _sql_identifiers(sql_efetivo)
+        select_star = bool(re.search(r"select\s+(\w+\.)?\*", sql_efetivo.lower()))
         by_base: Dict[str, List[dict]] = {}
         for ref in used:
             by_base.setdefault(ref.get("base") or "—", []).append(ref)
@@ -99,17 +109,12 @@ def render_answer(doc: _Document, answer: Dict[str, Any],
     # 5) Interpretação (IR)
     _render_ir(doc, ir)
 
-    # 6) Gráfico (+ nota de execução, se falhou)
+    # 6) Gráfico. Sem gráfico, o relatório simplesmente não traz a seção: erro
+    #    de execução não vira callout aqui (mesma regra do bloco de SQL — o
+    #    diagnóstico fica no log, não no documento que a pessoa leva).
     if chart_data_uri:
         w.add_heading(doc, "Gráfico", 3)
-        if not w.add_chart(doc, chart_data_uri) and exec_info.get("exec_error"):
-            w.add_callout(doc, text=f"Não consegui gerar o gráfico: {exec_info['exec_error']}")
-    elif not exec_info.get("exec_ok") and exec_info.get("exec_error"):
-        w.add_callout(
-            doc,
-            text="Não consegui executar o SQL para gerar o gráfico "
-            f"({exec_info['exec_error']}).",
-        )
+        w.add_chart(doc, chart_data_uri)
 
 
 # --------------------------------------------------------------------------- #

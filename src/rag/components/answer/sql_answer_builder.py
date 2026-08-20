@@ -6,6 +6,11 @@ usadas) e o subgrafo recuperado, e produz dois artefatos:
 - `answer`  : dict estruturado (para a API `/query/run`);
 - `markdown`: texto organizado para o OpenWebUI (explicação, SQL, referências).
 
+O Markdown é montado por `render_markdown(answer, exec_info)`, função de módulo
+(não método) porque o wrapper do chat a chama **de novo** depois da camada de
+entrega, agora sabendo o que aconteceu na execução — é assim que a resposta
+mostra o SQL que RODOU, e não a primeira tentativa do LLM.
+
 Entrega o item (a) do ADR-0010 (bases/tabelas/colunas + SQL) e expõe a IR como
 ponto de controle inspecionável (ADR-0006/0007). As **referências são ancoradas
 no subgrafo recuperado** (meta dos Documents), não extraídas do texto do LLM —
@@ -91,7 +96,7 @@ class SqlAnswerBuilder:
             "context_tables": [d.meta.get("sql_name") for d in documents],
             "joins": joins,
         }
-        markdown = self._render_markdown(parsed, references, joins)
+        markdown = render_markdown(answer)
         return {"answer": answer, "markdown": markdown}
 
     # ------------------------------------------------------------------ #
@@ -133,135 +138,171 @@ class SqlAnswerBuilder:
             return [r for r in refs if r["used"]]
         return refs
 
-    # ------------------------------------------------------------------ #
-    # Cap de colunas quando não dá pra saber quais foram usadas (ex.: SELECT *).
-    MAX_DICT_COLUMNS = 15
 
-    @staticmethod
-    def _column_keys(col: Dict[str, Any]) -> str:
-        """Coluna 'Chave' do dicionário: PK e/ou chave de JOIN (SEMANTIC_JOIN)."""
-        marks = []
-        if col.get("is_pk"):
-            marks.append("🔑 PK")
-        if col.get("is_join_key"):
-            marks.append("🔗 join")
-        return " · ".join(marks)
+# --------------------------------------------------------------------------- #
+# Renderização em Markdown — a partir do `answer` ESTRUTURADO
+#
+# Mora fora da classe porque roda DUAS vezes por resposta do chat: aqui, dentro
+# da pipeline (antes de existir execução), e de novo no wrapper, depois que a
+# camada de entrega executou o SQL. Renderizar dos CAMPOS (nunca reparseando o
+# Markdown já montado) é a mesma regra que o relatório .docx segue.
+# --------------------------------------------------------------------------- #
+# Cap de colunas quando não dá pra saber quais foram usadas (ex.: SELECT *).
+MAX_DICT_COLUMNS = 15
 
-    @staticmethod
-    def _sql_identifiers(sql: str) -> set:
-        """Identificadores (nomes) citados no SQL, em minúsculas."""
-        return set(re.findall(r"[A-Za-z_][A-Za-z0-9_]*", (sql or "").lower()))
 
-    def _render_data_dictionary(
-        self, references: List[Dict[str, Any]], sql: str
-    ) -> str:
-        """Uma tabela Markdown por tabela referenciada: nome em destaque
-        (cabeçalho) + linhas de coluna com tipo/chave. Mostra APENAS as colunas
-        efetivamente citadas no SQL, para não poluir com dezenas de colunas."""
-        tokens = self._sql_identifiers(sql)
-        # `SELECT *` / `SELECT t.*` (mas não `COUNT(*)`) → não dá pra saber as
-        # colunas; mostra amostra curta em vez de só a chave de JOIN.
-        select_star = bool(re.search(r"select\s+(\w+\.)?\*", (sql or "").lower()))
-        blocks = ["### Dados de referência"]
-        by_base: Dict[str, List[Dict[str, Any]]] = {}
-        for ref in references:
-            by_base.setdefault(ref["base"] or "—", []).append(ref)
+def _column_keys(col: Dict[str, Any]) -> str:
+    """Coluna 'Chave' do dicionário: PK e/ou chave de JOIN (SEMANTIC_JOIN)."""
+    marks = []
+    if col.get("is_pk"):
+        marks.append("🔑 PK")
+    if col.get("is_join_key"):
+        marks.append("🔗 join")
+    return " · ".join(marks)
 
-        for base, refs in sorted(by_base.items()):
-            blocks.append(f"**Base `{base}`**")
-            for ref in refs:
-                columns = ref["columns"]
-                # Só as colunas usadas no SQL, para não poluir.
-                shown = [c for c in columns if c.get("name", "").lower() in tokens]
-                overflow = 0
-                if select_star or not shown:
-                    shown = columns[: self.MAX_DICT_COLUMNS]
-                    overflow = max(0, len(columns) - self.MAX_DICT_COLUMNS)
 
-                if ref["description"]:
-                    blocks.append(f"_{ref['description'].strip()}_")
-                # Cabeçalho = nome da tabela (linha em destaque); colunas abaixo.
-                lines = [
-                    f"| 📋 `{ref['table']}` | Tipo · Chave |",
-                    "| :-- | :-- |",
-                ]
-                for col in shown:
-                    props = col.get("type", "") or ""
-                    keys = self._column_keys(col)
-                    if keys:
-                        props = f"{props} · {keys}" if props else keys
-                    lines.append(f"| `{col.get('name', '')}` | {props} |")
-                if overflow:
-                    lines.append(f"| _… +{overflow} colunas_ | |")
-                blocks.append("\n".join(lines))
-        return "\n\n".join(blocks)
+def _sql_identifiers(sql: str) -> set:
+    """Identificadores (nomes) citados no SQL, em minúsculas."""
+    return set(re.findall(r"[A-Za-z_][A-Za-z0-9_]*", (sql or "").lower()))
 
-    # ------------------------------------------------------------------ #
-    def _render_markdown(
-        self,
-        parsed: GeneratedAnswer,
-        references: List[Dict[str, Any]],
-        joins: List[Dict[str, Any]],
-    ) -> str:
-        parts: List[str] = []
 
-        # 1) Explicação em linguagem natural
-        parts.append(parsed.explanation.strip() or "_(sem explicação)_")
+def _sql_section(sql: str, exec_info: Dict[str, Any]) -> tuple[str, str]:
+    """Bloco do SQL + o SQL que vale como fonte da verdade para o dicionário.
 
-        # 2) SQL gerado
-        if parsed.sql.strip():
-            parts.append("### SQL gerado\n```sql\n" + parsed.sql.strip() + "\n```")
+    **Invariante: aparece UM SQL só — o que RODOU.** Quando a execução ajustou a
+    consulta (autocorreção do `McpSqlExecutor`), é a versão ajustada que aparece;
+    a tentativa que o banco recusou não interessa a quem lê e não é mostrada.
+
+    Quando a execução falhou de vez, mostra-se o **SQL gerado**, limpo: sem erro
+    de banco e sem aviso. O usuário quer a consulta para levar embora, não o
+    diagnóstico da falha — que continua no log do `McpSqlExecutor` e no
+    `delivery` (portanto no `.docx` e no que a instrumentação registrar)."""
+    sql = (sql or "").strip()
+    executed = (exec_info.get("sql_final") or "").strip()
+
+    if exec_info.get("exec_ok") and (executed or sql):
+        final = executed or sql
+        block = "### SQL executado\n```sql\n" + final + "\n```"
+        if executed and sql and executed != sql:
+            block += "\n\n> O SQL foi **ajustado na execução** para rodar."
+        return block, final
+
+    if sql:
+        return "### SQL gerado\n```sql\n" + sql + "\n```", sql
+
+    return (
+        "### SQL gerado\n_Não foi possível gerar SQL com o schema "
+        "recuperado. Refine a pergunta ou verifique se as tabelas "
+        "necessárias foram ingeridas._",
+        "",
+    )
+
+
+def _render_data_dictionary(references: List[Dict[str, Any]], sql: str) -> str:
+    """Uma tabela Markdown por tabela referenciada: nome em destaque
+    (cabeçalho) + linhas de coluna com tipo/chave. Mostra APENAS as colunas
+    efetivamente citadas no SQL, para não poluir com dezenas de colunas."""
+    tokens = _sql_identifiers(sql)
+    # `SELECT *` / `SELECT t.*` (mas não `COUNT(*)`) → não dá pra saber as
+    # colunas; mostra amostra curta em vez de só a chave de JOIN.
+    select_star = bool(re.search(r"select\s+(\w+\.)?\*", (sql or "").lower()))
+    blocks = ["### Dados de referência"]
+    by_base: Dict[str, List[Dict[str, Any]]] = {}
+    for ref in references:
+        by_base.setdefault(ref["base"] or "—", []).append(ref)
+
+    for base, refs in sorted(by_base.items()):
+        blocks.append(f"**Base `{base}`**")
+        for ref in refs:
+            columns = ref["columns"]
+            # Só as colunas usadas no SQL, para não poluir.
+            shown = [c for c in columns if c.get("name", "").lower() in tokens]
+            overflow = 0
+            if select_star or not shown:
+                shown = columns[:MAX_DICT_COLUMNS]
+                overflow = max(0, len(columns) - MAX_DICT_COLUMNS)
+
+            if ref["description"]:
+                blocks.append(f"_{ref['description'].strip()}_")
+            # Cabeçalho = nome da tabela (linha em destaque); colunas abaixo.
+            lines = [
+                f"| 📋 `{ref['table']}` | Tipo · Chave |",
+                "| :-- | :-- |",
+            ]
+            for col in shown:
+                props = col.get("type", "") or ""
+                keys = _column_keys(col)
+                if keys:
+                    props = f"{props} · {keys}" if props else keys
+                lines.append(f"| `{col.get('name', '')}` | {props} |")
+            if overflow:
+                lines.append(f"| _… +{overflow} colunas_ | |")
+            blocks.append("\n".join(lines))
+    return "\n\n".join(blocks)
+
+
+def render_markdown(answer: Dict[str, Any],
+                    exec_info: Dict[str, Any] | None = None) -> str:
+    """Markdown do chat a partir do `answer` estruturado.
+
+    `exec_info` é o que a camada de entrega apurou
+    (`{sql_final, exec_ok, exec_error}`). Sem ele, a resposta é a do motor puro
+    — nenhuma afirmação sobre execução é feita."""
+    exec_info = exec_info or {}
+    references: List[Dict[str, Any]] = answer.get("references") or []
+    joins: List[Dict[str, Any]] = answer.get("joins") or []
+    parts: List[str] = []
+
+    # 1) Explicação em linguagem natural
+    parts.append((answer.get("explanation") or "").strip() or "_(sem explicação)_")
+
+    # 2) SQL — o que rodou, ou o gerado marcado como não executado
+    sql_block, sql_efetivo = _sql_section(answer.get("sql", ""), exec_info)
+    parts.append(sql_block)
+
+    # 3) Dados de referência — dicionário por tabela (ancorado no subgrafo),
+    #    derivado do SQL EFETIVO: se a execução corrigiu uma coluna, é a coluna
+    #    corrigida que precisa ser documentada.
+    if references:
+        if any(r["used"] for r in references):
+            parts.append(_render_data_dictionary(references, sql_efetivo))
         else:
-            parts.append(
-                "### SQL gerado\n_Não foi possível gerar SQL com o schema "
-                "recuperado. Refine a pergunta ou verifique se as tabelas "
-                "necessárias foram ingeridas._"
+            # Fallback (LLM não indicou tabelas): lista compacta do contexto,
+            # sem estourar a resposta com dicionários de dezenas de tabelas.
+            names = ", ".join(f"`{r['table']}`" for r in references)
+            parts.append("### Tabelas disponíveis no contexto\n" + names)
+
+    # 4) JOINs disponíveis no contexto (SEMANTIC_JOIN). Só o ⚠️ nas que não
+    # casam direto; a legenda abaixo explica o que ele significa.
+    if joins:
+        join_lines = ["### Relações de JOIN no contexto"]
+        needs_norm = False
+        for j in joins:
+            left = f"{j['left_table']}.{j['left_col']}"
+            right = f"{j['right_table']}.{j['right_col']}"
+            mark = "" if j.get("sql_join_eligible") else " ⚠️"
+            if not j.get("sql_join_eligible"):
+                needs_norm = True
+            join_lines.append(f"- `{left}` = `{right}`{mark}")
+        if needs_norm:
+            join_lines.append(
+                "\n> ⚠️ a chave não casa direto — exige normalização "
+                "(formato/limpeza) antes do JOIN."
             )
+        parts.append("\n".join(join_lines))
 
-        # 3) Dados de referência — dicionário de dados por tabela (ancorado no subgrafo)
-        if references:
-            any_used = any(r["used"] for r in references)
-            if any_used:
-                parts.append(self._render_data_dictionary(references, parsed.sql))
-            else:
-                # Fallback (LLM não indicou tabelas): lista compacta do contexto,
-                # sem estourar a resposta com dicionários de dezenas de tabelas.
-                names = ", ".join(f"`{r['table']}`" for r in references)
-                parts.append(
-                    "### Tabelas disponíveis no contexto\n" + names
-                )
+    # 5) Interpretação (IR) — ponto de controle inspecionável (ADR-0006/0007).
+    # Markdown puro (o <details> antigo quebrava no render do OpenWebUI).
+    ir: Dict[str, Any] = answer.get("ir") or {}
+    ir_bits = [f"intent `{ir.get('intent', 'unknown')}`"]
+    if ir.get("metric"):
+        ir_bits.append(f"metric `{ir['metric']}`")
+    filtros = "; ".join(
+        f"{f.get('concept')}={f.get('value')}"
+        for f in (ir.get("filters") or []) if f.get("concept")
+    )
+    if filtros:
+        ir_bits.append(f"filtros: {filtros}")
+    parts.append("**Interpretação (IR):** " + " · ".join(ir_bits))
 
-        # 4) JOINs disponíveis no contexto (SEMANTIC_JOIN). Só o ⚠️ nas que não
-        # casam direto; a legenda abaixo explica o que ele significa.
-        if joins:
-            join_lines = ["### Relações de JOIN no contexto"]
-            needs_norm = False
-            for j in joins:
-                left = f"{j['left_table']}.{j['left_col']}"
-                right = f"{j['right_table']}.{j['right_col']}"
-                mark = "" if j.get("sql_join_eligible") else " ⚠️"
-                if not j.get("sql_join_eligible"):
-                    needs_norm = True
-                join_lines.append(f"- `{left}` = `{right}`{mark}")
-            if needs_norm:
-                join_lines.append(
-                    "\n> ⚠️ a chave não casa direto — exige normalização "
-                    "(formato/limpeza) antes do JOIN."
-                )
-            parts.append("\n".join(join_lines))
-
-        # 5) Interpretação (IR) — ponto de controle inspecionável (ADR-0006/0007).
-        # Markdown puro (o <details> antigo quebrava no render do OpenWebUI).
-        ir = parsed.ir
-        ir_bits = [f"intent `{ir.intent}`"]
-        if ir.metric:
-            ir_bits.append(f"metric `{ir.metric}`")
-        if ir.filters:
-            filtros = "; ".join(
-                f"{f.concept}={f.value}" for f in ir.filters if f.concept
-            )
-            if filtros:
-                ir_bits.append(f"filtros: {filtros}")
-        parts.append("**Interpretação (IR):** " + " · ".join(ir_bits))
-
-        return "\n\n".join(parts)
+    return "\n\n".join(parts)

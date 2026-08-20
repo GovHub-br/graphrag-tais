@@ -93,6 +93,17 @@ _CATALOG_PATTERNS = (
 _THEME_QUALIFIERS = (" sobre ", " isso", " desse ", " dessa ", " deste ", " desta ")
 
 
+def _sample_value(value: Any) -> str:
+    """Valor de célula da amostra. Nulo tem de aparecer como nulo — numa amostra
+    de dado, célula vazia é indistinguível de string vazia, e a diferença
+    importa para quem está decidindo se a coluna serve."""
+    if value is None:
+        return "—"
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value)
+
+
 def _is_catalog_question(query: str) -> bool:
     folded = _fold(f" {query} ")
     if not any(pattern in folded for pattern in _CATALOG_PATTERNS):
@@ -182,6 +193,9 @@ class ExploreAnswerBuilder:
             "joins": joins,
             "sample_sql": parsed.sample_sql.strip(),
             "sample_sql_rationale": parsed.sample_sql_rationale.strip(),
+            # Preenchido DEPOIS, pelo wrapper (a amostra precisa do SQL que este
+            # componente acabou de produzir). Vazio = resposta sem dado real.
+            "sample": {},
             "gaps": gaps,
             "catalog_size": len(catalog),
             # Diagnóstico do eval: tabela citada pelo LLM que não existe.
@@ -192,7 +206,7 @@ class ExploreAnswerBuilder:
                 "diga qual tabela ou indicador você quer."
             ),
         }
-        return {"answer": answer, "markdown": self._render(answer, joins)}
+        return {"answer": answer, "markdown": self.render(answer, joins)}
 
     # ------------------------------------------------------------------ #
     @staticmethod
@@ -409,7 +423,47 @@ class ExploreAnswerBuilder:
             )
         return "\n".join(lines)
 
-    def _render(self, answer: dict, joins: List[Dict[str, Any]]) -> str:
+    def _sample_block(self, sample: dict, rationale: str = "") -> str:
+        """Prévia da amostra: tabela curta + link do CSV + o SQL que a produziu.
+
+        Recorte proposital: poucas colunas e poucas linhas cabem na largura do
+        chat e já respondem "como é esse dado?". O arquivo leva tudo — é ele que
+        serve para trabalhar."""
+        from rag.components.samples import sample_sql as helper
+
+        columns, rows = helper.preview(
+            sample["columns"], sample["rows"],
+            max_rows=sample.get("preview_rows", 10),
+        )
+        alinha = ["--:" if helper.is_numeric_column(c, rows) else ":--" for c in columns]
+        lines = ["### Uma amostra do dado"]
+        if rationale:
+            lines.append(self._cell(rationale, 200))
+        lines.append("")
+        lines.append("| " + " | ".join(f"`{c}`" for c in columns) + " |")
+        lines.append("| " + " | ".join(alinha) + " |")
+        for row in rows:
+            valores = [self._cell(_sample_value(row.get(c)), 40) for c in columns]
+            lines.append("| " + " | ".join(valores) + " |")
+
+        omitidas = len(sample["columns"]) - len(columns)
+        nota = f"{len(rows)} de {sample['row_count']} linhas"
+        if omitidas > 0:
+            nota += f" · {len(columns)} de {len(sample['columns'])} colunas"
+        lines.append(f"\n_{nota} — o arquivo abaixo traz tudo._")
+
+        if sample.get("url"):
+            lines.append(
+                f"\n📥 **[Baixar a amostra ({sample['row_count']} linhas, .csv)]"
+                f"({sample['url']})**"
+            )
+        lines.append("\nA consulta que gerou esta amostra:")
+        lines.append("```sql\n" + sample["sql"].strip() + "\n```")
+        return "\n".join(lines)
+
+    def render(self, answer: dict, joins: List[Dict[str, Any]]) -> str:
+        """Markdown da resposta. Público porque o wrapper re-renderiza depois de
+        executar a amostra — mesmo padrão do `render_markdown` da Persona 2."""
         parts: List[str] = [answer["summary"] or "_(sem resumo)_"]
         tables = answer["tables"]
         catalog_domains = answer.get("catalog_domains") or answer["domains"]
@@ -466,8 +520,12 @@ class ExploreAnswerBuilder:
                     lines.append(f"| {self._cell(question, 150)} | `{name}` |")
             parts.append("\n".join(lines))
 
-        # 5) SQL de amostra — para ver o dado, não para medir indicador.
-        if answer["sample_sql"]:
+        # 5) O dado. Com amostra executada, a pessoa VÊ as linhas e leva o CSV;
+        # o SQL vai junto, mas depois — ele é o "como", não o "o quê".
+        sample = answer.get("sample") or {}
+        if sample.get("ok") and sample.get("rows"):
+            parts.append(self._sample_block(sample, answer.get("sample_sql_rationale", "")))
+        elif answer["sample_sql"]:
             block = ["### SQL de amostra (para ver o dado)"]
             if answer["sample_sql_rationale"]:
                 block.append(answer["sample_sql_rationale"])
