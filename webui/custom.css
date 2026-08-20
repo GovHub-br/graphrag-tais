@@ -1,0 +1,522 @@
+/* ============================================================================
+   GovHub — tema para Open WebUI 0.10.2
+   ----------------------------------------------------------------------------
+   Servido em /static/custom.css (gancho oficial, linkado no <head> do index.html).
+   Fidelidade: docs/graphrag-tais-overview.html  ·  skill govhub-visual-identity.
+
+   COMO ISSO FUNCIONA (e por que não precisa de !important):
+   o CSS do Open WebUI é Tailwind v4 e vive inteiro dentro de @layer
+   (theme/base/utilities). Regra SEM layer — como todas as daqui — vence
+   qualquer regra com layer, independente de ordem e especificidade. Por isso
+   basta redefinir os design tokens; nada de caçar classe utilitária.
+
+   LICENÇA: co-branding. O nome do produto continua exibindo "(Open WebUI)"
+   (o backend anexa isso sozinho em env.py) e nada de branding é ocultado —
+   trocamos o ícone do produto, o que a licença permite em deployments de
+   até 50 pessoas em 30 dias. Ver docs/20260820-estudo-identidade-visual-na-ui.md.
+   ========================================================================= */
+
+/* ---------------------------------------------------------------------------
+   1. Paleta GovHub — os mesmos valores do overview.html
+   ------------------------------------------------------------------------ */
+:root {
+  --gh-purple:    #7c3aed;
+  --gh-purple-d:  #6d28d9;
+  --gh-violet:    #8b5cf6;
+  --gh-orange:    #f97316;
+  --gh-amber:     #f59e0b;
+
+  --gh-ink:       #221f33;
+  --gh-muted:     #5b596f;
+  --gh-faint:     #8a889b;
+
+  --gh-bg:        #ffffff;
+  --gh-soft:      #f7f5fe;
+  --gh-soft-2:    #f2eefe;
+  --gh-code-bg:   #faf9ff;
+  --gh-border:    #eceaf5;
+  --gh-border-2:  #e2ddf1;
+
+  --gh-good:      #0f9d58;
+  --gh-warn:      #c07a10;
+
+  --gh-shadow:    0 1px 2px rgba(80,50,160,.05), 0 8px 26px rgba(95,60,175,.07);
+  --gh-shadow-lg: 0 10px 34px rgba(95,60,175,.12);
+  --gh-nav:       linear-gradient(180deg, #6d28d9 0%, #7c3aed 55%, #8b5cf6 100%);
+
+  --gh-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+}
+
+/* ---------------------------------------------------------------------------
+   2. Escala de cinza → neutros levemente arroxeados
+   É a alavanca central: quase toda superfície, borda e texto do app sai daqui.
+   ------------------------------------------------------------------------ */
+:root, :host {
+  --color-gray-50:  #f7f5fe;
+  --color-gray-100: #f2eefe;
+  --color-gray-200: #eceaf5;
+  --color-gray-300: #e2ddf1;
+  --color-gray-400: #a9a6bd;
+  --color-gray-500: #8a889b;
+  --color-gray-600: #5b596f;
+  --color-gray-700: #221f33;
+  --color-gray-800: #2b2740;
+  --color-gray-850: #241f36;
+  --color-gray-900: #1c182c;
+  --color-gray-950: #141021;
+
+  /* Tipografia da marca — a Inter já vem embarcada no Open WebUI. */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+               Helvetica, Arial, sans-serif;
+  --font-mono: var(--gh-mono);
+}
+
+html, body, .font-primary, .font-secondary {
+  font-family: var(--font-sans);
+}
+html { color-scheme: light; }
+body { background: var(--gh-bg); color: var(--gh-ink); -webkit-font-smoothing: antialiased; }
+
+/* Identidade GovHub = tema claro. Se algo escapar para o modo escuro, a
+   superfície continua branca em vez de piscar preto. */
+html.dark body { background: var(--gh-bg); color: var(--gh-ink); }
+
+/* ---------------------------------------------------------------------------
+   3. Barra lateral = a navbar do GovHub, de pé
+   O overview.html tem uma navbar horizontal em gradiente roxo com a logo
+   branca. Aqui o mesmo gradiente veste o rail vertical.
+   ------------------------------------------------------------------------ */
+#sidebar {
+  background: var(--gh-nav);
+  color: #ffffff;
+  border-inline-end: 0;
+  box-shadow: 2px 0 14px rgba(90, 40, 180, .22);
+}
+#sidebar:hover { background: var(--gh-nav); }
+
+/* Tudo que está dentro do rail é branco. A regra é ampla de propósito: no
+   layout estreito (< 768px) o #sidebar é OUTRO elemento — um drawer com árvore
+   própria — e depender de herança deixava os rótulos pretos sobre o roxo.
+   Menus flutuantes são renderizados fora do #sidebar (portal), então escapam. */
+#sidebar, #sidebar *:not([role="menu"]):not([role="menu"] *) { color: #ffffff; }
+#sidebar a:hover, #sidebar button:hover { background: rgba(255, 255, 255, .16); }
+
+/* Hierarquia dentro do branco: rótulo de seção e carimbo de tempo rebaixados. */
+#sidebar .text-gray-400, #sidebar .text-gray-500, #sidebar .text-gray-600 {
+  color: rgba(255, 255, 255, .62);
+}
+
+/* O ícone do produto no topo do rail: versão branca da marca GovHub,
+   porque o fundo aqui é roxo. */
+#sidebar img.sidebar-new-chat-icon {
+  content: url("/static/govhub-mark-light.svg");
+  border-radius: 0;
+  width: 1.55rem;
+  height: 1.55rem;
+}
+
+/* Avatar do usuário no pé do rail: anel branco em vez de cinza. */
+#sidebar .border-white, #sidebar .dark\:border-gray-900 { border-color: #ffffff; }
+
+/* Lista de conversas (rail expandido): as superfícies claras do tema padrão
+   ficariam brancas sobre branco no gradiente — viram véus translúcidos. */
+#sidebar .bg-gray-50, #sidebar .bg-gray-100, #sidebar .bg-gray-200 {
+  background: rgba(255, 255, 255, .14);
+  color: #ffffff;
+}
+/* Conversa ativa: véu mais forte + marcador âmbar, o mesmo acento que o
+   overview.html usa no item de menu ativo. */
+#sidebar a.selected, #sidebar .selected {
+  background: rgba(255, 255, 255, .20);
+  color: #ffffff;
+  box-shadow: inset 3px 0 0 var(--gh-amber);
+}
+#sidebar hr, #sidebar .border-gray-50, #sidebar .border-gray-100 {
+  border-color: rgba(255, 255, 255, .18);
+}
+/* As máscaras de fade do topo/base da lista partem de gray-50 (branco) e
+   deixavam uma mancha clara sobre o gradiente — refeitas nas cores do rail. */
+#sidebar .sidebar-bg-gradient-to-b { background-image: linear-gradient(to bottom, #6d28d9 45%, transparent); }
+#sidebar .sidebar-bg-gradient-to-t { background-image: linear-gradient(to top, #8b5cf6 45%, transparent); }
+/* Mesma coisa no fade que revela os botões de ação da conversa no hover. */
+#sidebar [class*="from-gray-100"] {
+  background-image: linear-gradient(to left, rgba(124, 58, 237, .96) 78%, rgba(124, 58, 237, 0));
+}
+
+/* Nome do produto no topo do rail expandido. */
+#sidebar .font-primary { letter-spacing: -.01em; font-weight: 600; }
+
+/* ---------------------------------------------------------------------------
+   4. Topo da conversa
+   ------------------------------------------------------------------------ */
+#navbar-bg-gradient-to-b {
+  background: linear-gradient(to bottom, #ffffff 35%, rgba(255, 255, 255, 0));
+}
+#model-selector-0-button {
+  font-weight: 600;
+  letter-spacing: -.01em;
+  color: var(--gh-ink);
+}
+#model-selector-0-button:hover { background: var(--gh-soft-2); }
+
+/* ---------------------------------------------------------------------------
+   5. Caixa de mensagem — o card branco do overview.html
+   ------------------------------------------------------------------------ */
+/* Só o container externo vira card — #chat-input-container é a própria
+   textarea, dentro dele; estilizar os dois desenha caixa dentro de caixa. */
+#message-input-container {
+  border-radius: 18px;
+  border: 1px solid var(--gh-border-2);
+  background: var(--gh-bg);
+  box-shadow: var(--gh-shadow);
+  transition: box-shadow .18s ease, border-color .18s ease;
+}
+#message-input-container:hover { border-color: #d6cdf0; }
+#message-input-container:focus-within {
+  border-color: var(--gh-violet);
+  box-shadow: var(--gh-shadow-lg), 0 0 0 3px rgba(124, 58, 237, .12);
+}
+#chat-input-container { border: 0; background: transparent; box-shadow: none; }
+#chat-input::placeholder, #chat-input-container::placeholder { color: var(--gh-faint); }
+
+/* Botão de enviar / voz: o gradiente da marca. */
+#message-input-container button.bg-black,
+#chat-input-container button.bg-black,
+button#send-message-button,
+#voice-input-button.bg-black {
+  background: linear-gradient(135deg, var(--gh-purple-d), var(--gh-violet));
+  color: #ffffff;
+  box-shadow: 0 3px 10px rgba(109, 40, 217, .32);
+}
+#message-input-container button.bg-black:hover,
+#chat-input-container button.bg-black:hover,
+button#send-message-button:hover {
+  background: linear-gradient(135deg, #5b21b6, var(--gh-purple));
+}
+
+/* ---------------------------------------------------------------------------
+   6. Tela inicial e sugestões — cards do overview.html
+   ------------------------------------------------------------------------ */
+/* As sugestões viram os cards do overview.html (borda fina + sombra roxa). */
+button.waterfall {
+  border: 1px solid var(--gh-border);
+  border-radius: 14px;
+  background: var(--gh-bg);
+  box-shadow: var(--gh-shadow);
+  padding: .7rem .95rem;
+  margin-bottom: .5rem;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+button.waterfall:hover {
+  border-color: var(--gh-border-2);
+  box-shadow: var(--gh-shadow-lg);
+  transform: translateY(-1px);
+  background: var(--gh-bg);
+}
+/* Título do card em ink, subtítulo no mono/uppercase discreto do overview. */
+button.waterfall > div > div:first-child { color: var(--gh-ink); font-weight: 600; }
+button.waterfall > div > div:last-child  { color: var(--gh-faint); }
+
+/* O Open WebUI limita a lista de sugestões a 10rem e o card (borda + sombra)
+   estoura essa altura, cortando o terceiro pela metade. :has() deixa o alvo
+   restrito a esta lista — h-40/max-h-40 são utilitários usados em outros lugares. */
+div.h-40:has(button.waterfall) { height: auto; }
+div.max-h-40:has(button.waterfall) { max-height: none; overflow: visible; }
+
+/* "Sugerido" — o eyebrow roxo em versalete do overview.html. */
+.font-primary .text-xs.text-gray-600:has(+ div button.waterfall) {
+  color: var(--gh-purple);
+  font-family: var(--gh-mono);
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+/* Nome do modelo na tela inicial, no aperto tipográfico do overview. */
+.font-primary .text-3xl, .font-primary .text-2xl { letter-spacing: -.025em; }
+
+/* ---------------------------------------------------------------------------
+   7. Mensagens
+   ------------------------------------------------------------------------ */
+/* Balão do usuário: o roxo suave (--soft-2) do overview. */
+.chat-user .bg-gray-50,
+.chat-user .rounded-3xl,
+[dir] .user-message .bg-gray-50 {
+  background: var(--gh-soft-2);
+  color: var(--gh-ink);
+  border-radius: 16px;
+}
+
+/* ---------------------------------------------------------------------------
+   8. Markdown da resposta
+   O Open WebUI usa Tailwind Typography, então retematizar é redefinir os
+   --tw-prose-*. Vale para todo conteúdo gerado — inclusive as tabelas de
+   dicionário de dados e o SQL do modelo Indicador.
+   ------------------------------------------------------------------------ */
+.markdown-prose, .markdown-prose-sm, .markdown-prose-xs {
+  --tw-prose-body:          var(--gh-ink);
+  --tw-prose-headings:      var(--gh-ink);
+  --tw-prose-lead:          var(--gh-muted);
+  --tw-prose-links:         var(--gh-purple);
+  --tw-prose-bold:          var(--gh-ink);
+  --tw-prose-counters:      var(--gh-purple);
+  --tw-prose-bullets:       var(--gh-border-2);
+  --tw-prose-hr:            var(--gh-border);
+  --tw-prose-quotes:        var(--gh-muted);
+  --tw-prose-quote-borders: var(--gh-purple);
+  --tw-prose-captions:      var(--gh-faint);
+  --tw-prose-code:          var(--gh-purple-d);
+  --tw-prose-pre-code:      var(--gh-ink);
+  --tw-prose-pre-bg:        var(--gh-code-bg);
+  --tw-prose-th-borders:    var(--gh-border-2);
+  --tw-prose-td-borders:    var(--gh-border);
+  line-height: 1.62;
+}
+
+.markdown-prose h1, .markdown-prose h2 { letter-spacing: -.02em; }
+.markdown-prose h2 { color: var(--gh-ink); }
+.markdown-prose h3 { color: var(--gh-purple-d); font-weight: 650; }
+.markdown-prose a:hover { color: var(--gh-purple-d); }
+
+/* Código inline: o "chip" roxo do overview.html. */
+.markdown-prose :not(pre) > code {
+  background: var(--gh-soft);
+  border: 1px solid var(--gh-border-2);
+  border-radius: 5px;
+  padding: .05em .38em;
+  color: var(--gh-purple-d);
+  font-family: var(--gh-mono);
+  font-size: .85em;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.markdown-prose :not(pre) > code::before,
+.markdown-prose :not(pre) > code::after { content: none; }
+
+/* Blocos de código / SQL. O Open WebUI não usa <pre> aqui: monta um
+   CodeMirror dentro de um container .rounded-2xl.border. */
+.markdown-prose pre, pre.shiki, .shiki {
+  background: var(--gh-code-bg);
+  border: 1px solid var(--gh-border-2);
+  border-radius: 12px;
+  color: var(--gh-ink);
+  font-family: var(--gh-mono);
+  font-size: .84em;
+  line-height: 1.6;
+}
+.markdown-prose div.rounded-2xl.border {
+  border-color: var(--gh-border-2);
+  background: var(--gh-code-bg);
+}
+.markdown-prose .cm-editor, .markdown-prose .cm-gutters { background: var(--gh-code-bg); }
+.markdown-prose .cm-gutters { border-right-color: var(--gh-border); color: var(--gh-faint); }
+.markdown-prose .cm-activeLine, .markdown-prose .cm-activeLineGutter { background: transparent; }
+
+/* Tabelas: a mesma moldura arredondada com header suave do overview.html —
+   é onde a resposta do Indicador (dicionário de dados) mais aparece. */
+/* A moldura fica no wrapper rolável (é ele que corta a sombra da tabela) —
+   mesmo arranjo do .tw do overview.html. */
+.markdown-prose div.overflow-x-auto:has(> table) {
+  border: 1px solid var(--gh-border);
+  border-radius: 14px;
+  box-shadow: var(--gh-shadow);
+  background: var(--gh-bg);
+}
+.markdown-prose table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  font-size: .9em;
+  width: 100%;
+  color: var(--gh-ink);
+}
+.markdown-prose thead th {
+  background: var(--gh-soft);
+  color: var(--gh-faint);
+  font-size: .7em;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--gh-border);
+  padding: .62rem .9rem;
+  text-align: left;
+}
+.markdown-prose tbody td {
+  border-bottom: 1px solid var(--gh-border);
+  padding: .62rem .9rem;
+  vertical-align: top;
+  color: var(--gh-ink);
+}
+.markdown-prose tbody tr:last-child td { border-bottom: 0; }
+.markdown-prose tbody tr:hover td { background: var(--gh-soft); }
+
+/* Citações → o callout de nota do overview. */
+.markdown-prose blockquote {
+  background: var(--gh-soft);
+  border-inline-start: 3px solid var(--gh-purple);
+  border-radius: 0 10px 10px 0;
+  padding: .8rem 1.05rem;
+  color: var(--gh-muted);
+  font-style: normal;
+}
+.markdown-prose blockquote p:first-of-type::before,
+.markdown-prose blockquote p:last-of-type::after { content: none; }
+
+/* Gráfico do Indicador (PNG base64): ganha a moldura de figura. */
+.markdown-prose img {
+  border: 1px solid var(--gh-border-2);
+  border-radius: 16px;
+  background: var(--gh-code-bg);
+  padding: .6rem;
+  box-shadow: var(--gh-shadow);
+}
+
+/* ---------------------------------------------------------------------------
+   9. Controles gerais
+   ------------------------------------------------------------------------ */
+button.bg-black, .bg-black.text-white {
+  background: var(--gh-purple);
+  color: #ffffff;
+}
+button.bg-black:hover { background: var(--gh-purple-d); }
+
+input:focus, textarea:focus, select:focus { outline-color: var(--gh-violet); }
+::selection { background: rgba(139, 92, 246, .25); }
+
+/* Barras de rolagem discretas, no tom da marca. */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+  background: var(--gh-border-2);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: #cfc6ea; background-clip: content-box; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------------------------------------------------------------------------
+   10. Os outros lugares onde a marca aparece
+   ------------------------------------------------------------------------ */
+
+/* 10.1 — SPLASH. É o primeiro meio segundo do produto: em vez do logo roxo
+   sobre branco, a tela inteira vira a cor da marca com a logo em negativo,
+   subindo de leve. O gradiente é o mesmo do rail, na diagonal. */
+/* `html` na frente não é enfeite: o componente do splash injeta um <style>
+   inline no fim do <body> com `#splash-screen{background:#fff}`. Empata em
+   especificidade com o custom.css e, por vir depois no documento, ganharia. */
+html #splash-screen {
+  background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 55%, #8b5cf6 100%);
+}
+/* Halo suave atrás da logo — dá profundidade sem pesar. */
+html #splash-screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(60% 45% at 50% 44%, rgba(255, 255, 255, .18), transparent 70%);
+  pointer-events: none;
+}
+#splash-screen img#logo,
+#splash-screen img#logo-her {
+  content: url("/static/splash-dark.png");   /* versão clara da logo vertical */
+  height: 10rem !important;                  /* o script inline crava 6rem no style */
+  filter: drop-shadow(0 10px 30px rgba(46, 16, 101, .35));
+  animation: gh-splash-in .7s cubic-bezier(.2, .7, .3, 1) both;
+}
+/* Assinatura sob a logo. */
+html #splash-screen::after {
+  content: "Assistente de Dados";
+  position: absolute;
+  top: calc(44% + 11.4rem);
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, .82);
+  font-family: var(--gh-mono);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .28em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  animation: gh-splash-in .7s .12s cubic-bezier(.2, .7, .3, 1) both;
+}
+@keyframes gh-splash-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes gh-splash-in-x {
+  from { opacity: 0; transform: translate(-50%, 14px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+html html #splash-screen::after { animation-name: gh-splash-in-x; }
+
+/* 10.2 — TELA DE ENTRADA. A marca completa acima do nome da persona, com
+   uma marca-d'água gigante e discreta atrás — como papel timbrado. */
+#chat-pane .translate-y-6.py-24 {
+  position: relative;
+}
+#chat-pane .translate-y-6.py-24::before {
+  content: "";
+  display: block;
+  width: 156px;
+  height: 38px;
+  margin: 0 auto 1.9rem;
+  background: url("/static/govhub-horizontal.svg") center / contain no-repeat;
+  opacity: .92;
+  animation: gh-rise .6s cubic-bezier(.2, .7, .3, 1) both;
+}
+#chat-pane .translate-y-6.py-24::after {
+  content: "";
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  width: 480px;
+  height: 480px;
+  transform: translate(-50%, -50%);
+  background: url("/static/favicon.svg") center / contain no-repeat;
+  opacity: .028;
+  pointer-events: none;
+  z-index: -1;
+}
+@keyframes gh-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: .92; transform: translateY(0); }
+}
+
+/* 10.3 — CARREGANDO. As perguntas do Indicador levam de 30 s a 1 min; o
+   ponto que pulsava vira a marca GovHub pulsando. É o lugar em que a pessoa
+   mais olha enquanto espera.
+
+   ⚠️ O esqueleto é um <span> de 8px DENTRO de outro <span> de 8px, e o de fora
+   é `flex`. Redimensionar só o de dentro não resolve: como item flex ele é
+   espremido de volta para 8px de largura e a marca sai achatada ao lado do
+   ponto preto original. Daí redimensionar os dois + `flex: none`.
+
+   O componente tem três tamanhos (xs/sm/md) e o "gerando" usa o md — por isso
+   a regra NÃO pode se prender a uma classe de tamanho. */
+span.relative.flex:has(> .animate-size),
+span.animate-size {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+span.animate-size {
+  flex: none;
+  background-color: transparent;
+  background-image: url("/static/favicon.svg");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  border-radius: 0;
+}
+
+/* Texto "pensando" no roxo da marca, em vez do cinza padrão. */
+.shimmer {
+  color: #a78bfa;
+  background: linear-gradient(110deg, #a78bfa, #a78bfa 43%, #6d28d9, #a78bfa 57%, #a78bfa) 0 0 / 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* Modais e menus flutuantes com o raio e a sombra da marca. */
+[role="dialog"] > div, .modal-content { border-radius: 16px; box-shadow: var(--gh-shadow-lg); }

@@ -109,7 +109,7 @@ sua instância.
 ```bash
 # 1) Ingestão: sincroniza o OpenMetadata → grafo (Neo4j) + cards (Qdrant)
 curl -X POST http://localhost:8000/ingest/run \
-  -H "Content-Type: application/json" -d '{"with_lineage": true}'
+  -H "Content-Type: application/json" -d '{}'
 
 # 2) Query: pergunta em linguagem natural → SQL
 curl -X POST http://localhost:8000/query/run \
