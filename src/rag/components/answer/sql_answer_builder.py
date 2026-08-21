@@ -4,18 +4,22 @@ Consome a resposta ESTRUTURADA do LLM (JSON: explicação + SQL + IR + tabelas
 usadas) e o subgrafo recuperado, e produz dois artefatos:
 
 - `answer`  : dict estruturado (para a API `/query/run`);
-- `markdown`: texto organizado para o OpenWebUI (explicação, SQL, referências).
+- `markdown`: texto organizado para o OpenWebUI (explicação, SQL, referências e,
+  quando a entrega executou o SQL, o parágrafo "Resultado" — ADR-0010 item c).
 
 O Markdown é montado por `render_markdown(answer, exec_info)`, função de módulo
 (não método) porque o wrapper do chat a chama **de novo** depois da camada de
 entrega, agora sabendo o que aconteceu na execução — é assim que a resposta
 mostra o SQL que RODOU, e não a primeira tentativa do LLM.
 
-Entrega o item (a) do ADR-0010 (bases/tabelas/colunas + SQL) e expõe a IR como
-ponto de controle inspecionável (ADR-0006/0007). As **referências são ancoradas
-no subgrafo recuperado** (meta dos Documents), não extraídas do texto do LLM —
-o que a `tables_used` do LLM afirma é apenas usado para *marcar* o que foi
-efetivamente utilizado.
+Entrega o item (a) do ADR-0010 (bases/tabelas/colunas + SQL). A IR fica no
+`answer` como ponto de controle inspecionável (ADR-0006/0007), mas **não é
+renderizada**: intent/metric/filters é vocabulário de engenharia, e quem pergunta
+não faz nada com ele.
+
+As **referências são ancoradas no subgrafo recuperado** (meta dos Documents), não
+extraídas do texto do LLM — o que a `tables_used` do LLM afirma é apenas usado
+para *marcar* o que foi efetivamente utilizado.
 """
 from __future__ import annotations
 
@@ -246,8 +250,9 @@ def render_markdown(answer: Dict[str, Any],
     """Markdown do chat a partir do `answer` estruturado.
 
     `exec_info` é o que a camada de entrega apurou
-    (`{sql_final, exec_ok, exec_error}`). Sem ele, a resposta é a do motor puro
-    — nenhuma afirmação sobre execução é feita."""
+    (`{sql_final, exec_ok, exec_error, result_summary}`). Sem ele, a resposta é a
+    do motor puro — nenhuma afirmação sobre execução é feita, e a seção
+    "Resultado" (que só existe se o SQL rodou) não aparece."""
     exec_info = exec_info or {}
     references: List[Dict[str, Any]] = answer.get("references") or []
     joins: List[Dict[str, Any]] = answer.get("joins") or []
@@ -291,18 +296,14 @@ def render_markdown(answer: Dict[str, Any],
             )
         parts.append("\n".join(join_lines))
 
-    # 5) Interpretação (IR) — ponto de controle inspecionável (ADR-0006/0007).
-    # Markdown puro (o <details> antigo quebrava no render do OpenWebUI).
-    ir: Dict[str, Any] = answer.get("ir") or {}
-    ir_bits = [f"intent `{ir.get('intent', 'unknown')}`"]
-    if ir.get("metric"):
-        ir_bits.append(f"metric `{ir['metric']}`")
-    filtros = "; ".join(
-        f"{f.get('concept')}={f.get('value')}"
-        for f in (ir.get("filters") or []) if f.get("concept")
-    )
-    if filtros:
-        ir_bits.append(f"filtros: {filtros}")
-    parts.append("**Interpretação (IR):** " + " · ".join(ir_bits))
+    # 5) Resultado — o parágrafo que diz o que o dado executado mostra
+    # (ADR-0010 item c). Fica por ÚLTIMO de propósito: o wrapper anexa o gráfico
+    # logo depois, e é esse texto que serve de legenda para ele.
+    resumo = (exec_info.get("result_summary") or "").strip()
+    if resumo:
+        parts.append("### Resultado\n\n" + resumo)
 
+    # A IR (intent/metric/filters) NÃO é renderizada: ela é ponto de controle de
+    # engenharia (ADR-0006/0007) e continua no `answer` da API `/query/run` e no
+    # log — mas, no chat e no relatório, era jargão sem uso para quem pergunta.
     return "\n\n".join(parts)

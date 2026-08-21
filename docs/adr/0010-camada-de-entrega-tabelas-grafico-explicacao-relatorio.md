@@ -1,6 +1,7 @@
 # ADR-0010: Camada de entrega — das tabelas ao relatório (a, b, c, d)
 
-- **Status**: Aceito — item (d) implementado em 2026-08-10 (ver "Atualização de implementação")
+- **Status**: Aceito — itens (a), (b) e (d) implementados até 2026-08-10 e **(c) em
+  2026-08-21** (ver as "Atualizações de implementação" no fim)
 - **Data**: 2026-07-23
 - **Autores**: Davi (graphrag-tais)
 - **Revisores**: -
@@ -248,6 +249,55 @@ Componentes entregues: `components/report/{theme,docx_writer,report_content,repo
 `settings/configs.py` (bloco `REPORT_*`/`MINIO_*`), e o wiring em
 `pipelines/query/pipeline_wrapper.py` (`_attach_report`). Deps novas: `python-docx`,
 `boto3`. Pendente de validação end-to-end: round-trip real do upload/URL no `make up`.
+
+## Atualização de implementação (2026-08-21) — item (c) entregue
+
+O item **(c) explicação** foi implementado como `ResultExplainer`
+(`components/answer/result_explainer.py`), componente da pipeline de entrega ligado às saídas
+`rows`/`columns`/`exec_ok` do `McpSqlExecutor`. Ele produz **um parágrafo** que entra na seção
+`### Resultado` do chat e numa seção "Resultado" do `.docx`, **imediatamente acima do gráfico**.
+
+**Por que agora**: o gráfico chegava sozinho. Quem pergunta um indicador recebia explicação do
+*caminho* (tabela escolhida, SQL), dicionário de dados e uma imagem — e nenhuma frase sobre o
+**dado**. No resultado **escalar** (um `SUM`, sem gráfico nenhum) a resposta terminava sem o
+número aparecer em texto em lugar algum.
+
+**Fiel à decisão de 2026-07-23 no que importa**: o LLM **não recebe as linhas**. Recebe o
+`digest` — texto determinístico montado em Python (`build_digest`) com contagem de linhas,
+soma/média/mínimo/máximo por métrica, as `RESULT_SUMMARY_TOP_N` maiores categorias, as duas
+menores e o começo/fim da série temporal. Isso mantém o argumento de LGPD/tokens da alternativa
+escolhida e vira o **guardrail testável** da alucinação: o prompt proíbe citar número que não
+esteja no digest, e o digest é fixado por teste (`tests/test_result_explainer.py`).
+
+**Dois desvios, registrados por honestidade:**
+
+1. **A ressalva de granularidade não é obrigatória em todo texto.** A decisão original mandava
+   a explicação carregar sempre a ressalva de grain. Desde então o grão passou a ser
+   **declarado** no card (`OM_GRAIN_KEYS`) e o prompt de geração de SQL obriga a deduplicar
+   quando a tabela avisa que há linhas duplicadas — a mitigação migrou para *antes* do número
+   existir. Somada à instrução de "1 parágrafo, 2 a 3 frases", uma ressalva fixa em toda
+   resposta viraria ruído ignorável. Fica o risco conhecido: **onde o grão não estiver
+   declarado, o número pode ter fan-out e o texto não avisa** (é o gap 4 do `CLAUDE.md`).
+2. **O erro de execução não vira texto.** Se o SQL não roda, o componente devolve vazio e a
+   seção some — mesma decisão de produto de 19/08 aplicada ao bloco de SQL. Consulta válida com
+   **zero linhas** é diferente e ganha frase própria, determinística, sem chamar o modelo.
+
+**A IR saiu da resposta renderizada.** O `answer` seguia imprimindo
+`Interpretação (IR): intent … metric … filtros …` no chat e no `.docx`. É vocabulário de
+engenharia ([ADR-0006](./0006-interpretacao-da-pergunta-em-representacao-estruturada.md) /
+[ADR-0007](./0007-fechamento-dos-gaps-de-correcao-e-consistencia-do-v1.md)) e nenhum leitor da
+Persona 2 faz nada com ele — enquanto ocupava a última linha da resposta, logo antes do gráfico,
+que é onde agora entra a leitura do resultado. A IR **continua** no `answer` de `/query/run`, no
+log e alimentando a escolha do gráfico: o ponto de controle inspecionável está preservado, o que
+mudou foi só **quem é o público** de cada saída.
+
+Config nova (`settings/configs.py` + `.env.example`): `RESULT_SUMMARY_ENABLED` (default `true`),
+`RESULT_SUMMARY_MAX_TOKENS` (260), `RESULT_SUMMARY_TOP_N` (5). Custo medido na resposta completa
+do chat: sem diferença perceptível de latência (≈7s antes e depois, numa pergunta por UF).
+
+**Round-trip do (d) validado** (estava pendente desde 2026-08-10): o `.docx` foi baixado pelo
+link assinado do MinIO e conferido em PDF (LibreOffice) — capa em 1 página, seções na ordem
+explicação → SQL executado → dados de referência → Resultado → Gráfico.
 
 ## Referências
 

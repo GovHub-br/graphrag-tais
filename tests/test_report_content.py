@@ -3,7 +3,9 @@
 Garante que montar o `.docx` a partir do `answer` do motor:
 - NÃO deixa marcação Markdown crua (crases, underscore-wrappers) — o bug que o
   conversor de Markdown produzia;
-- renderiza descrição em itálico, badges de tipo, callout de JOIN e o gráfico.
+- renderiza descrição em itálico, badges de tipo, callout de JOIN e o gráfico;
+- traz a seção **Resultado** (ADR-0010 item c) e **não** traz a IR — que é ponto
+  de controle de engenharia, não conteúdo do documento que a pessoa leva.
 """
 from __future__ import annotations
 
@@ -62,6 +64,10 @@ _ANSWER = {
 }
 
 
+_RESUMO = ("As 27 unidades da federação somam 5.201.000,50 em valor contratado, "
+           "com São Paulo à frente.")
+
+
 def _body_text(doc) -> str:
     parts = [p.text for p in doc.paragraphs]
     for t in doc.tables:
@@ -78,7 +84,8 @@ class ReportContentTest(unittest.TestCase):
         theme.apply_base_styles(cls.doc)
         report_content.render_answer(
             cls.doc, _ANSWER, chart_data_uri=_URI,
-            exec_info={"exec_ok": True, "sql_final": "", "exec_error": ""},
+            exec_info={"exec_ok": True, "sql_final": "", "exec_error": "",
+                       "result_summary": _RESUMO},
         )
         cls.body = _body_text(cls.doc)
 
@@ -113,6 +120,17 @@ class ReportContentTest(unittest.TestCase):
         imgs = [r for r in self.doc.part.rels.values() if "image" in r.reltype]
         self.assertEqual(len(imgs), 1)
 
+    def test_resultado_precede_o_grafico(self) -> None:
+        """A explicação do resultado é a legenda do gráfico: vem logo antes dele."""
+        titulos = [p.text for p in self.doc.paragraphs if p.style.name.startswith("Heading")]
+        self.assertIn("Resultado", titulos)
+        self.assertIn(_RESUMO, self.body)
+        self.assertLess(titulos.index("Resultado"), titulos.index("Gráfico"))
+
+    def test_ir_fora_do_relatorio(self) -> None:
+        self.assertNotIn("Interpretação (IR)", self.body)
+        self.assertNotIn("intent", self.body)
+
 
 class ReportSqlInvariantTest(unittest.TestCase):
     """O .docx segue a mesma invariante do chat: em destaque, o SQL que RODOU."""
@@ -146,6 +164,7 @@ class ReportSqlInvariantTest(unittest.TestCase):
         body = self._render({})
         self.assertIn("SQL gerado", body)
         self.assertNotIn("SQL executado", body)
+        self.assertNotIn("Resultado", body)   # sem execução não há o que explicar
 
 
 if __name__ == "__main__":

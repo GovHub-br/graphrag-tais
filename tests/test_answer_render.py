@@ -1,10 +1,14 @@
-"""Invariante de exibição do SQL na resposta da Persona 2.
+"""Invariantes de exibição da resposta da Persona 2: SQL, IR e Resultado.
 
 O que a pessoa vê como SQL tem de ser o SQL que **rodou no banco**. Antes, o
 bloco "SQL gerado" vinha sempre da primeira tentativa do LLM — mesmo quando a
 autocorreção do `McpSqlExecutor` tinha reescrito a consulta, e mesmo quando o
 banco havia recusado tudo. O dicionário de dados abaixo dele era derivado desse
 mesmo texto, então documentava colunas que a execução não usou.
+
+Fixa também o que saiu e o que entrou na resposta: a **IR** deixou de ser
+renderizada (segue no `answer` da API) e o parágrafo **"Resultado"** passou a
+fechar o texto, logo acima do gráfico que o wrapper anexa (ADR-0010 item c).
 
 Só stdlib + o componente; não sobe MCP nem banco.
 """
@@ -93,6 +97,42 @@ class TestSqlSection(unittest.TestCase):
         md = render_markdown({**_ANSWER, "sql": ""}, {"exec_ok": False})
         self.assertIn("Não foi possível gerar SQL", md)
         self.assertNotIn("```sql", md)
+
+
+@unittest.skipUnless(HAYSTACK, "Haystack indisponível no host — rode no container")
+class TestIrNaoAparece(unittest.TestCase):
+    """A IR é instrumentação (ADR-0006/0007), não conteúdo: fica no `answer`."""
+
+    def test_ir_fora_do_markdown(self):
+        md = render_markdown(_ANSWER, {"exec_ok": True, "sql_final": _EXECUTADO})
+        self.assertNotIn("Interpretação (IR)", md)
+        self.assertNotIn("intent", md)
+        # …mas continua no dado estruturado que a API devolve.
+        self.assertEqual(_ANSWER["ir"]["intent"], "sum")
+
+
+@unittest.skipUnless(HAYSTACK, "Haystack indisponível no host — rode no container")
+class TestSecaoResultado(unittest.TestCase):
+    """O gráfico não chega mais sozinho: o parágrafo do resultado vem antes."""
+
+    _RESUMO = "SP lidera com 2.500.000,00, seguida de MG."
+
+    def test_resultado_aparece_quando_a_entrega_explicou(self):
+        md = render_markdown(_ANSWER, {"exec_ok": True, "sql_final": _EXECUTADO,
+                                       "result_summary": self._RESUMO})
+        self.assertIn("### Resultado", md)
+        self.assertIn(self._RESUMO, md)
+
+    def test_resultado_e_a_ultima_secao(self):
+        # O wrapper anexa "### Gráfico" logo depois — a adjacência é o ponto.
+        md = render_markdown(_ANSWER, {"exec_ok": True, "sql_final": _EXECUTADO,
+                                       "result_summary": self._RESUMO})
+        self.assertTrue(md.rstrip().endswith(self._RESUMO))
+
+    def test_sem_execucao_nao_ha_secao_de_resultado(self):
+        self.assertNotIn("### Resultado", render_markdown(_ANSWER))
+        self.assertNotIn("### Resultado",
+                         render_markdown(_ANSWER, {"exec_ok": False, "result_summary": ""}))
 
 
 if __name__ == "__main__":

@@ -236,6 +236,18 @@ class Settings(BaseSettings):
     MCP_DIRECT_TIMEOUT: int = Field(
         60, description="Timeout (s) da execução direta via MCP"
     )
+    # Explicação do resultado executado (ADR-0010 item c). Uma chamada de LLM
+    # curta sobre o RESUMO do resultado (nunca as linhas cruas), para o gráfico
+    # não chegar sem legenda. Desligar devolve a resposta anterior, sem a seção.
+    RESULT_SUMMARY_ENABLED: bool = Field(
+        True, description="Explica em 1 parágrafo o que o resultado do SQL mostra"
+    )
+    RESULT_SUMMARY_MAX_TOKENS: int = Field(
+        260, description="Teto de tokens da explicação do resultado (1 parágrafo)"
+    )
+    RESULT_SUMMARY_TOP_N: int = Field(
+        5, description="Categorias de maior valor citadas no resumo do resultado"
+    )
     CHART_DPI: int = Field(
         120, description="DPI do PNG inline no chat (menor = resposta mais leve)"
     )

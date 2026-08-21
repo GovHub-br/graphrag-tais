@@ -11,7 +11,7 @@ explícita, sem classificador de intenção:
 
 | nome exibido | id / pipeline / rota | persona | entrega |
 |---|---|---|---|
-| **Indicador** | `query` · `/query/run` | 2 — já sabe o que medir | bases, SQL, explicação, **gráfico**, relatório `.docx` |
+| **Indicador** | `query` · `/query/run` | 2 — já sabe o que medir | bases, SQL, explicação, **leitura do resultado**, **gráfico**, relatório `.docx` |
 | **Explorar** | `explore` · `/explore/run` | 1 — não conhece as bases | panorama, tabelas + **grão**, **amostra de linhas reais + CSV**, **lacunas** |
 
 ⚠️ **Nome exibido ≠ id.** O Hayhooks deriva o id do modelo do NOME DO DIRETÓRIO da
@@ -112,8 +112,11 @@ Fluxo: `pergunta → dense(Ollama)+sparse(BM25) → Qdrant híbrido → subgrafo
     latência p95 −71%, com **suficiência/JOIN/colunas-gold/tabelas-gold 100% preservados**.
   - 🔴 **Seed recall ~30% segue o gargalo** (não tocado) → próximo lever é prefixo de instrução no GTE.
 - **LLM = OpenAI `gpt-4o`** (saída JSON) só na geração. **IR mínima** (intent/metric/filters) gerada
-  junto e exposta na resposta (ponto de controle ADR-0006/0007), ainda não roteia a recuperação.
-- **`SqlAnswerBuilder`**: explicação + SQL + dicionário de dados (só colunas usadas) + IR + JOINs.
+  junto, ainda não roteia a recuperação. ⚠️ Desde 21/08 a IR **não é renderizada** (nem no chat, nem
+  no `.docx`): segue no `answer` de `/query/run` e no log como ponto de controle (ADR-0006/0007),
+  mas era jargão sem uso para quem pergunta.
+- **`SqlAnswerBuilder`**: explicação + SQL + dicionário de dados (só colunas usadas) + JOINs +
+  **Resultado** (o parágrafo da entrega, quando o SQL rodou).
   O Markdown é montado por `render_markdown(answer, exec_info)` — **função de módulo**, porque o
   wrapper do chat a chama DE NOVO depois da execução (ver invariante do SQL abaixo).
 
@@ -124,6 +127,12 @@ Pipeline SEPARADA `pipelines/delivery/` que o `run_chat_completion` compõe (mot
   `http://postgres-mcp:8000/sse`, read-only, **autocorreção no erro** até `AGENT_MAX_STEPS`).
   O `execute_sql` devolve envelope MCP JSON cujo `content[].text` é **repr Python** (Decimal/datetime) → parser contido.
 - **`ChartSpecBuilder`** (LLM JSON): escolhe bar/line/none, validado nas colunas reais.
+- **`ResultExplainer`** (ADR-0010 item c, 21/08): 1 parágrafo dizendo o que o resultado mostra —
+  vai na seção **`### Resultado`**, imediatamente acima do gráfico (é a legenda dele) e no `.docx`.
+  O LLM **não vê as linhas**: lê um `digest` determinístico (`build_digest`) com contagem,
+  soma/média/mín/máx, maiores e menores categorias e começo/fim da série. Isso é LGPD (ADR-0010)
+  e é também o guardrail: número fora do digest é número inventado. Vale para resultado ESCALAR,
+  onde não há gráfico nenhum e antes a resposta terminava sem dizer o número.
 - **renderers matplotlib** (Agg) → PNG **base64** embutido como `![gráfico](data:image/png;base64,…)`.
 - Aditivo e tolerante a falha: sem execução/gráfico → devolve só o texto.
 
@@ -278,12 +287,26 @@ docker exec -w /app -e PYTHONPATH=/app:/app/src hayhooks python -m eval.retrieva
 1. 🔴 **Subir seed recall** (~30%): prefixo de instrução no GTE (lado da query, sem reindexar; ADR-0009).
    É o lever de maior alavancagem → deixa a expansão por evidência à prova de bala.
 2. **Ampliar o gold** (8 → 30–50 casos, revisão de domínio) e sair do `draft`.
-3. Entrega: falta **(c) explicação do resultado executado** — ADR-0010. **(d) relatório
-   `.docx` já implementado** (python-docx + tema-em-código + MinIO; ver abaixo). Pendente:
-   validar o round-trip real do upload/URL no `make up`.
+3. Entrega: **(a) a (d) implementados** — (c) explicação do resultado entrou em 21/08
+   (`ResultExplainer`), (d) relatório `.docx` em python-docx + tema-em-código + MinIO.
+   Round-trip do upload/URL validado ponta a ponta em 21/08 (link do MinIO baixado e o `.docx`
+   conferido em PDF via LibreOffice).
 4. **Guardrail de grain (E2E)**: `empreendimento`/`ficha_empreendimento` têm APF duplicado (1.646 linhas
    p/ 823 APFs) → o renderer soma duplicatas e **dobra valores** no gráfico. Dedup por APF + não somar.
 5. Sem validador `sqlglot` (a validação vem da execução real). IR completa (`group_by`/`time_range`) + roteamento por conceito.
+
+## Prompts (21/08)
+
+Nenhum prompt mora mais em constante de módulo: todos estão em **`src/rag/prompts/*.md`**, um
+arquivo por prompt, carregados por `prompts.load("<nome>")` (texto cru) ou
+`prompts.render("<nome>", **vars)` (`str.format`). Os `*_user.md` das pipelines continuam sendo
+**templates Jinja** renderizados pelo `ChatPromptBuilder`; os montados em Python usam
+`{placeholder}` — por isso não podem ter chave literal (o `tests/test_prompts.py` cobra isso,
+junto com "todo `load` aponta para arquivo que existe" e "nenhum arquivo ficou órfão").
+
+⚠️ A migração foi **byte a byte** (os arquivos foram extraídos dos literais por AST e conferidos
+contra o HEAD): nada do texto medido da Persona 2 mudou junto. Mexer num `query_*.md` é mudar
+comportamento e pede o gate do ADR-0012, não é edição de formatação.
 
 ## Gotchas de ambiente (aprendidos na marra)
 
@@ -304,7 +327,10 @@ docker exec -w /app -e PYTHONPATH=/app:/app/src hayhooks python -m eval.retrieva
 - `src/rag/components/retrievers/` — `neo4j_subgraph_retriever.py` (SEMANTIC_JOIN + poda + evidence),
   `qdrant_hybrid_retriever.py` (scope + determinismo).
 - `src/rag/components/generators/openai_generator.py` — LLM OpenAI.
+- **`src/rag/prompts/`** — **todo texto que vai para o LLM** (um `.md` por prompt) + o loader
+  (`prompts.load` / `prompts.render`). Ver o `README.md` de lá para a tabela prompt → quem usa.
 - `src/rag/components/answer/sql_answer_builder.py` — resposta em Markdown.
+- `src/rag/components/answer/result_explainer.py` — parágrafo do resultado + `build_digest`.
 - `src/rag/components/executors/mcp_sql_executor.py` — Agent + postgres-mcp.
 - `src/rag/components/charts/` — `chart_spec.py`, `renderers.py`, `chart_renderer.py`.
 - `src/rag/components/report/` — relatório `.docx` (estilo editorial): `theme.py` (capa
