@@ -53,6 +53,7 @@ Relações: `(:Table)-[:HAS_COLUMN]->(:Column)`, `(:Column)-[:FOREIGN_KEY]->(:Co
 ```
 src/rag/
 ├── settings/configs.py         # Todos os envs (pydantic-settings) + defaults
+├── prompts/                    # TODO texto que vai para o LLM (1 arquivo .md por prompt)
 ├── components/                 # Componentes Haystack (Factory .build() ou @component)
 │   ├── sources/                # OpenMetadataSource (REST → entidades)           [custom]
 │   ├── converters/             # GraphCardBuilder (entidades → cards+nós+arestas) [custom]
@@ -69,7 +70,9 @@ src/rag/
 
 > **Convenção**: pipelines usam só componentes Haystack; todo custom vive em
 > `components/`. Factories leem defaults do `.env` (ver
-> [configs.py](src/rag/settings/configs.py)).
+> [configs.py](src/rag/settings/configs.py)). **Prompt não mora em código**: fica
+> em [`src/rag/prompts/`](src/rag/prompts/README.md), um `.md` por prompt,
+> carregado com `prompts.load(...)` / `prompts.render(...)`.
 
 ## MDD do retrieval
 

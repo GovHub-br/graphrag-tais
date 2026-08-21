@@ -8,9 +8,11 @@ Expõe dois contratos:
                         puro (não executa SQL) — rápido e reusável.
 - `run_chat_completion`: contrato OpenAI-compat que o **OpenWebUI** consome.
                         Compõe o motor com a **camada de entrega** (ADR-0013):
-                        executa o SQL via postgres-mcp (autocorreção) e embute o
-                        **gráfico** no Markdown. Aditivo — se a execução/gráfico
-                        falharem, ainda devolve o texto do motor.
+                        executa o SQL via postgres-mcp (autocorreção), escreve o
+                        parágrafo **"Resultado"** sobre o que voltou (ADR-0010
+                        item c) e embute o **gráfico** no Markdown. Aditivo — se
+                        a execução, a explicação ou o gráfico falharem, ainda
+                        devolve o texto do motor.
 """
 import sys
 from datetime import datetime
@@ -24,7 +26,7 @@ from rag.pipelines.delivery.delivery_pipeline import build_delivery_pipeline
 from rag.settings.configs import settings
 
 _MOTOR_OUTPUTS = ["answer_builder", "subgraph_retriever"]
-_DELIVERY_OUTPUTS = ["mcp_executor", "chart_renderer"]
+_DELIVERY_OUTPUTS = ["mcp_executor", "chart_renderer", "result_explainer"]
 
 
 class PipelineWrapper(BasePipelineWrapper):
@@ -36,7 +38,7 @@ class PipelineWrapper(BasePipelineWrapper):
         # acoplar o boot do wrapper à disponibilidade do MinIO.
         self._report_builder = None
         self._minio = None
-        logger.info("Wrapper de Query (GraphRAG → SQL → gráfico) inicializado")
+        logger.info("Wrapper de Query (GraphRAG → SQL → resultado + gráfico) inicializado")
 
     def _run(self, query: str, top_k: int = 5) -> dict:
         """Roda o motor e devolve os outputs relevantes (answer + subgrafo)."""
@@ -94,8 +96,9 @@ class PipelineWrapper(BasePipelineWrapper):
         Nunca levanta: se a entrega falhar, devolve o texto + entrega vazia.
 
         Retorna: (markdown_do_chat, delivery) onde
-          delivery = {chart_image, sql_final, exec_ok, exec_error}."""
-        delivery = {"chart_image": "", "sql_final": "", "exec_ok": False, "exec_error": ""}
+          delivery = {chart_image, result_summary, sql_final, exec_ok, exec_error}."""
+        delivery = {"chart_image": "", "result_summary": "", "sql_final": "",
+                    "exec_ok": False, "exec_error": ""}
         sql = (answer or {}).get("sql", "")
         if not sql.strip():
             return markdown, delivery  # sem SQL (ex.: fora de domínio)
@@ -106,6 +109,7 @@ class PipelineWrapper(BasePipelineWrapper):
                 {
                     "mcp_executor": {"sql": sql, "query": query, "schema_context": schema_context},
                     "chart_spec": {"query": query, "ir": answer.get("ir", {})},
+                    "result_explainer": {"query": query, "ir": answer.get("ir", {})},
                 },
                 include_outputs_from=_DELIVERY_OUTPUTS,
             )
@@ -118,6 +122,7 @@ class PipelineWrapper(BasePipelineWrapper):
         image = out.get("chart_renderer", {}).get("image", "")
         delivery.update(
             chart_image=image,
+            result_summary=out.get("result_explainer", {}).get("summary", ""),
             sql_final=execu.get("sql_final", ""),
             exec_ok=bool(execu.get("exec_ok")),
             exec_error=execu.get("error", "") or "",

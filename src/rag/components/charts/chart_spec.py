@@ -16,6 +16,7 @@ from haystack import component
 from haystack.dataclasses import ChatMessage
 from pydantic import BaseModel, ValidationError
 
+from rag import prompts
 from rag.components.generators.openai_generator import OpenAIChatGeneratorFactory
 from rag.settings.configs import settings
 
@@ -29,19 +30,7 @@ class ChartSpec(BaseModel):
     reason: str = ""
 
 
-_SYSTEM = """\
-Você escolhe o melhor gráfico para um resultado tabular. NÃO desenha — só decide.
-Responda em JSON válido:
-{"chart_type": "bar|line|none", "x": "<coluna>", "y": "<coluna numérica>",
- "orientation": "horizontal|vertical", "title": "<curto>", "reason": "<1 frase>"}
-
-Regras:
-- Use SOMENTE nomes de coluna que existem na lista fornecida.
-- "line" para série temporal (x é data/tempo); "bar" para comparar categorias;
-  "none" se for um único número, sem categoria, ou se nada fizer sentido.
-- y deve ser uma coluna NUMÉRICA; x é a categoria ou o tempo.
-- barras: use "horizontal" quando os rótulos de categoria forem longos.\
-"""
+_SYSTEM = prompts.load("chart_spec_system")
 
 
 def _infer_kinds(columns: List[str], rows: List[Dict[str, Any]]) -> Dict[str, str]:
@@ -141,13 +130,12 @@ class ChartSpecBuilder:
         return None
 
     def _ask_llm(self, query, columns, kinds, ir, rows) -> ChartSpec:
-        cols_desc = ", ".join(f"{c} ({kinds[c]})" for c in columns)
-        sample = rows[:3]
-        user = (
-            f"Pergunta: {query}\n"
-            f"Intenção (IR): {ir.get('intent', '?')}\n"
-            f"Colunas: {cols_desc}\n"
-            f"Amostra: {json.dumps(sample, ensure_ascii=False, default=str)[:800]}"
+        user = prompts.render(
+            "chart_spec_user",
+            query=query,
+            intent=ir.get("intent", "?"),
+            columns=", ".join(f"{c} ({kinds[c]})" for c in columns),
+            sample=json.dumps(rows[:3], ensure_ascii=False, default=str)[:800],
         )
         try:
             gen = OpenAIChatGeneratorFactory(json_mode=True, max_tokens=300).build()

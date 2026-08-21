@@ -1,14 +1,19 @@
 """Renderização ESTRUTURADA do relatório (ADR-0010, opção D).
 
 Monta o corpo do `.docx` diretamente do `answer` do motor (explicação, SQL,
-`references`, `ir`, `joins`) + o PNG do gráfico + info da execução — **sem parsear
-Markdown**. Isso elimina a classe de bugs do conversor de Markdown (crases/underscores
-crus) e dá controle total da formatação de cada seção.
+`references`, `joins`) + o PNG do gráfico + o que a execução apurou (`exec_info`,
+que traz também o parágrafo "Resultado") — **sem parsear Markdown**. Isso elimina
+a classe de bugs do conversor de Markdown (crases/underscores crus) e dá controle
+total da formatação de cada seção.
 
 O `answer` vem do `SqlAnswerBuilder`:
-  {status, explanation, sql, ir:{intent,metric,filters:[{concept,value}]},
+  {status, explanation, sql, ir:{...},
    references:[{base,table,fqn,description,columns:[{name,type,is_pk,is_join_key}],used}],
    joins:[{left_table,left_col,right_table,right_col,sql_join_eligible}]}
+
+A `ir` chega no `answer` e é deliberadamente **ignorada** aqui: intent/metric/
+filters é instrumentação de engenharia, não conteúdo do documento que a pessoa
+leva para a reunião.
 """
 from __future__ import annotations
 
@@ -30,7 +35,6 @@ def render_answer(doc: _Document, answer: Dict[str, Any],
     sql = (answer.get("sql") or "").strip()
     references: List[dict] = answer.get("references") or []
     joins: List[dict] = answer.get("joins") or []
-    ir: Dict[str, Any] = answer.get("ir") or {}
 
     # 1) Explicação
     if explanation:
@@ -106,8 +110,14 @@ def render_answer(doc: _Document, answer: Dict[str, Any],
                 "(formato/limpeza) antes do JOIN.",
             )
 
-    # 5) Interpretação (IR)
-    _render_ir(doc, ir)
+    # 5) Resultado — o parágrafo sobre o dado executado (ADR-0010 item c), logo
+    #    acima do gráfico, que é o que ele explica. A IR NÃO entra no relatório:
+    #    é ponto de controle de engenharia (ADR-0006/0007), não conteúdo para
+    #    quem recebe o documento; segue disponível no `answer` da API.
+    resumo = (exec_info.get("result_summary") or "").strip()
+    if resumo:
+        w.add_heading(doc, "Resultado", 3)
+        w.add_body_text(doc, resumo)
 
     # 6) Gráfico. Sem gráfico, o relatório simplesmente não traz a seção: erro
     #    de execução não vira callout aqui (mesma regra do bloco de SQL — o
@@ -118,30 +128,6 @@ def render_answer(doc: _Document, answer: Dict[str, Any],
 
 
 # --------------------------------------------------------------------------- #
-def _render_ir(doc: _Document, ir: Dict[str, Any]) -> None:
-    p = doc.add_paragraph()
-    lbl = p.add_run("Interpretação (IR): ")
-    lbl.bold = True
-    theme.set_run_font(lbl, theme.FONT_BASE)
-
-    def _txt(t: str):
-        r = p.add_run(t)
-        r.font.color.rgb = theme.TEXT_BODY
-        theme.set_run_font(r, theme.FONT_BASE)
-
-    _txt("intent ")
-    w.add_mono_chip(p, ir.get("intent") or "unknown")
-    if ir.get("metric"):
-        _txt(" · metric ")
-        w.add_mono_chip(p, str(ir.get("metric")))
-    filters = ir.get("filters") or []
-    fstr = "; ".join(
-        f"{f.get('concept')}={f.get('value')}" for f in filters if f.get("concept")
-    )
-    if fstr:
-        _txt(" · filtros: " + fstr)
-
-
 def _bullet(doc: _Document):
     try:
         return doc.add_paragraph(style="List Bullet")

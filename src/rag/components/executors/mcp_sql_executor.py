@@ -23,21 +23,11 @@ from loguru import logger
 from haystack import component
 from haystack.dataclasses import ChatMessage
 
+from rag import prompts
 from rag.settings.configs import settings
 from rag.components.generators.openai_generator import OpenAIChatGeneratorFactory
 
-_SYSTEM_PROMPT = """\
-Você executa SQL de leitura no PostgreSQL usando a ferramenta `execute_sql`.
-
-Faça:
-1. Chame `execute_sql` com o SQL fornecido.
-2. Se retornar erro, LEIA a mensagem, corrija o SQL usando apenas o schema
-   fornecido (nomes de tabela/coluna existentes) e chame `execute_sql` de novo.
-3. Repita até rodar sem erro ou até esgotar as tentativas.
-4. Quando rodar, responda apenas "OK" (não repita os dados).
-
-Regras: só SELECT; não invente colunas; mantenha o LIMIT quando houver.\
-"""
+_SYSTEM_PROMPT = prompts.load("sql_executor_system")
 
 
 class _Attempt(NamedTuple):
@@ -140,10 +130,8 @@ class McpSqlExecutor:
                 return empty
             logger.info("McpSqlExecutor: execução direta falhou; acionando autocorreção")
 
-        user_msg = (
-            f"Pergunta do usuário: {query}\n\n"
-            f"Schema disponível:\n{schema_context}\n\n"
-            f"Execute este SQL (corrija se der erro):\n```sql\n{sql}\n```"
+        user_msg = prompts.render(
+            "sql_executor_user", query=query, schema_context=schema_context, sql=sql,
         )
         try:
             agent = self._get_agent()
