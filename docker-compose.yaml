@@ -113,17 +113,43 @@ services:
       - default
 
   webui:
-    image: ghcr.io/open-webui/open-webui:${WEBUI_DOCKER_TAG:-main}
+    # Pinado: o tema GovHub (webui/custom.css) depende dos design tokens desta
+    # build. Em ':main' um pull silencioso poderia trocar o CSS por baixo.
+    image: ghcr.io/open-webui/open-webui:${WEBUI_DOCKER_TAG:-v0.10.2}
     container_name: open-webui
     ports:
       - "${OPEN_WEBUI_PORT:-3000}:8080"
     volumes:
       - open-webui:/app/backend/data
+      # --- identidade visual GovHub (ganchos oficiais do Open WebUI) ---------
+      # Montado em /app/build/static (a FONTE), nao em backend/open_webui/static:
+      # o config.py limpa o segundo e o recopia do primeiro a cada boot.
+      - ./webui/custom.css:/app/build/static/custom.css:ro
+      - ./webui/loader.js:/app/build/static/loader.js:ro
+      - ./webui/assets/govhub-mark-light.svg:/app/build/static/govhub-mark-light.svg:ro
+      - ./webui/assets/govhub-horizontal.svg:/app/build/static/govhub-horizontal.svg:ro
+      - ./webui/assets/govhub-horizontal-light.svg:/app/build/static/govhub-horizontal-light.svg:ro
+      - ./webui/assets/favicon.png:/app/build/static/favicon.png:ro
+      - ./webui/assets/favicon.svg:/app/build/static/favicon.svg:ro
+      - ./webui/assets/favicon.ico:/app/build/static/favicon.ico:ro
+      - ./webui/assets/favicon-96x96.png:/app/build/static/favicon-96x96.png:ro
+      - ./webui/assets/apple-touch-icon.png:/app/build/static/apple-touch-icon.png:ro
+      - ./webui/assets/logo.png:/app/build/static/logo.png:ro
+      - ./webui/assets/splash.png:/app/build/static/splash.png:ro
+      - ./webui/assets/splash-dark.png:/app/build/static/splash-dark.png:ro
+      - ./webui/assets/web-app-manifest-192x192.png:/app/build/static/web-app-manifest-192x192.png:ro
+      - ./webui/assets/web-app-manifest-512x512.png:/app/build/static/web-app-manifest-512x512.png:ro
     environment:
       - WEBUI_AUTH=false
       - OPENAI_API_BASE_URL=http://hayhooks:8000
       - OPENAI_API_KEY=dummy
       - ENABLE_TAGS_GENERATION=true
+      # O backend anexa " (Open WebUI)" a qualquer nome custom (env.py:842-844).
+      # Mantido de proposito: e o co-branding que a licenca pede.
+      - WEBUI_NAME=Assistente de Dados GovHub
+      - DEFAULT_LOCALE=pt-BR
+      - ENABLE_VERSION_UPDATE_CHECK=false
+      - 'DEFAULT_PROMPT_SUGGESTIONS=[{"title": ["Explorar o catálogo", "o que existe sobre habitação?"], "content": "O que vocês têm sobre financiamento habitacional?"}, {"title": ["Ver as bases disponíveis", "panorama por domínio"], "content": "Quais bases de dados vocês têm?"}, {"title": ["Medir um indicador", "contratado x desembolsado"], "content": "Qual o total contratado por unidade da federação?"}, {"title": ["Acompanhar no tempo", "série mensal"], "content": "Como evoluiu o número de empreendimentos por mês no último ano?"}]'
     depends_on:
       - hayhooks
     extra_hosts:

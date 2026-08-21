@@ -14,16 +14,49 @@ import matplotlib
 matplotlib.use("Agg")  # headless, sem display
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+from matplotlib import font_manager
 import pandas as pd
 
-_ACCENT = "#0d8f80"   # mesma família visual da identidade do projeto
-_BAR = "#4E79A7"
+from pathlib import Path
+
+# Paleta GovHub (webui/custom.css e docs/graphrag-tais-overview.html são a
+# referência). O gráfico chega ao usuário embutido na resposta do chat e dentro
+# do .docx — usar a cor da marca nos dois é o que faz a entrega parecer UMA coisa.
+_ACCENT = "#7c3aed"   # roxo GovHub — linha/área da série temporal
+_BAR = "#7c3aed"      # roxo GovHub — barras
+_INK = "#221f33"
+_MUTED = "#5b596f"
+_GRID = "#eceaf5"
+_BORDER = "#e2ddf1"
+
+# A Inter já vem com o relatório (OFL); registrada aqui, o gráfico do chat e a
+# capa do .docx passam a usar a mesma tipografia.
+_INTER_DIR = Path(__file__).resolve().parents[1] / "report" / "assets" / "fonts"
+_FONT_FAMILY = "sans-serif"
+try:
+    for _ttf in _INTER_DIR.glob("Inter-*.ttf"):
+        font_manager.fontManager.addfont(str(_ttf))
+    if any(_INTER_DIR.glob("Inter-*.ttf")):
+        _FONT_FAMILY = "Inter"
+except Exception:  # noqa: BLE001 — fonte é cosmético, nunca derruba o gráfico
+    pass
 
 
 def _style(ax) -> None:
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
-    ax.grid(True, alpha=0.25, linewidth=0.6)
+    for side in ("left", "bottom"):
+        ax.spines[side].set_color(_BORDER)
+    ax.grid(True, color=_GRID, linewidth=0.8)
+    ax.set_axisbelow(True)
+    ax.tick_params(colors=_MUTED, labelsize=9, length=0)
+    for label in ax.get_xticklabels() + ax.get_yticklabels():
+        label.set_fontfamily(_FONT_FAMILY)
+        label.set_color(_MUTED)
+    if ax.get_title():
+        ax.title.set_fontfamily(_FONT_FAMILY)
+        ax.title.set_color(_INK)
+        ax.title.set_fontweight("semibold")
 
 
 def _to_png(fig, dpi: int) -> bytes:
@@ -59,14 +92,17 @@ def render_bar(
         for bar, val in zip(bars, d[y]):
             ax.text(bar.get_width() + max_val * 0.02,
                     bar.get_y() + bar.get_height() / 2,
-                    _fmt(val), va="center", fontsize=9)
-        ax.grid(axis="x", alpha=0.25)
+                    _fmt(val), va="center", fontsize=9,
+                    color=_INK, fontfamily=_FONT_FAMILY)
+        ax.grid(axis="x", color=_GRID, linewidth=0.8)
         ax.grid(axis="y", visible=False)
+        _compact_axis(ax.xaxis)
     else:
         bars = ax.bar(data[x], data[y], color=_BAR)
         plt.setp(ax.get_xticklabels(), rotation=35, ha="right")
-        ax.grid(axis="y", alpha=0.25)
+        ax.grid(axis="y", color=_GRID, linewidth=0.8)
         ax.grid(axis="x", visible=False)
+        _compact_axis(ax.yaxis)
     if title:
         ax.set_title(title, fontsize=12, pad=10)
     _style(ax)
@@ -90,11 +126,22 @@ def render_line(
             markeredgecolor=_ACCENT, markeredgewidth=1.3)
     ax.fill_between(data[x], data[y], alpha=0.15, color=_ACCENT)
     ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(ax.xaxis.get_major_locator()))
+    _compact_axis(ax.yaxis)
     if title:
         ax.set_title(title, fontsize=12, pad=10)
     _style(ax)
     fig.tight_layout()
     return _to_png(fig, dpi)
+
+
+def _compact_axis(axis) -> None:
+    """Escala do eixo em '2,0 bi' em vez do offset científico '1e10'.
+
+    Os rótulos de valor já saem formatados por _fmt; deixar o eixo em notação
+    científica fazia o mesmo número aparecer de duas formas no mesmo gráfico.
+    """
+    from matplotlib.ticker import FuncFormatter
+    axis.set_major_formatter(FuncFormatter(lambda v, _pos: _fmt(v)))
 
 
 def _fmt(v: float) -> str:
