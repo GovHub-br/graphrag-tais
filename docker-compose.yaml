@@ -115,7 +115,13 @@ services:
   webui:
     # Pinado: o tema GovHub (webui/custom.css) depende dos design tokens desta
     # build. Em ':main' um pull silencioso poderia trocar o CSS por baixo.
-    image: ghcr.io/open-webui/open-webui:${WEBUI_DOCKER_TAG:-v0.10.2}
+    #
+    # v0.11.0, nao v0.10.2: a migration `f0bd01a18a3d` entrou na 0.11.0, e o
+    # Alembic nao sabe DESCER de revisao. Um banco que ja rodou 0.11.0+ (era o
+    # caso em prod, que vinha de ':main') faz a 0.10.2 abortar o boot com
+    # `Can't locate revision identified by 'f0bd01a18a3d'`. Ao mudar este pin,
+    # so suba de versao; para descer, o volume `open-webui` tem de ser recriado.
+    image: ghcr.io/open-webui/open-webui:${WEBUI_DOCKER_TAG:-v0.11.0}
     container_name: open-webui
     ports:
       - "${OPEN_WEBUI_PORT:-3000}:8080"
@@ -149,6 +155,11 @@ services:
       - WEBUI_NAME=Assistente de Dados GovHub
       - DEFAULT_LOCALE=pt-BR
       - ENABLE_VERSION_UPDATE_CHECK=false
+      # Tira o "Arena Model" do dropdown: so as personas do GovHub aparecem.
+      # Vale para instalacao NOVA; em banco existente o valor salvo vence o env
+      # (mesma pegadinha do DEFAULT_PROMPT_SUGGESTIONS abaixo), e quem aplica e
+      # o scripts/setup_webui_models.sh.
+      - ENABLE_EVALUATION_ARENA_MODELS=false
       - 'DEFAULT_PROMPT_SUGGESTIONS=[{"title": ["Explorar o catálogo", "o que existe sobre habitação?"], "content": "O que vocês têm sobre financiamento habitacional?"}, {"title": ["Ver as bases disponíveis", "panorama por domínio"], "content": "Quais bases de dados vocês têm?"}, {"title": ["Medir um indicador", "contratado x desembolsado"], "content": "Qual o total contratado por unidade da federação?"}, {"title": ["Acompanhar no tempo", "série mensal"], "content": "Como evoluiu o número de empreendimentos por mês no último ano?"}]'
     depends_on:
       - hayhooks

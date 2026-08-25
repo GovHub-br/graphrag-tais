@@ -1,6 +1,6 @@
 # Identidade visual GovHub no Open WebUI
 
-Tema aplicado pelos **dois ganchos oficiais** do Open WebUI 0.10.2 — sem fork,
+Tema aplicado pelos **dois ganchos oficiais** do Open WebUI 0.11.0 — sem fork,
 sem rebuild de imagem, sem tocar no frontend. Referência estética:
 [`docs/graphrag-tais-overview.html`](../docs/graphrag-tais-overview.html) e a
 skill `govhub-visual-identity`. O estudo das alternativas está em
@@ -80,9 +80,18 @@ docker cp webui/custom.css open-webui:/app/backend/open_webui/static/custom.css
 ```
 
 ⚠️ **E force o recarregamento no navegador** (`Cmd/Ctrl + Shift + R`). O
-`/static/*` é servido **sem `Cache-Control`**, só com `ETag`/`Last-Modified`, então
+`/static/*` é servido por `StaticFiles` **sem `Cache-Control`**, só com
+`ETag`/`Last-Modified` (`main.py`: `app.mount('/static', StaticFiles(...))`), então
 o navegador aplica cache heurístico e um F5 comum costuma devolver a versão antiga
 — de CSS *e* de imagem. Se o tema "não mudou", é quase sempre isto.
+
+⚠️ **No Safari o `Cmd + Shift + R` NÃO basta** — ele revalida o documento e mantém
+as subrequisições. Use **`Cmd + Option + E`** (Develop → Empty Caches) e recarregue,
+ou navegação privada para conferir. E o sintoma no Safari é pior do que "tema
+antigo": se o **`loader.js`** vier do cache velho ou falhar, o tema não é fixado e o
+script inline do Open WebUI deixa `localStorage.theme = 'system'` — num Mac em modo
+escuro o app inteiro sai escuro, que é o cenário que o `custom.css` não cobre.
+Tema escuro inesperado ⇒ suspeite do `loader.js` cacheado antes de suspeitar do CSS.
 
 ## Tema claro fixo
 
@@ -96,11 +105,13 @@ branco cravado, que o CSS não tem como reconciliar.
 Aplicado por API e **persistido no volume `open-webui`** — não se perde no
 restart, mas também não vem junto num deploy novo. Para recriar:
 
-- **Nomes, descrições e ícones das personas** (ADR-0014) — `query` → **Indicador**,
-  `explore` → **Explorar**, `ingest` → **Ingestão**, cada um com um ícone do
-  `govhub-visual-identity/references/icons/`:
-  `POST /api/v1/models/model/update` (⚠️ mande `access_grants: []`; com `null` a
-  0.10.2 estoura 500 revalidando o próprio payload).
+- **Dropdown de modelos** (ADR-0014) — `scripts/setup_webui_models.sh`, idempotente,
+  governa os três estados de uma vez: `query` → **Indicador**, `explore` →
+  **Explorar** e `ingest` **oculto** (`is_active: false`, que em `utils/models.py`
+  vira `models.remove(model)`; a pipeline segue no Hayhooks e `/ingest/run`
+  continua respondendo). O script também desliga o **Arena Model** por
+  `POST /api/v1/evaluations/config`. ⚠️ Mande `access_grants: []`; com `null` o
+  endpoint estoura 500 revalidando o próprio payload.
 - **Perguntas sugeridas** em pt-BR: `POST /api/v1/configs/suggestions`.
 
 `DEFAULT_PROMPT_SUGGESTIONS` está no compose para instalações novas; numa
@@ -121,7 +132,17 @@ para deployments de **até 50 pessoas em 30 dias**. O que está aqui é
 
 ## Manutenção
 
-A imagem está **pinada em `v0.10.2`**. O tema depende dos tokens desta build;
+A imagem está **pinada em `v0.11.0`**. O tema depende dos tokens desta build;
 em `:main` um `pull` silencioso pode trocar o CSS por baixo. Ao subir de versão:
 conferir `--color-gray-*`, `--tw-prose-*`, `#sidebar`, `#message-input-container`
-e `button.waterfall`, que são os pontos de apoio do tema.
+e `button.waterfall`, que são os pontos de apoio do tema. Na 0.11.0 os dois ganchos
+(`<script src="/static/loader.js" defer>` e `<link href="/static/custom.css">`)
+seguem no `<head>`, e o `custom.css` usa só `:has()` — nada de `oklch`/`color-mix`,
+então não há piso de versão de navegador além de Safari 15.4.
+
+🔴 **O pin só anda para FRENTE.** A migration `f0bd01a18a3d` entrou na 0.11.0 e o
+Alembic não sabe descer de revisão: apontar um banco que já rodou 0.11.0+ para a
+0.10.2 aborta o boot com `Can't locate revision identified by 'f0bd01a18a3d'` — o
+container fica `healthy` e serve `/error`, que é um jeito silencioso de quebrar.
+Foi o que aconteceu em prod em 25/08/2026, vindo de `:main`. Para descer de versão,
+o volume `open-webui` tem de ser recriado (e aí perde-se conversa, usuário e config).
