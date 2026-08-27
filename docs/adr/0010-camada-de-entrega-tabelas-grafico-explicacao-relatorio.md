@@ -299,6 +299,54 @@ do chat: sem diferença perceptível de latência (≈7s antes e depois, numa pe
 link assinado do MinIO e conferido em PDF (LibreOffice) — capa em 1 página, seções na ordem
 explicação → SQL executado → dados de referência → Resultado → Gráfico.
 
+## Atualização de implementação (2026-08-27) — o download passa pelo RAG, não pelo MinIO
+
+**O que quebrou.** A entrega do `.docx` (e do CSV de amostra, ADR-0015) era uma **URL assinada
+do MinIO**. Isso só funciona quando o navegador do usuário alcança o MinIO — verdade em dev
+(`localhost:9000`), **falso em produção**: lá o `minio` vive na rede privada do compose, sem
+porta publicada e sem domínio. E como a assinatura SigV4 **embute o host**, não havia como
+"consertar o link": qualquer host que o navegador alcançasse invalidaria a assinatura. Quem tem
+URL pública é o **RAG**.
+
+**Decisão.** O RAG serve o arquivo. `GET /files/{bucket}/{objeto}?exp=…&sig=…`
+(`src/rag/server/downloads.py`) lê o objeto pelo endpoint **interno** do MinIO e o repassa ao
+navegador como `attachment`. A requisição do navegador nunca toca o MinIO.
+
+Perdida a assinatura do S3, o link ganha uma **própria**: HMAC-SHA256 de
+`(bucket, objeto, expiração)` em `components/storage/download_links.py` — sem ela, `/files`
+seria leitura anônima de bucket. A semântica de antes é preservada: link **opaco e expirável**,
+com a validade continuando nas mesmas configs (`REPORT_PRESIGN_EXPIRY` 7 dias,
+`SAMPLE_PRESIGN_EXPIRY` 15 min — o nome ficou por estabilidade do `.env`). A expiração entra no
+HMAC, então esticar o `exp` na URL não estende prazo nenhum. Assinatura inválida → **403**,
+vencida → **410**, bucket fora do par publicado (`relatorios`, `amostras`) → **404**. A chave é
+`DOWNLOAD_SIGNING_KEY`; vazia, cai na `MINIO_SECRET_KEY` (segredo do mesmo domínio — quem a tem
+já lê o bucket inteiro), para não obrigar mais uma variável no `.env`.
+
+**Config**: entra `PUBLIC_BASE_URL` (a URL pública do RAG, que é a base do link — em produção,
+o domínio real) e **sai `MINIO_PUBLIC_ENDPOINT`**, que existia só para assinar contra um host
+externo. `MINIO_ENDPOINT` (interno) passa a servir upload **e** leitura, num client só.
+
+**Consequência no boot** (o custo desta decisão): o Hayhooks não expõe gancho para rota custom —
+`create_app()` devolve um app novo a cada chamada, sem hook de extensão. Então o compose deixa de
+subir `hayhooks run` e passa a subir `uvicorn rag.server.app:create_app --factory`, onde
+`src/rag/server/app.py` é o app do Hayhooks **mais** as rotas do projeto. É a mesma execução que
+o `hayhooks run --reload` faz por baixo (ele próprio chama
+`uvicorn hayhooks.server.app:create_app --factory`); o que era flag de CLI vira env
+(`HAYHOOKS_PIPELINES_DIR`, `HAYHOOKS_ADDITIONAL_PYTHON_PATH`, `PYTHONPATH=/app/src`), que é como
+o CLI já propagava para os workers. Nenhuma rota do Hayhooks muda.
+
+**Alternativas descartadas.** (a) *Publicar o MinIO com domínio próprio*: mais superfície
+pública, mais TLS/DNS para operar, e a assinatura SigV4 continuaria acoplada ao host. (b)
+*Repassar a URL assinada por dentro do proxy*: preserva o SigV4, mas herda a fragilidade dele
+(qualquer reescrita de query string quebra a assinatura) sem ganho nenhum sobre o HMAC próprio.
+(c) *Deixar o objeto público no bucket*: não expira e não tem dono — inviável para a amostra,
+que carrega **linhas reais** do banco.
+
+**Verificado end-to-end** (RAG + MinIO em rede isolada, sem porta do MinIO publicada): download
+200 com `Content-Disposition: attachment` e `Content-Length` correto; assinatura adulterada 403;
+`exp` esticado 403; link vencido 410; bucket desconhecido 404; objeto inexistente 404.
+Testes offline da assinatura em `tests/test_download_links.py` (11 casos, rodam no host).
+
 ## Referências
 
 - [ADR-0001: GraphRAG como estratégia de recuperação](./0001-graphrag-como-estrategia-de-recuperacao.md)

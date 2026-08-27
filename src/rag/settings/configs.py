@@ -276,16 +276,22 @@ class Settings(BaseSettings):
         description="Assinatura da marca (base da capa e rodapé)",
     )
     REPORT_PRESIGN_EXPIRY: int = Field(
-        604800, description="Validade (s) da URL assinada de download (default 7 dias)"
+        604800, description="Validade (s) do link de download do relatório (default 7 dias)"
+    )
+    # Download é servido pelo PRÓPRIO RAG (rota /files), não pelo MinIO: o
+    # navegador do usuário não alcança o MinIO, que fica na rede privada do
+    # compose. PUBLIC_BASE_URL é a base pública do RAG que entra no link.
+    PUBLIC_BASE_URL: str = Field(
+        "http://localhost:8000",
+        description="URL pública do RAG — base dos links de download (/files/...)",
+    )
+    DOWNLOAD_SIGNING_KEY: str = Field(
+        "",
+        description="Chave HMAC dos links de download (vazio = usa MINIO_SECRET_KEY)",
     )
     # MinIO (S3-compatível) — armazenamento do .docx.
-    # ENDPOINT: alcançável de dentro da rede do compose (upload).
-    # PUBLIC_ENDPOINT: host que o NAVEGADOR do usuário acessa (assinatura da URL).
+    # ENDPOINT: alcançável de dentro da rede do compose (upload e leitura).
     MINIO_ENDPOINT: str = Field("http://minio:9000", description="Endpoint interno do MinIO")
-    MINIO_PUBLIC_ENDPOINT: str = Field(
-        "http://localhost:9000",
-        description="Endpoint público do MinIO (para assinar o link de download)",
-    )
     MINIO_ACCESS_KEY: str = Field("minioadmin", description="MinIO access key")
     MINIO_SECRET_KEY: str = Field("minioadmin", description="MinIO secret key")
     MINIO_BUCKET: str = Field("relatorios", description="Bucket dos relatórios")
@@ -293,7 +299,7 @@ class Settings(BaseSettings):
     # antes: é o primeiro conteúdo do sistema que não é metadado.
     SAMPLE_BUCKET: str = Field("amostras", description="Bucket dos CSVs de amostra")
     SAMPLE_PRESIGN_EXPIRY: int = Field(
-        900, description="Validade (s) da URL do CSV de amostra (default 15 min)"
+        900, description="Validade (s) do link do CSV de amostra (default 15 min)"
     )
     MINIO_REGION: str = Field("us-east-1", description="Região (formalidade do SigV4)")
 
