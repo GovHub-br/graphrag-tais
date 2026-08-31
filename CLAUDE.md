@@ -176,9 +176,24 @@ transbordava p/ uma 2ª página fantasma) e rende a borda arredondada + Inter ex
 verificar `.docx`, **use LibreOffice** (`soffice --headless --convert-to pdf`) + poppler — o
 **QuickLook do macOS NÃO pagina** (renderiza contínuo) e esconde bugs de quebra de página. **Não usa docxtpl** (o ADR previa; a
 entrada é uma string Markdown única, mais simples converter direto). Armazenamento: **MinIO**
-(adicionado ao stack agora) via `boto3`, URL assinada. ⚠️ **Gotcha**: `MINIO_ENDPOINT`
-(interno, upload) ≠ `MINIO_PUBLIC_ENDPOINT` (assina a URL p/ o navegador do usuário) —
-senão o link quebra fora do Docker.
+(adicionado ao stack agora) via `boto3`.
+
+⚠️ **Download é servido pelo PRÓPRIO RAG, não pelo MinIO** (27/08). O navegador do usuário
+**não alcança o MinIO**: ele só existe na rede do compose, sem URL pública — e a URL assinada
+do S3 embute o host, então o link apontava para um endereço inalcançável fora do Docker
+(quebrava em produção, onde só o RAG tem URL pública). Agora o RAG é o **proxy**:
+`GET /files/{bucket}/{objeto}?exp=…&sig=…` (`src/rag/server/downloads.py`), com assinatura
+**própria** (HMAC-SHA256 de bucket+objeto+expiração, `components/storage/download_links.py`),
+`PUBLIC_BASE_URL` = a URL pública do RAG que entra no link, e a validade seguindo nas configs
+de sempre (`REPORT_PRESIGN_EXPIRY` 7 dias, `SAMPLE_PRESIGN_EXPIRY` 15 min). Vale para os dois
+buckets (`relatorios` e `amostras`). Assinatura inválida → 403, vencida → 410, bucket fora do
+par conhecido → 404. **`MINIO_PUBLIC_ENDPOINT` deixou de existir.**
+
+⚠️ **Por isso o compose não sobe mais `hayhooks run`**, e sim `uvicorn rag.server.app:create_app
+--factory`: o Hayhooks não tem gancho para rota custom, e `src/rag/server/app.py` é o app dele
+(`create_app()`) + as nossas rotas. É a mesma execução que o `hayhooks run --reload` faz por
+baixo; a config vai por env (`HAYHOOKS_PIPELINES_DIR`, `HAYHOOKS_ADDITIONAL_PYTHON_PATH`,
+`PYTHONPATH=/app/src`). Rota nova do projeto entra em `rag/server/`.
 
 ### Modo Explorar — Persona 1 (ADR-0014) ✅
 
@@ -235,7 +250,7 @@ primeira metade da Persona 2 (embedding híbrido + Qdrant) via factory, com `top
   **reconstrução pelo catálogo** (`SELECT <colunas do Neo4j> FROM <tabela> LIMIT n`, 0 LLM),
   que é o degrau que **garante** amostra. `origin` ∈ {llm, corrigido, catalogo} vai no
   `answer["sample"]` e é o que o eval pontua. CSV `utf-8-sig` + `;` (abre no Excel pt-BR),
-  bucket **`amostras`** e URL assinada **curta** (15 min) — separado dos relatórios porque
+  bucket **`amostras`** e link assinado **curto** (15 min, servido pelo RAG) — separado dos relatórios porque
   é o primeiro conteúdo do sistema que **não é metadado**. ⚠️ Sem filtro de PII: a ingestão
   guarda `tags` por coluna, o gancho existe, não está implementado (escopo MCid é público).
 - Sem gráfico e sem `.docx`. O caminho normal segue em **1 chamada de LLM** (a amostra usa o
@@ -337,7 +352,10 @@ comportamento e pede o gate do ADR-0012, não é edição de formatação.
   full-bleed, tabelas, callouts, rodapé), `docx_writer.py` (Markdown→docx + badges de tipo),
   `report_content.py` (renderização estruturada), `report_builder.py`, `assets/`
   (`logo_govhub_light.png`, `symbol_govhub.png`, `fonts/Inter-*.ttf`).
-- `src/rag/components/storage/minio_uploader.py` — upload do `.docx` no MinIO + URL assinada.
+- `src/rag/components/storage/` — `minio_uploader.py` (upload no MinIO) e `download_links.py`
+  (assina/valida o link `/files` que o RAG serve).
+- `src/rag/server/` — app do projeto: `app.py` (Hayhooks + rotas próprias) e `downloads.py`
+  (rota `/files/{bucket}/{objeto}`).
 - `src/rag/pipelines/query/` (motor) e `pipelines/delivery/` (execução+gráfico); `settings/configs.py` (tudo tunável por env).
 - **Persona 1 (ADR-0014)**: `components/retrievers/neo4j_catalog_retriever.py`,
   `components/answer/explore_answer_builder.py`, `pipelines/explore/`,

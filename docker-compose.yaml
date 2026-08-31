@@ -70,17 +70,27 @@ services:
       - "8000:8000"
     volumes:
       - ./src:/app/src:rw
+    # Sobe o app do PROJETO (`rag.server.app`), que é o app do Hayhooks + as
+    # rotas próprias (hoje: /files, o download do relatório e da amostra). O
+    # `hayhooks run` não tem gancho para rota custom; com --reload ele mesmo
+    # chama `uvicorn hayhooks.server.app:create_app --factory`, então isto é a
+    # MESMA execução, só que apontando para o nosso factory. A config do
+    # Hayhooks (pipelines-dir / additional-python-path) vira env, que é como o
+    # CLI a propaga.
     command: [
-      "hayhooks",
-      "run",
+      "uvicorn", "rag.server.app:create_app",
+      "--factory",
       "--host", "0.0.0.0",
       "--port", "8000",
-      "--pipelines-dir", "/app/src/rag/pipelines",
-      "--additional-python-path", "/app/src/",
-      "--reload"
+      "--reload",
+      "--reload-dir", "/app/src"
     ]
     env_file:
       - .env
+    environment:
+      - PYTHONPATH=/app/src
+      - HAYHOOKS_PIPELINES_DIR=/app/src/rag/pipelines
+      - HAYHOOKS_ADDITIONAL_PYTHON_PATH=/app/src
     depends_on:
       - qdrant
       - neo4j

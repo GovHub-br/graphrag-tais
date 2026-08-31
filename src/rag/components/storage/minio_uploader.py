@@ -1,23 +1,25 @@
-"""MinIOUploader — sobe o `.docx` no MinIO e devolve uma URL assinada.
+"""MinIOUploader — sobe o `.docx` no MinIO e devolve o link de download do RAG.
 
-MinIO é S3-compatível, então usamos `boto3`. Dois clients de propósito:
+MinIO é S3-compatível, então usamos `boto3`. Um único client, **interno**
+(`MINIO_ENDPOINT`, ex. `http://minio:9000`): tanto o upload quanto a leitura do
+download acontecem dentro da rede do compose.
 
-- **interno** (`MINIO_ENDPOINT`, ex. `http://minio:9000`): usado dentro da rede do
-  compose para *subir* o arquivo e garantir o bucket.
-- **público** (`MINIO_PUBLIC_ENDPOINT`, ex. `http://localhost:9000`): usado só para
-  *assinar* a URL de download. A assinatura SigV4 inclui o host; se assinássemos com
-  `minio:9000` (nome de serviço interno), o link **quebraria no navegador** do
-  usuário. Por isso a URL é assinada contra o endpoint público, acessível de fora.
+⚠️ O link devolvido **não aponta para o MinIO** — aponta para o próprio RAG
+(`/files/...`, ver `download_links.py`). O navegador do usuário não alcança o
+MinIO: em produção ele não tem URL pública, e a URL assinada do S3 (que embute o
+host) levava o navegador a um endereço que só o compose enxerga.
 """
 from __future__ import annotations
 
 import os
+from functools import lru_cache
 
 import boto3
 from botocore.client import Config
 from botocore.exceptions import ClientError
 from loguru import logger
 
+from rag.components.storage.download_links import build_download_url
 from rag.settings.configs import settings
 
 _DOCX_CONTENT_TYPE = (
@@ -25,26 +27,35 @@ _DOCX_CONTENT_TYPE = (
 )
 
 
+@lru_cache(maxsize=1)
+def internal_client():
+    """Client S3 do endpoint interno, compartilhado (upload e download)."""
+    return boto3.client(
+        "s3",
+        endpoint_url=settings.MINIO_ENDPOINT,
+        aws_access_key_id=settings.MINIO_ACCESS_KEY,
+        aws_secret_access_key=settings.MINIO_SECRET_KEY,
+        region_name=settings.MINIO_REGION,
+        config=Config(signature_version="s3v4"),
+    )
+
+
+def get_object(bucket: str, object_name: str) -> dict:
+    """Resposta crua do `get_object` (Body streamado, ContentType, ContentLength).
+
+    É o que a rota `/files/...` do RAG repassa ao navegador."""
+    return internal_client().get_object(Bucket=bucket, Key=object_name)
+
+
 class MinIOUploader:
     def __init__(self, bucket: str | None = None, presign_expiry: int | None = None):
         # Parametrizável para a amostra de dados da Persona 1: LINHAS do banco
         # não moram no mesmo bucket que relatórios, e a URL delas expira antes.
         self.bucket = bucket or settings.MINIO_BUCKET
+        # `presign_expiry`: nome herdado da URL assinada do S3. Hoje é a
+        # validade do link do RAG — mantido para não mexer no contrato do `.env`.
         self.presign_expiry = presign_expiry or settings.REPORT_PRESIGN_EXPIRY
-        common = dict(
-            aws_access_key_id=settings.MINIO_ACCESS_KEY,
-            aws_secret_access_key=settings.MINIO_SECRET_KEY,
-            region_name=settings.MINIO_REGION,
-            config=Config(signature_version="s3v4"),
-        )
-        self._internal = boto3.client(
-            "s3", endpoint_url=settings.MINIO_ENDPOINT, **common
-        )
-        # cliente só para assinar (host acessível pelo navegador do usuário)
-        public_endpoint = settings.MINIO_PUBLIC_ENDPOINT or settings.MINIO_ENDPOINT
-        self._public = boto3.client(
-            "s3", endpoint_url=public_endpoint, **common
-        )
+        self._internal = internal_client()
         self._ensure_bucket()
 
     def _ensure_bucket(self) -> None:
@@ -59,7 +70,7 @@ class MinIOUploader:
 
     def upload(self, local_path: str, object_name: str | None = None,
                content_type: str | None = None) -> str:
-        """Sobe o arquivo e devolve uma URL assinada de download (attachment)."""
+        """Sobe o arquivo e devolve o link de download (servido pelo RAG)."""
         object_name = object_name or os.path.basename(local_path)
         content_type = content_type or _DOCX_CONTENT_TYPE
         self._internal.upload_file(
@@ -69,17 +80,4 @@ class MinIOUploader:
             ExtraArgs={"ContentType": content_type},
         )
         logger.info("[storage] enviado ao MinIO: {}/{}", self.bucket, object_name)
-        return self._presigned_url(object_name, content_type)
-
-    def _presigned_url(self, object_name: str, content_type: str) -> str:
-        disposition = f'attachment; filename="{object_name}"'
-        return self._public.generate_presigned_url(
-            "get_object",
-            Params={
-                "Bucket": self.bucket,
-                "Key": object_name,
-                "ResponseContentDisposition": disposition,
-                "ResponseContentType": content_type,
-            },
-            ExpiresIn=self.presign_expiry,
-        )
+        return build_download_url(self.bucket, object_name, self.presign_expiry)
