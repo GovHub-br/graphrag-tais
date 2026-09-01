@@ -207,6 +207,22 @@ class Settings(BaseSettings):
     )
 
     # ------------------------------------------------------------------ #
+    # Guardrails de resposta (ADR-0016)
+    # ------------------------------------------------------------------ #
+    # Gate determinístico que roda ANTES do retrieval, nas DUAS personas: recusa
+    # pedido de dado pessoal, responde "você acessa o dado?" com a explicação
+    # correta e recusa o que está fora do objetivo do sistema.
+    GUARDRAILS_ENABLED: bool = Field(
+        True, description="Gate determinístico de PII/escopo antes da pipeline"
+    )
+    # Vocabulário de identificador da base em uso, além do embutido (cpf, cnpj,
+    # nome completo, endereço, contato…). Conhecimento de escopo mora em env,
+    # como o SCOPE_GAPS. Ex.: "matricula do servidor,codigo do beneficiario".
+    GUARDRAIL_EXTRA_PII_TERMS: str = Field(
+        "", description="Termos extras de dado pessoal, separados por vírgula"
+    )
+
+    # ------------------------------------------------------------------ #
     # Camada de entrega (ADR-0013): execução via postgres-mcp + gráfico
     # ------------------------------------------------------------------ #
     # O postgres-mcp (crystaldba) já roda em modo RESTRICTED (read-only) e é o

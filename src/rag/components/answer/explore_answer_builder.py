@@ -42,6 +42,9 @@ class ExploreTable(BaseModel):
 
 class GeneratedExploration(BaseModel):
     summary: str = ""
+    # Recusa em banda (ADR-0016): 'pii' | 'escopo' | "" (respondeu). Mesma
+    # semântica da Persona 2 — o resumo vira a resposta inteira.
+    refusal: str = ""
     tables: List[ExploreTable] = Field(default_factory=list)
     sample_sql: str = ""
     sample_sql_rationale: str = ""
@@ -110,6 +113,12 @@ def _is_catalog_question(query: str) -> bool:
         return False
     return not any(qualifier in folded for qualifier in _THEME_QUALIFIERS)
 
+
+#: Usado só se o modelo recusar sem escrever o resumo (não deveria acontecer).
+_REFUSAL_FALLBACK = (
+    "Não consigo responder essa pergunta. Este assistente mostra o que existe "
+    "no catálogo de dados do GovHub."
+)
 
 _GAPS_CACHE: dict | None = None
 
@@ -182,6 +191,7 @@ class ExploreAnswerBuilder:
             "mode": "explore",
             "query": query,
             "summary": parsed.summary.strip(),
+            "refusal": (parsed.refusal or "").strip().lower(),
             "domains": touched if tables else domains,
             # Panorama completo do escopo — sempre disponível na resposta
             # estruturada; entra no Markdown quando a pergunta é de catálogo.
@@ -464,6 +474,10 @@ class ExploreAnswerBuilder:
     def render(self, answer: dict, joins: List[Dict[str, Any]]) -> str:
         """Markdown da resposta. Público porque o wrapper re-renderiza depois de
         executar a amostra — mesmo padrão do `render_markdown` da Persona 2."""
+        # Recusa do modelo (ADR-0016): o resumo é a resposta. Listar tabelas,
+        # panorama e amostra depois de recusar seria responder assim mesmo.
+        if (answer.get("refusal") or "").strip():
+            return answer["summary"].strip() or _REFUSAL_FALLBACK
         parts: List[str] = [answer["summary"] or "_(sem resumo)_"]
         tables = answer["tables"]
         catalog_domains = answer.get("catalog_domains") or answer["domains"]

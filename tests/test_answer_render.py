@@ -135,5 +135,30 @@ class TestSecaoResultado(unittest.TestCase):
                          render_markdown(_ANSWER, {"exec_ok": False, "result_summary": ""}))
 
 
+@unittest.skipUnless(HAYSTACK, "Haystack indisponível no host — rode no container")
+class TestRecusa(unittest.TestCase):
+    """Recusa do modelo (ADR-0016): a explicação é a resposta INTEIRA.
+
+    Sem esta regra, uma recusa de dado pessoal saía com "### SQL gerado — não foi
+    possível gerar SQL" e o dicionário das tabelas recuperadas embaixo: a pessoa
+    lia uma falha técnica onde deveria ler o motivo e a alternativa."""
+
+    def _recusa(self, motivo: str = "pii") -> dict:
+        return {**_ANSWER, "sql": "", "refusal": motivo,
+                "explanation": "Não respondo pedidos de dado pessoal."}
+
+    def test_so_a_explicacao_sai(self):
+        md = render_markdown(self._recusa())
+        self.assertEqual(md, "Não respondo pedidos de dado pessoal.")
+
+    def test_nao_ha_bloco_de_sql_nem_dicionario(self):
+        md = render_markdown(self._recusa("escopo"))
+        for secao in ("### SQL", "### Dados de referência", "### Tabelas", "```sql"):
+            self.assertNotIn(secao, md)
+
+    def test_answer_sem_recusa_segue_normal(self):
+        self.assertIn("### SQL", render_markdown({**_ANSWER, "refusal": ""}))
+
+
 if __name__ == "__main__":
     unittest.main()

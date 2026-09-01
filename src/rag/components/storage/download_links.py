@@ -18,7 +18,7 @@ from __future__ import annotations
 import hmac
 import time
 from hashlib import sha256
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 from rag.settings.configs import settings
 
@@ -59,6 +59,19 @@ def build_download_url(bucket: str, object_name: str, expires_in: int) -> str:
     signature = _signature(bucket, object_name, expires_at)
     base = settings.PUBLIC_BASE_URL.rstrip("/")
     return f"{base}{path}?exp={expires_at}&sig={signature}"
+
+
+def base_url_looks_local(base_url: str | None = None) -> bool:
+    """`PUBLIC_BASE_URL` ainda aponta para a própria máquina?
+
+    Existe porque esta é a falha mais silenciosa do download: o link sai
+    **bonito e assinado**, a rota funciona, o arquivo está no MinIO — e mesmo
+    assim ninguém baixa, porque `http://localhost:8000` no navegador de quem
+    clica é a máquina DELE, não o servidor. Sem checagem, o sintoma ("o botão
+    não faz nada") não aponta para a causa (uma variável faltando no `.env`).
+    """
+    host = urlparse(base_url if base_url is not None else settings.PUBLIC_BASE_URL).hostname or ""
+    return host.lower() in {"localhost", "127.0.0.1", "0.0.0.0", "::1", "host.docker.internal"}
 
 
 def verify(bucket: str, object_name: str, expires_at: int, signature: str) -> None:
