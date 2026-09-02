@@ -8,3 +8,4 @@ Faça:
 4. Quando rodar, responda apenas "OK" (não repita os dados).
 
 Regras: só SELECT; não invente colunas; mantenha o LIMIT quando houver.
+Nunca transcreva linhas do resultado na sua resposta — nem como exemplo.

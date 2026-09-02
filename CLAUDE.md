@@ -251,10 +251,60 @@ primeira metade da Persona 2 (embedding híbrido + Qdrant) via factory, com `top
   que é o degrau que **garante** amostra. `origin` ∈ {llm, corrigido, catalogo} vai no
   `answer["sample"]` e é o que o eval pontua. CSV `utf-8-sig` + `;` (abre no Excel pt-BR),
   bucket **`amostras`** e link assinado **curto** (15 min, servido pelo RAG) — separado dos relatórios porque
-  é o primeiro conteúdo do sistema que **não é metadado**. ⚠️ Sem filtro de PII: a ingestão
-  guarda `tags` por coluna, o gancho existe, não está implementado (escopo MCid é público).
+  é o primeiro conteúdo do sistema que **não é metadado**. ⚠️ Sem filtro de PII **na saída**: a
+  ingestão guarda `tags` por coluna, o gancho existe, não está implementado (escopo
+  MCid é público). Decisão do ADR-0016: quem protege o VALOR é o **acesso mascarado
+  no banco**; o guardrail protege a **conversa** (recusa o pedido de dado pessoal
+  antes da pipeline). Mascarar na aplicação foi avaliado e recusado como duplicação
+  no lugar errado.
 - Sem gráfico e sem `.docx`. O caminho normal segue em **1 chamada de LLM** (a amostra usa o
   MCP direto); só a autocorreção da amostra gasta modelo, e só quando o banco recusa.
+
+### Guardrails de resposta (ADR-0016) ✅
+
+Duas camadas, valendo para as **duas personas**:
+
+1. **Gate determinístico** (`src/rag/guardrails/`, função pura — roda no host, sem
+   Haystack) chamado no topo do `run_api`/`run_chat_completion` dos dois wrappers,
+   **antes** de embedding, grafo, LLM e execução. Quatro veredictos:
+   `pii_request` (recusa pedido de CPF/CNPJ/nome/endereço/contato + oferece o
+   recorte agregado), `data_access` ("você acessa o banco?" → o modelo lê
+   metadados e **escreve o SQL**; quem executa é o banco, read-only; a explicação
+   do resultado vem do digest, não das linhas), `off_scope` (fora de explorar/medir,
+   inclui tentativa de reprogramar o assistente) e `about_system` ("o que você
+   faz?" → apresenta os dois modos). Pergunta barrada **não custa nada**.
+   ⚠️ O filtro de PII é **termo + contexto**: `cpf`/`nome de pessoa`/`endereço`
+   recusam, **exceto** com marcador de metadado ("quais tabelas têm CPF?" é o
+   trabalho da P1) ou de agregação. Acima das exceções há uma lista curta que
+   recusa sempre (`liste os CPFs…`, `relação nominal`).
+   `GUARDRAIL_EXTRA_PII_TERMS` (env) acrescenta vocabulário por base.
+   ⚠️ **CNPJ/razão social de PJ não bloqueiam sozinhos** — empresa contratada
+   pelo poder público é informação pública, e barrar isso quebrava um caso do
+   gold de negócio ("as 10 EOs de alto risco; mostre nome, CNPJ…"). Bloqueia só
+   colado em pessoa física (sócio, representante legal, titular).
+   ⚠️ Os **textos** ficam em `guardrails/messages.py`, **não** em `prompts/`:
+   `prompts/` é o que vai para o modelo; recusa é resposta pronta, e o valor dela
+   é não depender de o modelo obedecer.
+2. **Recusa em banda**: os prompts de sistema das duas personas ganharam bloco de
+   RECUSAS e o campo `refusal` (`"" | pii | escopo`) no JSON. Preenchido → o
+   answer builder renderiza **só a explicação** (sem SQL, sem dicionário, sem
+   amostra, sem `.docx`). `result_summary_system` e `sql_executor_system` também
+   proíbem dizer que o modelo consultou/acessou o dado.
+
+`tests/test_guardrails.py` (host) cobre os dois lados: o que **tem** de ser
+recusado e o que **não pode** ser — "mostre nome, CNPJ das EOs", "quais tabelas
+têm CPF", "nome do município" continuam passando.
+
+✅ **Validado em ambiente real (31/08)**: 50 chamadas no contrato de chat, nas
+duas personas, **50/50**. Os testes reais acharam 3 defeitos que a suíte não
+pegava (CNPJ de PJ bloqueando, `refusal` usado para falta de dado, verbos de
+posse faltando em `data_access`) — todos corrigidos, cada um com seu caso na
+suíte. Ver a seção de validação do ADR-0016.
+
+🔴 **Pendências**: (a) o gate do ADR-0012 — `query_system.md` é prompt calibrado e
+a mudança **não está medida**; (b) na autocorreção do `McpSqlExecutor` (só quando
+o banco recusa o SQL) o retorno da ferramenta volta ao contexto do modelo, então
+ali ele vê linhas — o caminho normal (`MCP_DIRECT_FIRST`) não passa por lá.
 
 ## Como rodar o eval do modo Explorar (Persona 1)
 
@@ -336,12 +386,27 @@ comportamento e pede o gate do ADR-0012, não é edição de formatação.
 - **hayhooks `--reload`** observa `src/` (mudança de componente recarrega), mas mudança no **`.env`**
   exige recriar: `docker compose up -d --no-deps hayhooks`.
 - **`.env`**: sem cercas markdown; segredos reais (OPENAI/DB/OM_JWT) ficam nele e ele é gitignored.
+- 🔴 **`PUBLIC_BASE_URL` ausente = download quebrado, e em silêncio.** É a única
+  peça do download que o RAG não descobre sozinho: o link é montado dentro da
+  pipeline, longe da requisição, então não dá para deduzir o host do `Host:`
+  recebido. Faltando no `.env`, o default `http://localhost:8000` entra no link —
+  o `.docx` é gerado, sobe no MinIO, a rota `/files` responde, **e ainda assim
+  ninguém baixa**, porque no navegador de quem clicou `localhost` é a máquina
+  dele. Desde 01/09 o boot **avisa** (`create_app` → `_check_public_base_url`,
+  com `download_links.base_url_looks_local`); antes o sintoma era só "o botão não
+  faz nada". Em produção: `PUBLIC_BASE_URL=https://<domínio público do RAG>`, e o
+  proxy reverso precisa encaminhar **`/files`** junto com as rotas de pipeline.
+  Diagnóstico rápido: **link some** = MinIO/upload fora (`_attach_report` é
+  defensivo e engole); **link 404/inalcançável** = `PUBLIC_BASE_URL` errado.
 
 ## Mapa de arquivos (novos/tocados na branch, não commitados)
 
 - `src/rag/components/retrievers/` — `neo4j_subgraph_retriever.py` (SEMANTIC_JOIN + poda + evidence),
   `qdrant_hybrid_retriever.py` (scope + determinismo).
 - `src/rag/components/generators/openai_generator.py` — LLM OpenAI.
+- **`src/rag/guardrails/`** (ADR-0016) — gate determinístico de PII/escopo/acesso
+  (`policy.py`, puro) + os textos das recusas (`messages.py`, resposta ao usuário,
+  fora de `prompts/`). Chamado pelos DOIS wrappers antes da pipeline.
 - **`src/rag/prompts/`** — **todo texto que vai para o LLM** (um `.md` por prompt) + o loader
   (`prompts.load` / `prompts.render`). Ver o `README.md` de lá para a tabela prompt → quem usa.
 - `src/rag/components/answer/sql_answer_builder.py` — resposta em Markdown.

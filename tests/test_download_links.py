@@ -106,5 +106,27 @@ class TestAssinatura(unittest.TestCase):
             settings.MINIO_SECRET_KEY = antes
 
 
+class TestBaseUrlLocal(unittest.TestCase):
+    """A falha mais silenciosa do download: link bonito, assinado, e inalcançável.
+
+    `PUBLIC_BASE_URL` ausente do `.env` cai no default `localhost:8000`, e aí o
+    link abre na máquina de QUEM CLICOU, não no servidor. O arquivo existe, a
+    rota responde, o download falha — e o sintoma não aponta para a causa. O
+    boot avisa; estes casos fixam o que conta como 'local'."""
+
+    def test_reconhece_enderecos_da_propria_maquina(self):
+        for url in ("http://localhost:8000", "http://127.0.0.1:8000",
+                    "http://0.0.0.0:8000", "http://host.docker.internal:8000",
+                    "https://LOCALHOST:8443/base"):
+            with self.subTest(url=url):
+                self.assertTrue(download_links.base_url_looks_local(url))
+
+    def test_url_publica_nao_dispara_o_aviso(self):
+        for url in ("https://rag.exemplo.gov.br", "http://10.0.0.50:8000",
+                    "https://govhub.gov.br/rag"):
+            with self.subTest(url=url):
+                self.assertFalse(download_links.base_url_looks_local(url))
+
+
 if __name__ == "__main__":
     unittest.main()

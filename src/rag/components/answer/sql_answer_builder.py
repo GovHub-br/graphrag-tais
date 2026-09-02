@@ -50,6 +50,11 @@ class QuestionIR(BaseModel):
 class GeneratedAnswer(BaseModel):
     explanation: str = ""
     sql: str = ""
+    # Recusa em banda (ADR-0016): 'pii' | 'escopo' | "" (respondeu). É a segunda
+    # camada do guardrail — a primeira é o gate determinístico do wrapper, que
+    # nem chega aqui. Quando vem preenchida, a explicação É a resposta: sem SQL,
+    # sem dicionário de dados, sem relatório.
+    refusal: str = ""
     ir: QuestionIR = Field(default_factory=QuestionIR)
     tables_used: List[str] = Field(default_factory=list)
 
@@ -95,6 +100,7 @@ class SqlAnswerBuilder:
             "status": "sucesso",
             "explanation": parsed.explanation,
             "sql": parsed.sql,
+            "refusal": (parsed.refusal or "").strip().lower(),
             "ir": parsed.ir.model_dump(),
             "references": references,
             "context_tables": [d.meta.get("sql_name") for d in documents],
@@ -153,6 +159,12 @@ class SqlAnswerBuilder:
 # --------------------------------------------------------------------------- #
 # Cap de colunas quando não dá pra saber quais foram usadas (ex.: SELECT *).
 MAX_DICT_COLUMNS = 15
+
+#: Usado só se o modelo recusar sem escrever a explicação (não deveria acontecer).
+_REFUSAL_FALLBACK = (
+    "Não consigo responder essa pergunta. Este assistente mede indicadores "
+    "sobre as bases do GovHub, em dados agregados."
+)
 
 
 def _column_keys(col: Dict[str, Any]) -> str:
@@ -254,6 +266,11 @@ def render_markdown(answer: Dict[str, Any],
     do motor puro — nenhuma afirmação sobre execução é feita, e a seção
     "Resultado" (que só existe se o SQL rodou) não aparece."""
     exec_info = exec_info or {}
+    # Recusa do modelo (ADR-0016): a explicação é a resposta inteira. Mostrar
+    # "SQL gerado: não foi possível" + o dicionário das tabelas recuperadas
+    # transformaria uma recusa clara num relatório de falha técnica.
+    if (answer.get("refusal") or "").strip():
+        return (answer.get("explanation") or "").strip() or _REFUSAL_FALLBACK
     references: List[Dict[str, Any]] = answer.get("references") or []
     joins: List[Dict[str, Any]] = answer.get("joins") or []
     parts: List[str] = []

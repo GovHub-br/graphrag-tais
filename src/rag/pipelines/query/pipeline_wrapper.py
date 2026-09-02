@@ -21,6 +21,7 @@ from hayhooks import BasePipelineWrapper, get_last_user_message
 from loguru import logger
 
 from rag.components.answer.sql_answer_builder import render_markdown
+from rag.guardrails import guardrail_verdict
 from rag.pipelines.query.query_pipeline import build_query_pipeline
 from rag.pipelines.delivery.delivery_pipeline import build_delivery_pipeline
 from rag.settings.configs import settings
@@ -59,6 +60,11 @@ class PipelineWrapper(BasePipelineWrapper):
     def run_api(self, query: str, top_k: int = 5) -> dict:
         """Contrato JSON: resposta estruturada (só o motor, sem executar SQL)."""
         logger.info(">>> [query/api] '{}...' (top_k={})", query[:60], top_k)
+        verdict = guardrail_verdict(query)
+        if verdict:
+            logger.info("[query/api] guardrail: {}", verdict.reason)
+            return {"status": "recusado", "guardrail": verdict.reason,
+                    "mensagem": verdict.message}
         try:
             result = self._run(query, top_k=top_k)
             return result["answer_builder"]["answer"]
@@ -74,6 +80,13 @@ class PipelineWrapper(BasePipelineWrapper):
         logger.info(">>> [query/chat] model={} '{}...'", model, query[:60])
         if not query.strip():
             return "Envie uma pergunta sobre os dados para eu gerar o SQL."
+        # Guardrail ANTES do retrieval (ADR-0016): pedido de dado pessoal,
+        # pergunta sobre acesso ao dado e pergunta fora do objetivo do sistema
+        # não gastam embedding, grafo, LLM nem execução de SQL.
+        verdict = guardrail_verdict(query)
+        if verdict:
+            logger.info("[query/chat] guardrail: {}", verdict.reason)
+            return verdict.message
         try:
             result = self._run(query)
             answer = result["answer_builder"]["answer"]
@@ -151,6 +164,9 @@ class PipelineWrapper(BasePipelineWrapper):
         """Gera o relatório .docx do `answer` ESTRUTURADO + gráfico e anexa o link
         de download. Aditivo e defensivo: se algo falhar, devolve só o texto."""
         if not settings.REPORT_ENABLED:
+            return chat_markdown
+        # Recusa não vira relatório: não há indicador para documentar (ADR-0016).
+        if (answer.get("refusal") or "").strip():
             return chat_markdown
         try:
             from rag.components.report import ReportBuilder

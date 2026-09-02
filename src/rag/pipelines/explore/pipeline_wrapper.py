@@ -24,6 +24,7 @@ import sys
 from hayhooks import BasePipelineWrapper, get_last_user_message
 from loguru import logger
 
+from rag.guardrails import guardrail_verdict
 from rag.pipelines.explore.explore_pipeline import build_explore_pipeline
 from rag.settings.configs import settings
 
@@ -59,6 +60,11 @@ class PipelineWrapper(BasePipelineWrapper):
         sugerido de fato RODA — sinal bem mais forte que "cita colunas que
         existem"."""
         logger.info(">>> [explore/api] '{}...' (top_k={})", query[:60], top_k)
+        verdict = guardrail_verdict(query)
+        if verdict:
+            logger.info("[explore/api] guardrail: {}", verdict.reason)
+            return {"status": "recusado", "guardrail": verdict.reason,
+                    "mensagem": verdict.message}
         try:
             result = self._run(query, top_k=top_k)
             answer = result["answer_builder"]["answer"]
@@ -79,6 +85,12 @@ class PipelineWrapper(BasePipelineWrapper):
                 "Me diga um assunto e eu mostro o que existe sobre ele no catálogo "
                 "— por exemplo: _\"o que vocês têm sobre financiamento habitacional?\"_"
             )
+        # Guardrail ANTES do retrieval (ADR-0016) — mesmo gate da Persona 2: as
+        # duas personas recusam as mesmas coisas, pelo mesmo texto.
+        verdict = guardrail_verdict(query)
+        if verdict:
+            logger.info("[explore/chat] guardrail: {}", verdict.reason)
+            return verdict.message
         try:
             result = self._run(query)
             answer = result["answer_builder"]["answer"]
@@ -102,6 +114,9 @@ class PipelineWrapper(BasePipelineWrapper):
         o MinIO estiverem fora, a resposta sai como sempre saiu — com o SQL de
         amostra, sem as linhas. Nunca levanta."""
         if not settings.EXPLORE_EXECUTE_SAMPLE:
+            return False
+        # Recusou → não roda SQL nenhum, nem o de amostra (ADR-0016).
+        if (answer.get("refusal") or "").strip():
             return False
         try:
             if self._sample_runner is None:
