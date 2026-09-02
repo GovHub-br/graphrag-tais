@@ -16,6 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from rag.guardrails import _extra_pii_patterns  # noqa: E402
 from rag.guardrails.policy import check_question  # noqa: E402
 
 
@@ -37,6 +38,10 @@ class TestDadoPessoal(unittest.TestCase):
         "Preciso dos dados pessoais dos inscritos",
         "Quem são os beneficiários do programa em Salvador?",
         "traga a relação nominal dos contemplados",
+        # Mesmo pedido, no vocabulário de quem trabalha com cadastro.
+        "quero a lista nominativa dos beneficiários",
+        "me dá a nominata dos servidores lotados na secretaria",
+        "preciso dos dados nominais dos inscritos",
         "Qual a data de nascimento dos titulares?",
         # CNPJ sozinho passa; ligado a pessoa física, não.
         "Quero os CNPJs e os nomes dos sócios das construtoras contratadas",
@@ -186,6 +191,40 @@ class TestContrato(unittest.TestCase):
 
     def test_acento_e_caixa_nao_importam(self):
         self.assertEqual(_reason("QUAL O ENDEREÇO DO BENEFICIÁRIO?"), "pii_request")
+
+
+class TestTermosExtrasDoEnv(unittest.TestCase):
+    r"""`GUARDRAIL_EXTRA_PII_TERMS` é lista de TEXTO, não de regex.
+
+    Quem edita o `.env` escreve "matricula (siape)", não `matricula\ \(siape\)`.
+    Sem escape, o ponto e o parêntese viram metacaractere — e o parêntese
+    desbalanceado não erra a classificação: derruba a pergunta com `re.error`.
+    """
+
+    def test_metacaractere_nao_vira_curinga(self):
+        extras = _extra_pii_patterns("nis.pis")
+        self.assertIsNone(check_question("qual o nisXpis do fulano", extras))
+        self.assertEqual(
+            check_question("qual o nis.pis do fulano", extras).reason, "pii_request"
+        )
+
+    def test_parentese_no_termo_nao_derruba_o_gate(self):
+        extras = _extra_pii_patterns("matricula (siape)")
+        self.assertEqual(
+            check_question("qual a matricula (siape) do servidor", extras).reason,
+            "pii_request",
+        )
+
+    def test_espaco_no_termo_casa_espacamento_irregular(self):
+        extras = _extra_pii_patterns("codigo do beneficiario")
+        self.assertEqual(
+            check_question("me da o codigo  do beneficiario", extras).reason,
+            "pii_request",
+        )
+
+    def test_lista_vazia_e_itens_em_branco_somem(self):
+        self.assertEqual(_extra_pii_patterns(""), [])
+        self.assertEqual(_extra_pii_patterns(" , ,"), [])
 
 
 if __name__ == "__main__":

@@ -23,11 +23,39 @@ Uso (os dois wrappers de pipeline fazem exatamente isto):
 """
 from __future__ import annotations
 
-from typing import Optional
+import re
+from typing import List, Optional
 
 from rag.guardrails.policy import Verdict, check_question
 
 __all__ = ["Verdict", "check_question", "guardrail_verdict"]
+
+
+def _extra_pii_patterns(raw: str) -> List[str]:
+    r"""Converte `GUARDRAIL_EXTRA_PII_TERMS` em padrões de palavra inteira.
+
+    Os termos do env são **texto**, não regex — é o que a config promete
+    ("matricula do servidor,codigo do beneficiario"). Sem `re.escape`, qualquer
+    metacaractere que apareça ali vira regex ativo: no melhor caso um falso
+    positivo silencioso (`nis.pis` casando "nisXpis"), no pior um `re.error`
+    que derruba o gate no meio da pergunta (`matricula (siape)` — exatamente o
+    formato que a docstring da config incentiva).
+
+    Duas concessões ao termo escrito por humano: espaço casa como `\s+` (o
+    termo continua valendo com espaçamento irregular) e a fronteira `\b` só
+    entra onde há caractere de palavra para delimitar — `\b` depois de `)`
+    nunca casa, e o termo inteiro morreria em silêncio.
+    """
+    patterns: List[str] = []
+    for term in (raw or "").split(","):
+        term = term.strip()
+        if not term:
+            continue
+        core = re.escape(term).replace(r"\ ", r"\s+")
+        prefix = r"\b" if term[0].isalnum() or term[0] == "_" else ""
+        suffix = r"\b" if term[-1].isalnum() or term[-1] == "_" else ""
+        patterns.append(prefix + core + suffix)
+    return patterns
 
 
 def guardrail_verdict(query: str) -> Optional[Verdict]:
@@ -44,9 +72,5 @@ def guardrail_verdict(query: str) -> Optional[Verdict]:
 
     if not settings.GUARDRAILS_ENABLED:
         return None
-    extras = [
-        r"\b" + term.strip().replace(" ", r"\s+") + r"\b"
-        for term in (settings.GUARDRAIL_EXTRA_PII_TERMS or "").split(",")
-        if term.strip()
-    ]
+    extras = _extra_pii_patterns(settings.GUARDRAIL_EXTRA_PII_TERMS)
     return check_question(query, extra_pii_terms=extras)

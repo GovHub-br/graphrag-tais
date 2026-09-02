@@ -112,7 +112,9 @@ _PII_ALWAYS = (
     r"\bidentifi(que|car|cacao d[eoa])\b[^?]{0,30}\b(pessoa|beneficiari|"
     r"morador|cidada|titular)",
     r"\bdados? pessoa(l|is)\b",
-    r"\bnominal(mente)?\b", r"\bnominat[ivo]",
+    # "nominal/nominais/nominalmente" e "nominativa/nominata": o pedido de
+    # lista COM NOME, dito no vocabulário de quem trabalha com cadastro.
+    r"\bnomina(l|is|lmente)\b", r"\bnominat(iv[oa]s?|as?)\b",
     # CNPJ sozinho NÃO recusa (ver nota abaixo) — mas CNPJ colado em pessoa
     # física recusa, nas duas ordens: "CNPJ e nome dos sócios", "sócio e o CNPJ".
     r"\bcnpjs?\b[^?]{0,45}\b(socios?|representante|responsave(l|is) lega(l|is)|"
