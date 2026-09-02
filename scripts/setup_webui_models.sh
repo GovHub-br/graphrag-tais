@@ -16,6 +16,7 @@
 set -euo pipefail
 
 WEBUI="${1:-${WEBUI_URL:-http://localhost:3000}}"
+RAIZ="$(cd "$(dirname "$0")/.." && pwd)"
 
 # Com WEBUI_AUTH=false o signin sem credenciais devolve o admin padrão. Com auth
 # ligado, exporte WEBUI_EMAIL/WEBUI_PASSWORD.
@@ -30,15 +31,27 @@ TOKEN="$(curl -sf --max-time 15 -X POST "${WEBUI}/api/v1/auths/signin" \
 # o remove da lista (`models.remove(model)`). É o gancho oficial para esconder um
 # modelo da UI sem mexer no Hayhooks — a pipeline segue registrada e a rota
 # `/<id>/run` continua respondendo.
+#
+# $5 = avatar da persona (PNG do repo).
+# ⚠️ O avatar vai EMBUTIDO em base64, e não como caminho `/static/...`: os
+# ícones das personas não estão entre os arquivos que o compose monta em
+# `/app/build/static`. E como este payload substitui `meta` INTEIRO, um
+# `aplicar` sem avatar APAGA o que estava lá — o ícone da persona vira a marca
+# genérica na tela inicial e no dropdown.
 aplicar() {
-  local id="$1" nome="$2" desc="$3" ativo="${4:-true}"
+  local id="$1" nome="$2" desc="$3" ativo="${4:-true}" icone="${5:-}"
   local payload
-  payload="$(python3 - "$id" "$nome" "$desc" "$ativo" <<'PY'
-import json, sys
-id_, nome, desc, ativo = sys.argv[1:5]
+  payload="$(python3 - "$id" "$nome" "$desc" "$ativo" "$icone" <<'PY'
+import base64, json, sys
+id_, nome, desc, ativo, icone = sys.argv[1:6]
+if icone:
+    with open(icone, "rb") as fh:
+        imagem = "data:image/png;base64," + base64.b64encode(fh.read()).decode()
+else:
+    imagem = "/static/favicon.png"
 print(json.dumps({
     "id": id_, "base_model_id": None, "name": nome,
-    "meta": {"description": desc, "profile_image_url": "/static/favicon.png"},
+    "meta": {"description": desc, "profile_image_url": imagem},
     # `access_grants` precisa ser LISTA: o endpoint de update reconstrói o
     # ModelForm e `None` falha a validação com list_type (HTTP 500 opaco).
     "params": {}, "access_grants": [], "is_active": ativo == "true",
@@ -59,17 +72,28 @@ PY
   fi
 }
 
+# A DESCRIÇÃO É A MENSAGEM DE BOAS-VINDAS. Na tela inicial ela aparece entre o
+# nome da persona e a barra de digitação (`Placeholder.svelte`), que é exatamente
+# onde uma saudação cabe — e no dropdown ela só sai no tooltip do ℹ️, então o tom
+# de conversa não polui a escolha do modelo. Dois limites do componente:
+#   • `line-clamp-2` + `max-w-xl` → o que passar de DUAS linhas (~170 caracteres)
+#     é cortado com reticências, visível só no hover;
+#   • o que a tela já diz não se repete aqui: "escreva na barra abaixo" é o
+#     placeholder do input, e o convite a começar são os cards de "Sugerido".
 echo "Configurando dropdown em ${WEBUI}"
 aplicar query "Indicador" \
-  "Mede um indicador: SQL executado, gráfico e relatório .docx. Para quem já sabe o que quer medir."
+  "Olá! Vou te acompanhar na medição: me diga o que você quer medir e eu devolvo as bases usadas, o SQL executado, a leitura do resultado, o gráfico e o relatório .docx." \
+  true "${RAIZ}/webui/assets/govhub-icon-indicador.png"
 aplicar explore "Explorar" \
-  "Mostra o que existe no catálogo: bases, tabelas, o que dá para perguntar e o que não existe. Para quem está começando."
+  "Olá! Vou te acompanhar na exploração: mostro as bases e as tabelas disponíveis, o grão de cada uma, uma amostra de linhas reais e também o que ainda não existe." \
+  true "${RAIZ}/webui/assets/govhub-icon-explorar.png"
 
 # `ingest` é operação, não persona: quem usa o assistente não tem o que fazer
 # com ela. Sai do dropdown, mas continua registrada no Hayhooks — a ingestão
 # roda por `POST /ingest/run`, sem passar pelo open-webui.
 aplicar ingest "ingest" \
-  "Pipeline de ingestão — operacional, oculta da UI." false
+  "Pipeline de ingestão — operacional, oculta da UI." false \
+  "${RAIZ}/webui/assets/govhub-icon-ingest.png"
 
 # O "Arena Model" é um modelo sintético que o próprio open-webui injeta para
 # comparar respostas lado a lado (utils/models.py: `if config.get(

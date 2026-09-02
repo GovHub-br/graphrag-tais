@@ -401,55 +401,314 @@ input:focus, textarea:focus, select:focus { outline-color: var(--gh-violet); }
    10. Os outros lugares onde a marca aparece
    ------------------------------------------------------------------------ */
 
-/* 10.1 — SPLASH. É o primeiro meio segundo do produto: em vez do logo roxo
-   sobre branco, a tela inteira vira a cor da marca com a logo em negativo,
-   subindo de leve. O gradiente é o mesmo do rail, na diagonal. */
+/* 10.1 — INTRO DA MARCA. A tela roxa de entrada: o símbolo GovHub entra pela
+   esquerda na meia-altura, cai, quica três vezes no chão e sobe para a direita;
+   depois volta ao centro, assenta e revela a mensagem de boas-vindas com o
+   botão "Começar". Quem monta o elemento é o loader.js (`#gh-intro`) — ver lá o
+   porquê de não ser o `#splash-screen` nativo e como o botão espera o app.
+
+   O quique é a barra de progresso: enquanto ele corre, o app está subindo.
+
+   ⚠️ Uma animação por EIXO, em elementos aninhados: `transform` é uma
+   propriedade só, então X e Y na mesma regra brigariam. `.gh-intro-x` anda de
+   lado, `.gh-intro-y` (filho) cai e sobe, e o <img> só é achatado no impacto.
+   Os quatro compartilham a duração (--gh-salto) e as porcentagens de impacto
+   (40% / 54% / 63%) — mexer numa exige mexer nas outras.
+
+   ⚠️ E as porcentagens não são soltas: com o X em `linear`, tempo é distância.
+   Para o PRIMEIRO baque cair no meio da tela, a queda tem de ocupar a mesma
+   fração do tempo que a metade esquerda ocupa do percurso. Daí a queda longa
+   (0→40%) e os quiques curtos: o X sai de -1,55·lado e chega a +1·lado em 66%,
+   então em 40% ele está em ≈0, ou seja, no centro. Encurtar a queda joga o
+   baque para a esquerda — foi o que aconteceu na primeira versão. */
+#gh-intro {
+  /* Duração do percurso. É a ÚNICA fonte da verdade do tempo: o loader.js não
+     cronometra o fim por relógio, ele espera o `animationend` daqui. */
+  --gh-salto: 3600ms;
+  --gh-chao: clamp(8rem, 29vh, 17rem);         /* quanto o símbolo cai abaixo do meio */
+  --gh-lado: min(40vw, 32rem);                 /* meia-largura do percurso */
+  --gh-marca: 4.6rem;
+  --gh-marca-h: calc(var(--gh-marca) * 202 / 176);   /* o SVG é 176×202 */
+  --gh-vaga: 7.6rem;                           /* tamanho do símbolo já pousado */
+
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  overflow: hidden;
+  background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 55%, #8b5cf6 100%);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  transition: opacity .5s ease;
+}
+/* A intro só apaga o splash nativo DEPOIS de existir: a classe é ligada pelo
+   loader.js junto com o append. Se ele falhar, o splash tematizado assume. */
+html.gh-intro-on { overflow: hidden !important; }
+html.gh-intro-on #splash-screen { visibility: hidden; }
+
+.gh-intro-halo {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(58% 44% at 50% 46%, rgba(255, 255, 255, .18), transparent 70%);
+  pointer-events: none;
+}
+/* O chão. Sem uma linha o quique não tem em quê bater. */
+.gh-intro-chao {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + var(--gh-chao) + var(--gh-marca-h) / 2);
+  width: min(78vw, 54rem);
+  height: 1px;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .34), transparent);
+  opacity: 0;
+  animation: gh-intro-chao var(--gh-salto) both;
+}
+
+/* Eixo horizontal: atravessa a tela em velocidade constante (linear é o que faz
+   parecer um objeto lançado), espera um tempo na direita e volta ao centro. */
+.gh-intro-x {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+}
+.gh-fase-salto .gh-intro-x { animation: gh-intro-x var(--gh-salto) both; }
+
+/* Eixo vertical. Caixa 0×0 no centro exato do símbolo — é por ela que o pouso
+   escala (ver `assentar()` no loader.js). */
+.gh-intro-y {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 50% 50%;
+  transition: transform .8s cubic-bezier(.2, .8, .25, 1);
+}
+.gh-fase-salto .gh-intro-y { animation: gh-intro-y var(--gh-salto) both; }
+
+.gh-intro-marca {
+  position: absolute;
+  left: calc(var(--gh-marca) / -2);
+  top: calc(var(--gh-marca-h) / -2);
+  width: var(--gh-marca);
+  height: var(--gh-marca-h);
+  /* ⚠️ O preflight do Tailwind põe `max-width: 100%` em TODA <img>, e aqui os
+     100% são do `.gh-intro-y`, que é uma caixa 0×0 de posicionamento — sem esta
+     linha o símbolo é espremido a zero de largura e a intro roda vazia. */
+  max-width: none;
+  transform-origin: 50% 100%;    /* achata contra o chão, não contra o próprio meio */
+  filter: drop-shadow(0 10px 26px rgba(46, 16, 101, .38));
+}
+.gh-fase-salto .gh-intro-marca { animation: gh-intro-marca var(--gh-salto) both; }
+
+/* Sombra no chão: anda junto no eixo X, mas fica presa na altura do chão. É ela
+   que dá a leitura de distância — larga e fraca no alto, curta e forte no baque. */
+.gh-intro-sombra {
+  position: absolute;
+  left: 0;
+  top: calc(var(--gh-chao) + var(--gh-marca-h) / 2);
+  width: 5.4rem;
+  height: 1.1rem;
+  margin-left: -2.7rem;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(46, 16, 101, .55), transparent 78%);
+  opacity: 0;
+}
+.gh-fase-salto .gh-intro-sombra { animation: gh-intro-sombra var(--gh-salto) both; }
+
+/* --- o bloco final: marca assentada, mensagem e botão --------------------- */
+.gh-intro-final {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(34rem, 84vw);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+/* Espaço vazio no topo da coluna: é o lugar onde o símbolo pousa. O loader.js
+   mede esta caixa em vez de cravar uma altura — a mensagem quebra em mais ou
+   menos linhas conforme a tela, e o pouso precisa acompanhar. */
+.gh-intro-vaga {
+  width: var(--gh-vaga);
+  height: calc(var(--gh-vaga) * 202 / 176);
+  flex: none;
+}
+.gh-intro-assinatura,
+.gh-intro-msg,
+.gh-intro-cta {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity .5s ease, transform .5s cubic-bezier(.2, .7, .3, 1);
+}
+.gh-fase-final .gh-intro-assinatura { transition-delay: .18s; }
+.gh-fase-final .gh-intro-msg        { transition-delay: .28s; }
+.gh-fase-final .gh-intro-cta        { transition-delay: .38s; }
+.gh-fase-final .gh-intro-assinatura,
+.gh-fase-final .gh-intro-msg,
+.gh-fase-final .gh-intro-cta {
+  opacity: 1;
+  transform: translateY(0);
+}
+/* O chão e a sombra não têm mais função depois do pouso. */
+.gh-fase-final .gh-intro-chao,
+.gh-fase-final .gh-intro-sombra {
+  opacity: 0;
+  transition: opacity .45s ease;
+}
+
+.gh-intro-assinatura {
+  margin: 1.5rem 0 0;
+  color: rgba(255, 255, 255, .8);
+  font-family: var(--gh-mono);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .28em;
+  text-transform: uppercase;
+}
+.gh-intro-msg {
+  margin: 1.15rem 0 0;
+  max-width: 31rem;
+  color: rgba(255, 255, 255, .95);
+  font-size: 1.02rem;
+  line-height: 1.62;
+  letter-spacing: -.005em;
+  /* `balance`, e não `pretty`: num bloco centrado e curto como este, `pretty` só
+     evita a viúva da ÚLTIMA linha e deixava "precisa. Vamos começar?" sozinha no
+     pé. `balance` iguala as linhas todas, que é o que um parágrafo centrado pede.
+     Onde não houver suporte, cai no quebra-linha normal — nada se perde. */
+  text-wrap: balance;
+}
+.gh-intro-cta {
+  margin-top: 2rem;
+  padding: .78rem 2.4rem;
+  border: 0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--gh-purple-d);
+  font-family: inherit;
+  font-size: .95rem;
+  font-weight: 700;
+  letter-spacing: .01em;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(46, 16, 101, .3);
+  transition: opacity .5s ease, transform .5s cubic-bezier(.2, .7, .3, 1),
+              box-shadow .18s ease, background-color .18s ease;
+}
+.gh-fase-final .gh-intro-cta:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 40px rgba(46, 16, 101, .38);
+}
+.gh-fase-final .gh-intro-cta:active:not(:disabled) { transform: translateY(0); }
+.gh-intro-cta:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 4px;
+}
+/* Estado "Preparando…": o app ainda não subiu, clicar não levaria a lugar
+   nenhum. O pulso baixo diz que é espera, não travamento. */
+.gh-intro-cta:disabled {
+  background: rgba(255, 255, 255, .18);
+  color: rgba(255, 255, 255, .8);
+  box-shadow: none;
+  cursor: default;
+}
+.gh-fase-final .gh-intro-cta:disabled { animation: gh-intro-pulso 1.6s ease-in-out infinite; }
+
+.gh-fase-saida { opacity: 0; pointer-events: none; }
+
+/* --- as keyframes -------------------------------------------------------- */
+/* Impactos em 22% / 45% / 56%. Os três conjuntos abaixo compartilham essas
+   marcas — o achatamento e a sombra só funcionam se baterem com a queda. */
+@keyframes gh-intro-x {
+  0%   { transform: translateX(calc(var(--gh-lado) * -1.55)); animation-timing-function: linear; }
+  66%  { transform: translateX(var(--gh-lado)); }
+  76%  { transform: translateX(var(--gh-lado)); animation-timing-function: cubic-bezier(.5, 0, .2, 1); }
+  100% { transform: translateX(0); }
+}
+@keyframes gh-intro-y {
+  /* queda longa da meia-altura até o chão, acelerando */
+  0%   { transform: translateY(0);                            animation-timing-function: cubic-bezier(.5, 0, .9, .55); }
+  40%  { transform: translateY(var(--gh-chao));               animation-timing-function: cubic-bezier(.1, .62, .4, 1); }
+  48%  { transform: translateY(calc(var(--gh-chao) * .34));   animation-timing-function: cubic-bezier(.5, 0, .9, .55); }
+  54%  { transform: translateY(var(--gh-chao));               animation-timing-function: cubic-bezier(.1, .62, .4, 1); }
+  59%  { transform: translateY(calc(var(--gh-chao) * .68));   animation-timing-function: cubic-bezier(.5, 0, .9, .55); }
+  63%  { transform: translateY(var(--gh-chao));               animation-timing-function: cubic-bezier(.18, .74, .3, 1); }
+  /* o último impulso é longo e desacelerado de propósito: lê como decolagem, e
+     não como um quique que inexplicavelmente subiu mais que os anteriores */
+  72%  { transform: translateY(0); }
+  100% { transform: translateY(0); }
+}
+@keyframes gh-intro-marca {
+  0%        { transform: rotate(-14deg) scale(1, 1); }
+  34%       { transform: rotate(-4deg)  scale(1.05, .95); }
+  40%       { transform: rotate(0deg)   scale(1.28, .74); }   /* impacto 1 */
+  46%       { transform: rotate(3deg)   scale(.93, 1.07); }
+  52%       { transform: rotate(6deg)   scale(1, 1); }
+  54%       { transform: rotate(7deg)   scale(1.18, .84); }   /* impacto 2 */
+  58%       { transform: rotate(8deg)   scale(.96, 1.04); }
+  63%       { transform: rotate(10deg)  scale(1.12, .9); }    /* impacto 3 */
+  67%       { transform: rotate(6deg)   scale(1, 1); }
+  72%, 100% { transform: rotate(0deg)   scale(1, 1); }
+}
+@keyframes gh-intro-sombra {
+  0%        { opacity: 0;   transform: scale(.5, 1); }
+  16%       { opacity: .08; transform: scale(.58, 1); }
+  40%       { opacity: .38; transform: scale(1.2, 1); }
+  48%       { opacity: .12; transform: scale(.66, 1); }
+  54%       { opacity: .32; transform: scale(1.06, 1); }
+  59%       { opacity: .18; transform: scale(.8, 1); }
+  63%       { opacity: .3;  transform: scale(1, 1); }
+  68%       { opacity: .2;  transform: scale(.86, 1); }
+  72%, 100% { opacity: 0;   transform: scale(.5, 1); }
+}
+@keyframes gh-intro-chao {
+  0%        { opacity: 0; }
+  20%, 64%  { opacity: 1; }
+  78%, 100% { opacity: 0; }
+}
+@keyframes gh-intro-pulso {
+  0%, 100% { background: rgba(255, 255, 255, .18); }
+  50%      { background: rgba(255, 255, 255, .3); }
+}
+
+/* Quem pede menos movimento não leva quique: o loader.js pula direto para o
+   estado final e aqui as transições de entrada saem do caminho. */
+@media (prefers-reduced-motion: reduce) {
+  .gh-intro-y,
+  .gh-intro-assinatura,
+  .gh-intro-msg,
+  .gh-intro-cta { transition: opacity .3s ease; transform: none; }
+  .gh-fase-final .gh-intro-cta:disabled { animation: none; }
+}
+
+/* Telas baixas (notebook de 13", navegador com muita barra): a coluna final não
+   pode encostar nas bordas nem empurrar o botão para fora. */
+@media (max-height: 700px) {
+  #gh-intro { --gh-vaga: 5.6rem; }
+  .gh-intro-msg { font-size: .94rem; margin-top: .9rem; }
+  .gh-intro-cta { margin-top: 1.4rem; }
+  .gh-intro-assinatura { margin-top: 1.1rem; }
+}
+
+/* --- splash nativo: o plano B --------------------------------------------
+   Continua tematizado. Ele só aparece se a intro não subir (JS quebrado, erro
+   no append) — nesse caso `gh-intro-on` nunca é ligada e o `visibility:hidden`
+   lá em cima não vale. */
 /* `html` na frente não é enfeite: o componente do splash injeta um <style>
    inline no fim do <body> com `#splash-screen{background:#fff}`. Empata em
    especificidade com o custom.css e, por vir depois no documento, ganharia. */
 html #splash-screen {
   background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 55%, #8b5cf6 100%);
 }
-/* Halo suave atrás da logo — dá profundidade sem pesar. */
-html #splash-screen::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(60% 45% at 50% 44%, rgba(255, 255, 255, .18), transparent 70%);
-  pointer-events: none;
-}
 #splash-screen img#logo,
 #splash-screen img#logo-her {
   content: url("/static/splash-dark.png");   /* versão clara da logo vertical */
   height: 10rem !important;                  /* o script inline crava 6rem no style */
   filter: drop-shadow(0 10px 30px rgba(46, 16, 101, .35));
-  animation: gh-splash-in .7s cubic-bezier(.2, .7, .3, 1) both;
 }
-/* Assinatura sob a logo. */
-html #splash-screen::after {
-  content: "Assistente de Dados";
-  position: absolute;
-  top: calc(44% + 11.4rem);
-  left: 50%;
-  transform: translateX(-50%);
-  color: rgba(255, 255, 255, .82);
-  font-family: var(--gh-mono);
-  font-size: .72rem;
-  font-weight: 700;
-  letter-spacing: .28em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  animation: gh-splash-in .7s .12s cubic-bezier(.2, .7, .3, 1) both;
-}
-@keyframes gh-splash-in {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes gh-splash-in-x {
-  from { opacity: 0; transform: translate(-50%, 14px); }
-  to   { opacity: 1; transform: translate(-50%, 0); }
-}
-html html #splash-screen::after { animation-name: gh-splash-in-x; }
 
 /* 10.2 — TELA DE ENTRADA. A marca completa acima do nome da persona, com
    uma marca-d'água gigante e discreta atrás — como papel timbrado. */

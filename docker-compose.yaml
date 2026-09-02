@@ -160,9 +160,12 @@ services:
       - OPENAI_API_BASE_URL=http://hayhooks:8000
       - OPENAI_API_KEY=dummy
       - ENABLE_TAGS_GENERATION=true
-      # O backend anexa " (Open WebUI)" a qualquer nome custom (env.py:842-844).
-      # Mantido de proposito: e o co-branding que a licenca pede.
-      - WEBUI_NAME=Assistente de Dados GovHub
+      # Nome do produto: barra lateral, titulo da aba, telas de sistema.
+      # ⚠️ O backend anexa " (Open WebUI)" a QUALQUER nome custom
+      # (`env.py`: `if WEBUI_NAME != 'Open WebUI': WEBUI_NAME += ' (Open WebUI)'`).
+      # Nao ha env que desligue isso, e o sufixo e mantido de proposito: e o
+      # co-branding que a licenca pede. Nome limpo exige LICENSE_KEY enterprise.
+      - WEBUI_NAME=TAIS GovHub
       - DEFAULT_LOCALE=pt-BR
       - ENABLE_VERSION_UPDATE_CHECK=false
       # Tira o "Arena Model" do dropdown: so as personas do GovHub aparecem.
