@@ -91,6 +91,18 @@ Três coisas que essa animação ensinou, e que valem para qualquer outra aqui:
   `max-width: 100%` em toda `<img>`, e os 100% aqui são de um nó de posicionamento
   **0×0** — o símbolo era espremido a zero de largura e a intro rodava vazia. Daí o
   `max-width: none` explícito.
+- 🔴 **`role="dialog"` + `aria-modal` não prendem foco nenhum.** Eles só
+  DECLARAM que a tela é modal; não mexem na ordem de tabulação nem impedem o app
+  de chamar `focus()` em algo atrás. E o Open WebUI faz exatamente isso: o
+  `MessageInput` roda `setTimeout(() => chatInput?.focus(), 0)` ao montar, ou
+  seja, **depois** de a intro estar de pé. Resultado medido antes da correção: o
+  foco vivia no `#chat-input` DEBAIXO do overlay, quem digitasse na tela de
+  boas-vindas enchia a caixa de mensagem invisível, e um Tab passeava pelos ~28
+  controles do app escondido. A guarda é um `focusin` em captura que devolve o
+  foco para dentro — e não uma armadilha de Tab, porque assim cobre os três
+  caminhos de uma vez (Tab, clique e `focus()` programático). Ela é solta no
+  `sair()`, que então devolve o foco ao `#chat-input` — restaurando o estado que
+  existiria se a intro não estivesse ali.
 - ⚠️ **Com o eixo X em `linear`, tempo é distância.** Para o primeiro baque cair no
   meio da tela, a queda tem de ocupar a mesma fração do tempo que a metade esquerda
   ocupa do percurso — por isso a queda é longa (0→40%) e os quiques, curtos.

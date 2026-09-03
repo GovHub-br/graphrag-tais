@@ -119,6 +119,35 @@
     var marca = intro.querySelector('.gh-intro-marca');
     var vaga = intro.querySelector('.gh-intro-vaga');
 
+    // ---- foco preso dentro da intro ---------------------------------------
+    // 🔴 ISTO NÃO É SÓ ACESSIBILIDADE. `role="dialog"` + `aria-modal` apenas
+    // DECLARAM que a tela é modal; nada nesses atributos mexe na ordem de
+    // tabulação nem impede o app de roubar o foco. E o Open WebUI faz
+    // exatamente isso: ao hidratar, ele dá foco ao `#chat-input` — que está
+    // DEBAIXO da intro. Medido antes desta guarda: digitar com a intro aberta
+    // enchia a caixa de mensagem invisível, e um Tab caía nos ~28 controles do
+    // app escondido. Quem clicasse "Começar" encontrava texto que não quis
+    // escrever esperando na caixa.
+    //
+    // A guarda é por `focusin` em captura, e não uma armadilha de Tab: assim
+    // ela cobre os três caminhos de uma vez — Tab, clique e `focus()`
+    // programático do app. Não entra em laço, porque o foco que ela devolve cai
+    // dentro da intro e a condição passa a ser falsa.
+    var saindo = false;
+    intro.tabIndex = -1;   // sem isto o container não recebe foco e não há para onde devolver
+
+    function focar(elemento) {
+      try { elemento.focus({ preventScroll: true }); } catch (e) { elemento.focus(); }
+    }
+    function focoParaDentro() {
+      focar(botao.disabled ? intro : botao);
+    }
+    function guardaDeFoco(ev) {
+      if (!saindo && !intro.contains(ev.target)) focoParaDentro();
+    }
+    document.addEventListener('focusin', guardaDeFoco, true);
+    focoParaDentro();
+
     // ---- fim do percurso: o símbolo assenta na vaga do bloco final ---------
     // O pouso é CALCULADO, não medido no símbolo em movimento. O CSS garante que
     // as keyframes terminam com o símbolo centrado na viewport, então o ponto de
@@ -161,15 +190,23 @@
       eixoY.style.transform =
         'translate(' + dx + 'px,' + dy + 'px) scale(' + escala + ')';
       intro.classList.add('gh-fase-final');
+      focoParaDentro();   // a outra ponta do par acima: botão se já armou, container se não
     }
 
     // ---- saída -------------------------------------------------------------
-    var saindo = false;
     function sair() {
       if (saindo) return;
       saindo = true;
+      document.removeEventListener('focusin', guardaDeFoco, true);
       intro.classList.add('gh-fase-saida');
       document.documentElement.classList.remove('gh-intro-on');
+      // Devolve ao app o foco que a guarda tirou dele. `#chat-input` é o que o
+      // Open WebUI foca sozinho no boot, então isto restaura o estado que
+      // existiria sem a intro — sem ele, sair deixaria o foco no <body> e quem
+      // usa teclado teria de tabular até a caixa. Defensivo: se um dia o id
+      // mudar, o pior caso é o foco ficar no <body>, como já ficava.
+      var entrada = document.getElementById('chat-input');
+      if (entrada) focar(entrada);
       window.setTimeout(function () {
         if (intro.parentNode) intro.parentNode.removeChild(intro);
       }, 520);
@@ -186,9 +223,12 @@
       botao.disabled = false;
       botao.textContent = 'Começar';
       intro.classList.add('gh-pronto');
-      if (intro.classList.contains('gh-fase-final')) {
-        try { botao.focus({ preventScroll: true }); } catch (e) { botao.focus(); }
-      }
+      // ⚠️ Armar e revelar terminam em ordem imprevisível: no caminho comum o
+      // app sobe em ~1 s e o percurso leva 3,6 s, então `armar` chega PRIMEIRO,
+      // com o botão ainda invisível. Por isso as duas pontas chamam o foco — a
+      // que terminar por último é que efetivamente move. Antes, só esta ponta
+      // chamava, e com a condição falsa: o botão nunca recebia foco.
+      if (intro.classList.contains('gh-fase-final')) focoParaDentro();
     }
     var vigia = window.setInterval(function () {
       if (!document.getElementById('splash-screen')) {
