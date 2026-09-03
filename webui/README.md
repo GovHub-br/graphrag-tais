@@ -9,7 +9,7 @@ skill `govhub-visual-identity`. O estudo das alternativas está em
 ```
 webui/
 ├── custom.css     → /static/custom.css   (link no <head>, CSS livre)
-├── loader.js      → /static/loader.js    (script defer, roda antes do SvelteKit)
+├── loader.js      → /static/loader.js    (script defer: tema fixo + INTRO da marca)
 └── assets/        → ícone, favicon, splash e avatares dos modelos
 ```
 
@@ -50,13 +50,77 @@ Menus flutuantes são renderizados **fora** do `#sidebar` (portal), então escap
 
 | Lugar | Como |
 |---|---|
-| **Splash** (entrada) | tela cheia no gradiente da marca, logo vertical em negativo subindo, assinatura "ASSISTENTE DE DADOS" |
+| **Intro** (entrada) | tela cheia no gradiente da marca: o símbolo entra pela esquerda, cai, quica três vezes no chão até a direita, volta ao centro e revela a mensagem de boas-vindas com o botão **Começar**. Ver "A intro" abaixo |
 | **Barra lateral** | gradiente roxo + símbolo em branco no topo, ao lado do nome do produto |
-| **Tela inicial** | lockup "Gov Hub" acima do nome da persona + símbolo gigante a 2,8% de opacidade como marca-d'água |
+| **Tela inicial** | lockup "Gov Hub" acima do nome da persona + símbolo gigante a 2,8% de opacidade como marca-d'água. Logo abaixo do nome vem a **mensagem de boas-vindas** — que não é arquivo daqui, é a `description` do modelo (ver "Camada de conteúdo") |
 | **Carregando** | o ponto que pulsava virou o símbolo GovHub — as respostas do Indicador levam de 30 s a 1 min, é onde a pessoa mais olha. ⚠️ Dois detalhes: o componente tem três tamanhos (a resposta usa o `md`), então a regra **não** pode se prender a uma classe de tamanho; e o ponto é um `<span>` dentro de outro `<span>` `flex` — redimensionar só o de dentro deixa a marca achatada, porque como item flex ele é espremido de volta. Precisa dos dois + `flex: none` |
 | **Aba / favicon / PWA** | símbolo GovHub — ⚠️ inclui o **`favicon.ico`**, não só o `.png`/`.svg`: o `index.html` declara `rel="shortcut icon"` apontando para o `.ico`, e é ele que o navegador costuma usar na aba. Sem trocar o `.ico`, a aba continua com o ícone do Open WebUI mesmo com os outros três substituídos. Os ícones são gerados **quadrados** (o símbolo é 176×202): sem isso ele sai achatado nas caixas `rounded-full` |
 | **Avatar das personas** | ícones do kit (`charts`, `database`, `open-folder`) |
 | **Gráfico** | roxo `#7c3aed` + Inter, no chat e no `.docx` |
+
+## A intro
+
+A tela roxa de entrada é **elemento nosso** (`#gh-intro`, montado pelo `loader.js`),
+não o `#splash-screen` do Open WebUI. Motivo: o splash nativo é removido pelo
+próprio app (`+layout.svelte`: `getElementById('splash-screen')?.remove()`) assim
+que o carregamento termina — meio segundo — e não há gancho para segurá-lo. Quem
+decide quando a intro sai é o **clique em "Começar"**.
+
+O splash nativo **continua tematizado** e é o plano B: a intro só o esconde
+(`html.gh-intro-on #splash-screen { visibility: hidden }`) depois de conseguir se
+montar, então JS quebrado cai na tela antiga em vez de numa tela branca.
+
+**O quique é a barra de progresso.** Enquanto o app sobe, o botão fica desabilitado
+como "Preparando…"; ele vira "Começar" quando o `#splash-screen` nativo some do DOM
+— que é a última coisa que o `+layout.svelte` faz ao terminar de carregar. Ou seja,
+a espera é real e clicar leva mesmo a um app pronto. Um teto de 20 s arma o botão de
+qualquer jeito para ninguém ficar preso numa rota de erro.
+
+Três coisas que essa animação ensinou, e que valem para qualquer outra aqui:
+
+- 🔴 **Aba em segundo plano não tem layout.** O navegador congela a animação de uma
+  aba escondida, mas o `setTimeout` continua correndo no relógio de parede — e
+  `getBoundingClientRect()`/`innerWidth` voltam **zerados**. A primeira versão
+  cronometrava o fim do percurso por `setTimeout` e calculava o pouso do símbolo a
+  partir dessas medidas: quem abrisse o app numa aba de fundo (Cmd+clique, sessão
+  restaurada) voltava para a mensagem **sem a marca**, atirada a milhares de pixels
+  dali. Agora quem manda no fim é o `animationend` (relógio da própria animação) e o
+  cálculo tem guarda: geometria zerada → tenta de novo no `requestAnimationFrame`,
+  que por definição não roda em aba escondida e espera sozinho a aba aparecer.
+- ⚠️ **`img` dentro de caixa de posicionamento some.** O preflight do Tailwind põe
+  `max-width: 100%` em toda `<img>`, e os 100% aqui são de um nó de posicionamento
+  **0×0** — o símbolo era espremido a zero de largura e a intro rodava vazia. Daí o
+  `max-width: none` explícito.
+- 🔴 **`role="dialog"` + `aria-modal` não prendem foco nenhum.** Eles só
+  DECLARAM que a tela é modal; não mexem na ordem de tabulação nem impedem o app
+  de chamar `focus()` em algo atrás. E o Open WebUI faz exatamente isso: o
+  `MessageInput` roda `setTimeout(() => chatInput?.focus(), 0)` ao montar, ou
+  seja, **depois** de a intro estar de pé. Resultado medido antes da correção: o
+  foco vivia no `#chat-input` DEBAIXO do overlay, quem digitasse na tela de
+  boas-vindas enchia a caixa de mensagem invisível, e um Tab passeava pelos ~28
+  controles do app escondido. A guarda é um `focusin` em captura que devolve o
+  foco para dentro — e não uma armadilha de Tab, porque assim cobre os três
+  caminhos de uma vez (Tab, clique e `focus()` programático). Ela é solta no
+  `sair()`, que então devolve o foco ao `#chat-input` — restaurando o estado que
+  existiria se a intro não estivesse ali.
+- ⚠️ **Com o eixo X em `linear`, tempo é distância.** Para o primeiro baque cair no
+  meio da tela, a queda tem de ocupar a mesma fração do tempo que a metade esquerda
+  ocupa do percurso — por isso a queda é longa (0→40%) e os quiques, curtos.
+  Encurtar a queda joga o baque para a esquerda.
+
+**Onde mexer**: o texto da mensagem, a assinatura ("ASSISTENTE DE DADOS TAIS") e
+os tempos de espera estão no `loader.js` (`MENSAGEM`, o HTML de `montar()`,
+`MS_REDE`, `MS_SOCORRO`); a duração do percurso e a trajetória, no `custom.css`
+(`--gh-salto` e as keyframes `gh-intro-*`). A duração vive **só** no CSS — o JS
+espera o evento, não cronometra.
+
+⚠️ A mensagem é um parágrafo **centrado** e usa `text-wrap: balance`, não
+`pretty`: `pretty` só cuida da última linha e deixava "Vamos começar?" sozinha no
+pé. Texto muito mais longo que o atual estoura a tela baixa — a quebra
+`@media (max-height: 700px)` já encolhe símbolo e espaçamentos, mas não o texto.
+
+⚠️ A intro aparece a **cada carregamento de página**. Para mostrá-la uma vez por
+sessão do navegador, o gancho é um `sessionStorage` em volta da chamada de `montar()`.
 
 ## Montagem (docker-compose.yaml)
 
@@ -112,6 +176,20 @@ restart, mas também não vem junto num deploy novo. Para recriar:
   continua respondendo). O script também desliga o **Arena Model** por
   `POST /api/v1/evaluations/config`. ⚠️ Mande `access_grants: []`; com `null` o
   endpoint estoura 500 revalidando o próprio payload.
+- **Mensagem de boas-vindas** — é a `meta.description` de cada persona, aplicada
+  pelo mesmo `setup_webui_models.sh`. O `Placeholder.svelte` a renderiza **entre o
+  nome da persona e a barra de digitação**, que é exatamente onde uma saudação
+  cabe; no dropdown ela só aparece no tooltip do ℹ️, então o tom de conversa não
+  atrapalha a escolha do modelo. ⚠️ O componente aplica `line-clamp-2` +
+  `max-w-xl`: o que passar de **duas linhas** (~170 caracteres) é cortado com
+  reticências e só reaparece no hover. Por isso o texto não repete o que a tela
+  já diz — "escreva na barra abaixo" é o placeholder do input e o convite a
+  começar são os cards de "Sugerido".
+- ⚠️ **Avatar das personas mora no mesmo payload.** Ele é um PNG **em base64**
+  dentro de `meta.profile_image_url` (os ícones do kit não estão entre os
+  arquivos montados em `/app/build/static`), e o endpoint de update substitui
+  `meta` **inteiro** — um update sem o avatar apaga o ícone e a persona volta a
+  exibir a marca genérica. O script embute `webui/assets/govhub-icon-*.png`.
 - **Perguntas sugeridas** em pt-BR: `POST /api/v1/configs/suggestions`.
 
 `DEFAULT_PROMPT_SUGGESTIONS` está no compose para instalações novas; numa
@@ -123,9 +201,12 @@ A licença do Open WebUI proíbe alterar/remover/ocultar o branding, com exceç�
 para deployments de **até 50 pessoas em 30 dias**. O que está aqui é
 **co-branding**, não white-label:
 
-- `WEBUI_NAME=Assistente de Dados GovHub` — o backend anexa **" (Open WebUI)"**
-  sozinho (`env.py:842-844`) e **isso foi mantido de propósito**: o nome do
-  produto continua visível na aba e no topo da barra lateral.
+- `WEBUI_NAME=TAIS GovHub` — o backend anexa **" (Open WebUI)"** sozinho
+  (`env.py`: `if WEBUI_NAME != 'Open WebUI': WEBUI_NAME += ' (Open WebUI)'`) e
+  **isso foi mantido de propósito**: o nome do produto continua visível na aba e
+  no topo da barra lateral, que é onde a barra lateral mostra
+  "TAIS GovHub (Open WebUI)". Não existe env que desligue o sufixo — tirá-lo é
+  alteração de branding e exige `LICENSE_KEY` enterprise.
 - O ícone do produto passou a ser a marca GovHub. Isso é alteração de branding e
   se apoia na exceção dos 50 usuários — **reavaliar antes de abrir para a rede**.
 - Nome limpo e substituição oficial de estáticos exigem `LICENSE_KEY` enterprise.
@@ -139,6 +220,11 @@ e `button.waterfall`, que são os pontos de apoio do tema. Na 0.11.0 os dois gan
 (`<script src="/static/loader.js" defer>` e `<link href="/static/custom.css">`)
 seguem no `<head>`, e o `custom.css` usa só `:has()` — nada de `oklch`/`color-mix`,
 então não há piso de versão de navegador além de Safari 15.4.
+
+A **intro** depende de um detalhe a mais do app: o `#splash-screen` sumir do DOM é
+o sinal de "carregou" que arma o botão **Começar**. Se numa versão futura o Open
+WebUI parar de remover esse elemento, o botão passa a armar só pelo teto de 20 s —
+degrada devagar, não quebra, mas é ponto de conferência ao subir de versão.
 
 🔴 **O pin só anda para FRENTE.** A migration `f0bd01a18a3d` entrou na 0.11.0 e o
 Alembic não sabe descer de revisão: apontar um banco que já rodou 0.11.0+ para a
