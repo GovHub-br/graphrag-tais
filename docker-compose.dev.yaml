@@ -1,0 +1,34 @@
+# Overlay de desenvolvimento do tema.
+#
+# A imagem de producao (webui/Dockerfile) traz custom.css, loader.js e os assets
+# assados dentro. Otimo para deploy, ruim para iterar: cada ajuste de CSS exigiria
+# um rebuild. Este arquivo remonta os mesmos arquivos por cima da imagem, voltando
+# ao ciclo antigo de editar e reiniciar o container.
+#
+#   docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
+#
+# NAO e docker-compose.override.yaml de proposito: o override e carregado
+# sozinho, e num servidor sem o repositorio clonado o Docker criaria diretorios
+# vazios no lugar dos arquivos e derrubaria o tema. Aqui o -f e explicito.
+#
+# Depois de editar custom.css ou loader.js:  docker compose restart webui
+# (/static e uma copia feita no boot — ver webui/README.md)
+
+services:
+  webui:
+    volumes:
+      - ./webui/custom.css:/app/build/static/custom.css:ro
+      - ./webui/loader.js:/app/build/static/loader.js:ro
+      - ./webui/assets/govhub-mark-light.svg:/app/build/static/govhub-mark-light.svg:ro
+      - ./webui/assets/govhub-horizontal.svg:/app/build/static/govhub-horizontal.svg:ro
+      - ./webui/assets/govhub-horizontal-light.svg:/app/build/static/govhub-horizontal-light.svg:ro
+      - ./webui/assets/favicon.png:/app/build/static/favicon.png:ro
+      - ./webui/assets/favicon.svg:/app/build/static/favicon.svg:ro
+      - ./webui/assets/favicon.ico:/app/build/static/favicon.ico:ro
+      - ./webui/assets/favicon-96x96.png:/app/build/static/favicon-96x96.png:ro
+      - ./webui/assets/apple-touch-icon.png:/app/build/static/apple-touch-icon.png:ro
+      - ./webui/assets/logo.png:/app/build/static/logo.png:ro
+      - ./webui/assets/splash.png:/app/build/static/splash.png:ro
+      - ./webui/assets/splash-dark.png:/app/build/static/splash-dark.png:ro
+      - ./webui/assets/web-app-manifest-192x192.png:/app/build/static/web-app-manifest-192x192.png:ro
+      - ./webui/assets/web-app-manifest-512x512.png:/app/build/static/web-app-manifest-512x512.png:ro

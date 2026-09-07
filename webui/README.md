@@ -1,13 +1,16 @@
 # Identidade visual GovHub no Open WebUI
 
 Tema aplicado pelos **dois ganchos oficiais** do Open WebUI 0.11.0 — sem fork,
-sem rebuild de imagem, sem tocar no frontend. Referência estética:
+sem rebuild do frontend, sem tocar no código do Open WebUI. Os arquivos abaixo
+são assados numa imagem própria (`webui/Dockerfile`, veja
+[Empacotamento](#empacotamento-webuidockerfile)). Referência estética:
 [`docs/graphrag-tais-overview.html`](../docs/graphrag-tais-overview.html) e a
 skill `govhub-visual-identity`. O estudo das alternativas está em
 [`docs/20260820-estudo-identidade-visual-na-ui.md`](../docs/20260820-estudo-identidade-visual-na-ui.md).
 
 ```
 webui/
+├── Dockerfile     → imagem GovHub = Open WebUI oficial + os arquivos abaixo
 ├── custom.css     → /static/custom.css   (link no <head>, CSS livre)
 ├── loader.js      → /static/loader.js    (script defer: tema fixo + INTRO da marca)
 └── assets/        → ícone, favicon, splash e avatares dos modelos
@@ -122,15 +125,59 @@ pé. Texto muito mais longo que o atual estoura a tela baixa — a quebra
 ⚠️ A intro aparece a **cada carregamento de página**. Para mostrá-la uma vez por
 sessão do navegador, o gancho é um `sessionStorage` em volta da chamada de `montar()`.
 
-## Montagem (docker-compose.yaml)
+## Empacotamento (`webui/Dockerfile`)
 
-Os arquivos são montados em **`/app/build/static/`**, não em
+Os arquivos vão para **`/app/build/static/`**, não para
 `/app/backend/open_webui/static/`. Motivo: no boot, `config.py` **apaga** o
-segundo e o recopia do primeiro. Montar no destino gera `Read-only file system`
-no log a cada boot; montar na fonte é limpo.
+segundo e o recopia do primeiro. Escrever no destino gera `Read-only file system`
+no log a cada boot; escrever na fonte é limpo. Isso vale tanto para o `COPY` do
+Dockerfile quanto para os mounts de desenvolvimento.
 
-⚠️ **Consequência prática: `/static` é uma cópia feita no boot.** Depois de editar
-`custom.css` ou `loader.js`, é preciso recarregar o container:
+A imagem é uma camada fina sobre a oficial — duas linhas de `COPY`, sem fork:
+
+```
+ghcr.io/open-webui/open-webui:v0.11.0  +  custom.css + loader.js + assets/
+                    =  ghcr.io/govhub-br/tais-webui:v0.11.0-govhub.1
+```
+
+**Por que existe:** até aqui o tema entrava por 15 bind mounts no
+`docker-compose.yaml`, que só funcionam com o repositório clonado ao lado do
+container. Num deploy sem o repo, o tema sumia.
+
+Buildar e publicar (precisa de `docker login ghcr.io` com um PAT que tenha
+`write:packages`):
+
+```bash
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  --build-arg OPEN_WEBUI_TAG=v0.11.0 \
+  -t ghcr.io/govhub-br/tais-webui:v0.11.0-govhub.1 \
+  --push webui/
+```
+
+⚠️ **Não use `docker push` a partir de um Mac Apple Silicon sem `--platform`**: a
+imagem sairia só em `arm64` e o servidor (amd64) responderia `exec format error`.
+
+**Convenção da tag:** `<versão do Open WebUI>-govhub.<revisão do tema>`. Mudou só
+o CSS? Sobe para `-govhub.2`. Mudou a base? Aí muda a primeira metade — e nesse
+caso **só suba de versão**, pelo motivo do Alembic documentado no
+`docker-compose.yaml`.
+
+## Desenvolvimento do tema (`docker-compose.dev.yaml`)
+
+Com o tema assado na imagem, editar CSS exigiria rebuild. O overlay de dev
+remonta os arquivos por cima da imagem e devolve o ciclo antigo:
+
+```bash
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d
+```
+
+Não é `docker-compose.override.yaml` de propósito: o override carrega sozinho, e
+num servidor sem o repositório o Docker criaria **diretórios vazios** no lugar
+dos arquivos e derrubaria o tema. Aqui o `-f` é explícito.
+
+⚠️ **`/static` é uma cópia feita no boot.** Depois de editar `custom.css` ou
+`loader.js`, é preciso recarregar o container:
 
 ```bash
 docker compose restart webui
