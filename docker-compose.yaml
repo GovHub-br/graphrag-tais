@@ -123,38 +123,33 @@ services:
       - default
 
   webui:
-    # Pinado: o tema GovHub (webui/custom.css) depende dos design tokens desta
-    # build. Em ':main' um pull silencioso poderia trocar o CSS por baixo.
+    # Imagem propria: Open WebUI oficial + identidade visual GovHub assada
+    # dentro (webui/Dockerfile). Antes o tema entrava por bind mounts de
+    # ./webui, que so funcionam com o repositorio clonado ao lado do container:
+    # num deploy sem o repo o tema sumia.
+    #
+    # Para editar CSS/JS sem rebuildar, os mounts continuam disponiveis em
+    # docker-compose.dev.yaml (uso documentado em webui/README.md).
+    #
+    # A tag base do Open WebUI e o build arg OPEN_WEBUI_TAG, pinado de
+    # proposito: o tema (webui/custom.css) depende dos design tokens desta
+    # build, e em ':main' um pull silencioso poderia trocar o CSS por baixo.
     #
     # v0.11.0, nao v0.10.2: a migration `f0bd01a18a3d` entrou na 0.11.0, e o
     # Alembic nao sabe DESCER de revisao. Um banco que ja rodou 0.11.0+ (era o
     # caso em prod, que vinha de ':main') faz a 0.10.2 abortar o boot com
     # `Can't locate revision identified by 'f0bd01a18a3d'`. Ao mudar este pin,
     # so suba de versao; para descer, o volume `open-webui` tem de ser recriado.
-    image: ghcr.io/open-webui/open-webui:${WEBUI_DOCKER_TAG:-v0.11.0}
+    image: ghcr.io/govhub-br/tais-webui:${TAIS_WEBUI_TAG:-v0.11.0-govhub.1}
+    build:
+      context: ./webui
+      args:
+        OPEN_WEBUI_TAG: ${WEBUI_DOCKER_TAG:-v0.11.0}
     container_name: open-webui
     ports:
       - "${OPEN_WEBUI_PORT:-3000}:8080"
     volumes:
       - open-webui:/app/backend/data
-      # --- identidade visual GovHub (ganchos oficiais do Open WebUI) ---------
-      # Montado em /app/build/static (a FONTE), nao em backend/open_webui/static:
-      # o config.py limpa o segundo e o recopia do primeiro a cada boot.
-      - ./webui/custom.css:/app/build/static/custom.css:ro
-      - ./webui/loader.js:/app/build/static/loader.js:ro
-      - ./webui/assets/govhub-mark-light.svg:/app/build/static/govhub-mark-light.svg:ro
-      - ./webui/assets/govhub-horizontal.svg:/app/build/static/govhub-horizontal.svg:ro
-      - ./webui/assets/govhub-horizontal-light.svg:/app/build/static/govhub-horizontal-light.svg:ro
-      - ./webui/assets/favicon.png:/app/build/static/favicon.png:ro
-      - ./webui/assets/favicon.svg:/app/build/static/favicon.svg:ro
-      - ./webui/assets/favicon.ico:/app/build/static/favicon.ico:ro
-      - ./webui/assets/favicon-96x96.png:/app/build/static/favicon-96x96.png:ro
-      - ./webui/assets/apple-touch-icon.png:/app/build/static/apple-touch-icon.png:ro
-      - ./webui/assets/logo.png:/app/build/static/logo.png:ro
-      - ./webui/assets/splash.png:/app/build/static/splash.png:ro
-      - ./webui/assets/splash-dark.png:/app/build/static/splash-dark.png:ro
-      - ./webui/assets/web-app-manifest-192x192.png:/app/build/static/web-app-manifest-192x192.png:ro
-      - ./webui/assets/web-app-manifest-512x512.png:/app/build/static/web-app-manifest-512x512.png:ro
     environment:
       - WEBUI_AUTH=false
       - OPENAI_API_BASE_URL=http://hayhooks:8000
