@@ -9,9 +9,9 @@
 # Regerar após qualquer mudança no inventário:
 #   python scripts/import_sensitive_map.py \
 #       --entrada <inventario.json> --saida config/sensitive_columns.yml
-#   (excluídas: revisar)
+#   (excluídas: deficiencia, raca_etnia, revisar)
 #
-# Gerado em 2026-09-08: 162 tabelas, 244 colunas (306 hash, 28 redact, 12 descartadas).
+# Gerado em 2026-09-08: 161 tabelas, 212 colunas (273 hash, 28 redact, 45 descartadas).
 #
 # ⚠️ A chave é o nome do MODELO dbt, sem schema. O `Catalog` casa nome
 # curto com `schema.tabela` do SQL, então isto vale em qualquer schema —
@@ -28,8 +28,6 @@ tables:
   agentes__agentes:
     - cnpjcpf
     - cnpjcpfsuperior
-  agentes__tbagentefisico:
-    - stcorraca
   agentes__vprefeiturasregiaouf:
     - cnpj
   agentes__vwcadastrarparecerista:
@@ -77,14 +75,8 @@ tables:
     - numero_documento_pagamento
     - tipo_documento_comprovante
   fct_pagamentos_bbagil:
-    - flag_indigena
-    - flag_negra
-    - flag_pcd
     - identificador_unico
   fct_pagamentos_elegiveis:
-    - flag_indigena
-    - flag_negra
-    - flag_pcd
     - identificador_unico
   fct_proponente_ano_rouanet:
     - documento_proponente
@@ -93,12 +85,7 @@ tables:
   pagamentos_bbagil_beneficiarios:
     - beneficiario_documento
   perfil_agentes_normalizado:
-    - flag_indigena
-    - flag_negra
     - identificador_unico
-    - is_pcd
-    - raca_bruto
-    - raca_normalizada
   plano_acao_dado_bancario_minc:
     - dv_agencia_plano_acao_dado_bancario
     - id_agencia_conta
@@ -372,34 +359,14 @@ tables:
     - agencia
   stg_agentes_coletivos:
     - identificador_unico
-    - indigena_bruto
-    - pcd_bruto
-    - quilombola_bruto
-    - raca_bruto
   stg_agentes_pf:
     - identificador_unico
-    - indigena_bruto
-    - pcd_bruto
-    - quilombola_bruto
-    - raca_bruto
   stg_agentes_pj:
     - identificador_unico
-    - indigena_bruto
-    - pcd_bruto
-    - quilombola_bruto
-    - raca_bruto
   stg_agentes_pnab_pf:
     - identificador_unico
-    - indigena_bruto
-    - pcd_bruto
-    - quilombola_bruto
-    - raca_bruto
   stg_agentes_pnab_pj:
     - identificador_unico
-    - indigena_bruto
-    - pcd_bruto
-    - quilombola_bruto
-    - raca_bruto
   stg_bbagil:
     - documento_raw
     - identificador_unico

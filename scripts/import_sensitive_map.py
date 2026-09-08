@@ -50,9 +50,16 @@ ESTRATEGIA_POR_NATUREZA = {
     "deficiencia": "hash",   # LGPD art. 5º II
     "credencial": "redact",  # senha/login: não se conta senha distinta
 }
-#: Naturezas descartadas por default. `revisar` é instrução do próprio
-#: inventário ("marcação existente que provavelmente não é dado pessoal").
-EXCLUIR_PADRAO = "revisar"
+#: Naturezas descartadas por default.
+#:
+#: - `revisar`: instrução do próprio inventário ("marcação existente que
+#:   provavelmente não é dado pessoal");
+#: - `raca_etnia` / `deficiencia`: decisão de 2026-09-08 (ADR-0018, ação 6).
+#:   São LGPD art. 5º II, mas mascarar custaria o recorte de equidade — o
+#:   indicador que o sistema existe para produzir — sem ganhar privacidade:
+#:   com meia dúzia de valores distintos, o hash cai por análise de
+#:   frequência. Quem identifica é o documento, e ele continua mascarado.
+EXCLUIR_PADRAO = "revisar,raca_etnia,deficiencia"
 
 
 def carregar(caminho: str) -> dict:

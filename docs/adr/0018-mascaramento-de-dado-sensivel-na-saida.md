@@ -223,7 +223,16 @@ zero, e ele volta a ser útil na próxima base nova.
      primária, e cada base coberta por ele é uma linha a menos neste catálogo.
   5. Fase 2: persistir as `tags` de coluna do OpenMetadata no Neo4j e fundi-las
      ao índice, com o arquivo prevalecendo.
-  6. Reavaliar o `SENSITIVE_MASK_SCOPE`: `global` foi escolhido pela utilidade
+  6. **[decidido em 2026-09-08]** Marcador de raça/etnia e deficiência fica
+     **fora** do catálogo, revertendo o default do inventário. São dado pessoal
+     sensível pela LGPD art. 5º II, mas mascará-los custaria o recorte de
+     equidade (beneficiários por raça/cor, por PCD) — o indicador de política
+     pública que este sistema existe para produzir — sem ganho real de
+     privacidade: com meia dúzia de valores distintos, o hash cai por análise
+     de frequência. Quem identifica é o documento, e ele segue mascarado na
+     mesma tabela. São 10 nomes, 33 entradas; reverter é
+     `--excluir-natureza revisar` no importador.
+  7. Reavaliar o `SENSITIVE_MASK_SCOPE`: `global` foi escolhido pela utilidade
      analítica; se a correlação entre colunas virar preocupação, `column` está
      pronto.
 

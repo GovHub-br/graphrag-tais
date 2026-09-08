@@ -458,30 +458,44 @@ class TestCatalogoDeProducao(unittest.TestCase):
         self.assertEqual(self.cat.strategy_by_name("nome"), "")
         self.assertEqual(self.cat.by_column, {})
 
-    # -- o tradeoff aberto ----------------------------------------------- #
-    def test_marcador_de_baixa_cardinalidade_e_mascarado_hoje(self):
-        """⚠️ Registro de uma decisão em aberto, não de um acerto.
+    # -- marcador de baixa cardinalidade: decidido, não mascarado -------- #
+    def test_recorte_de_equidade_continua_legivel(self):
+        """`raca_bruto`, `pcd_bruto` e afins ficam FORA do catálogo — decisão
+        de 2026-09-08, revertendo o default do inventário.
 
-        `raca_bruto` e `pcd_bruto` são dado pessoal sensível pela LGPD art. 5º
-        II, e o inventário os marca — então eles entram, e este teste fixa isso.
-        O custo é real: `SELECT raca_bruto, COUNT(*) GROUP BY raca_bruto` volta
-        com hashes, e o recorte de equidade (beneficiários por raça/cor, por
-        PCD) deixa de ser legível.
+        Duas razões, e a segunda é a que decide. (1) `SELECT raca_bruto,
+        COUNT(*) GROUP BY raca_bruto` é o recorte de equidade — beneficiários
+        por raça/cor, por PCD —, que é justamente o indicador de política
+        pública que este sistema existe para produzir. (2) Mascarar não
+        protegeria: são colunas de meia dúzia de valores distintos, então o
+        hash cai por análise de frequência — a maior barra continua sendo a
+        maior barra, e quem lê sabe qual é. Perderíamos o indicador sem ganhar
+        privacidade.
 
-        E o ganho de privacidade é pequeno: são colunas de meia dúzia de valores
-        distintos, então o hash cai por análise de frequência — a maior barra
-        continua sendo a maior barra. Se a decisão for privilegiar o indicador,
-        regere o catálogo com
-        `--excluir-natureza revisar,raca_etnia,deficiencia` e inverta este
-        teste; é uma linha de comando, e é por isso que a conversão é um script.
+        Quem identifica é o documento, e ESSE continua mascarado — inclusive na
+        mesma tabela, como este teste verifica.
         """
+        for coluna in ("raca_bruto", "pcd_bruto", "quilombola_bruto",
+                       "indigena_bruto", "flag_negra", "stcorraca", "is_pcd"):
+            with self.subTest(coluna=coluna):
+                self.assertEqual(self.cat.strategy_anywhere(["stg_agentes_pf"], coluna), "")
+
         self.assertEqual(
             self._cols(
                 "SELECT raca_bruto, COUNT(*) AS total FROM stg_agentes_pf "
                 "GROUP BY raca_bruto",
                 ["raca_bruto", "total"],
             ),
-            ["raca_bruto"],
+            [],
+        )
+
+    def test_documento_da_mesma_tabela_segue_mascarado(self):
+        """O contrapeso do teste acima: afrouxar o marcador não afrouxou o
+        identificador."""
+        self.assertEqual(
+            self._cols("SELECT identificador_unico, raca_bruto FROM stg_agentes_pf",
+                       ["identificador_unico", "raca_bruto"]),
+            ["identificador_unico"],
         )
 
     # -- a chave curta ---------------------------------------------------- #
