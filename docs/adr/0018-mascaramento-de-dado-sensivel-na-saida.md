@@ -231,6 +231,10 @@ zero, e ele volta a ser útil na próxima base nova.
      primária, e cada base coberta por ele é uma linha a menos neste catálogo.
   5. Fase 2: persistir as `tags` de coluna do OpenMetadata no Neo4j e fundi-las
      ao índice, com o arquivo prevalecendo.
+  5b. **Fechar a lacuna de cobertura medida acima**: decidir, com o domínio,
+     quais nomes entram em `columns:` (telefone, e-mail, e os documentos das
+     tabelas que o dbt não modela), separando o contato da pessoa do contato do
+     órgão. É hoje o maior buraco da proteção — 249 ocorrências.
   6. **[decidido em 2026-09-08]** Marcador de raça/etnia e deficiência fica
      **fora** do catálogo, revertendo o default do inventário. São dado pessoal
      sensível pela LGPD art. 5º II, mas mascará-los custaria o recorte de
@@ -267,6 +271,37 @@ ADR-0010.
 Uma confirmação de projeto veio daqui: no Trino, cada tabela do dbt aparece em
 **três** schemas (`bronze`, `salic`, `salic_bronze`). A chave curta do catálogo
 cobre os três; um catálogo qualificado por schema teria protegido um terço.
+
+### 🔴 Lacuna de cobertura, medida (`scripts/audit_sensitive_map.py`)
+
+Confrontando o catálogo com as **19.132 colunas** dos schemas do MinC no Trino:
+**380 colunas com cara de dado pessoal cobertas, 249 ocorrências (64 nomes)
+descobertas.** A causa não é defeito da conversão — é o alcance do inventário:
+
+1. **Naturezas que o inventário não classifica**: `telefone` (27×), `e-mail`,
+   `celular`. O inventário tem documento, bancário, credencial, raça e
+   deficiência; contato não está lá.
+2. **Tabelas que o dbt não modela**: `cgccpf` aparece em 13 tabelas fora do
+   inventário (views, temporárias como `sac__tbtmpcaptacao`), `cnpjcpf` em 6,
+   `cpfcnpj` em 5.
+3. **Bancário fora do inventário**: `agencia` (9×), `nrcontaproponente` (6×),
+   `nrconta`, `idcontabancaria`.
+
+O instrumento para fechar isso já existe — a lista `columns:` (regra por nome,
+vale em qualquer tabela) —, mas **preenchê-la é decisão de domínio, não
+técnica**: telefone de prefeitura e CNPJ de empresa contratada são informação
+pública ([ADR-0016](./0016-guardrails-de-resposta.md)), e uma regra por nome não
+distingue o telefone da pessoa do telefone do órgão. Fica como ação decorrente.
+
+Na direção contrária, **19 das 212 regras não têm coluna correspondente** no
+Trino — modelos do dbt (`stg_agentes_pf`, `fct_pagamentos_bbagil`) que ainda não
+estão materializados. Regra morta não custa nada; fica registrada porque, quando
+esses modelos subirem, a proteção já estará lá.
+
+⚠️ Quem repetir esta auditoria: **o trino-mcp corta o resultado em 5.000 linhas
+sem avisar.** A primeira rodada leu 5.000 de 19.132 colunas e concluiu que
+metade do catálogo estava morta. O script pagina; qualquer consulta de
+inventário aqui precisa paginar.
 
 ## Referências
 

@@ -393,6 +393,14 @@ entrar naquele controle. O 0016 tinha deixado a cláusula de reabertura escrita.
 - `SENSITIVE_MASK_DRY_RUN=true` calcula e **loga** o plano sem alterar valor —
   é como se calibra um catálogo novo em produção.
 
+🔴 **Lacuna de cobertura conhecida** (`scripts/audit_sensitive_map.py`, 08/09):
+o catálogo cobre o que o **dbt modela**; o Trino tem mais. Das 19.132 colunas dos
+schemas do MinC, **380 sensíveis cobertas e 249 descobertas** — `telefone`/`e-mail`
+(natureza que o inventário não classifica) e `cgccpf`/`cnpjcpf` em views e
+temporárias fora do dbt. Fecha-se com a lista `columns:`, mas preenchê-la é
+decisão de domínio: telefone de prefeitura é público. ⚠️ Ao reauditar, **pagine**
+— o trino-mcp corta em 5.000 linhas sem avisar.
+
 `tests/test_sensitivity.py` (host, 59 casos) cobre os dois lados, como o do
 guardrail: o que **tem** de ser mascarado (alias, `CAST`, `SELECT *`, envelope
 da amostra, JOIN sem qualificador) e o que **não pode** ser (`COUNT(cpf)`,

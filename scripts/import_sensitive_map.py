@@ -145,11 +145,16 @@ def emitir_yaml(tabelas: dict, inventario: dict, excluir: set, stats: Counter) -
                 linhas.append(f"    - {{column: {coluna}, strategy: {estrategia}}}")
     linhas += [
         "",
-        "# Regra por NOME de coluna, valendo em qualquer tabela. Vazia de",
-        "# propósito: cada entrada aqui DESLIGA a autocorreção do SQL por LLM em",
-        "# toda consulta (o executor não consegue descartar a hipótese de a",
-        "# reescrita tocar a coluna). Use só para identificador que o inventário",
-        "# comprovadamente não alcança.",
+        "# Regra por NOME de coluna, valendo em QUALQUER tabela.",
+        "#",
+        "# É o instrumento para o que o inventário do dbt não alcança: o Trino",
+        "# tem tabelas que o projeto dbt não modela (views, temporárias), e",
+        "# naturezas que o inventário não classifica (telefone, e-mail). Rode",
+        "# `scripts/audit_sensitive_map.py` para ver o que está descoberto.",
+        "#",
+        "# ⚠️ Cuidado com o que é público: telefone de prefeitura e CNPJ de",
+        "# empresa contratada são informação pública (ADR-0016), e uma regra",
+        "# global por nome não distingue os dois casos.",
         "columns: []",
         "",
     ]
