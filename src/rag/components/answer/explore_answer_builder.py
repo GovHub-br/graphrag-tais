@@ -30,6 +30,10 @@ from haystack import Document, component
 from loguru import logger
 from pydantic import BaseModel, Field, ValidationError
 
+# Texto único da nota de mascaramento (ADR-0018): a mesma limitação tem de
+# ser explicada com as mesmas palavras nas duas personas.
+from rag.components.answer.sql_answer_builder import render_masking_note
+
 
 # --------------------------------------------------------------------------- #
 # Contrato da saída do LLM
@@ -467,6 +471,12 @@ class ExploreAnswerBuilder:
                 f"\n📥 **[Baixar a amostra ({sample['row_count']} linhas, .csv)]"
                 f"({sample['url']})**"
             )
+        # Antes do SQL, não depois: quem lê a tabela e vê `#a3f9c1d20b` precisa
+        # da explicação ali, não no fim do bloco (ADR-0018).
+        aviso = render_masking_note(sample.get("masked_columns") or [])
+        if aviso:
+            lines.append("\n" + aviso)
+
         lines.append("\nA consulta que gerou esta amostra:")
         lines.append("```sql\n" + sample["sql"].strip() + "\n```")
         return "\n".join(lines)

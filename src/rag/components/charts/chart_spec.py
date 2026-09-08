@@ -70,9 +70,25 @@ class ChartSpecBuilder:
         columns: Optional[List[str]] = None,
         rows: Optional[List[Dict[str, Any]]] = None,
         ir: Optional[Dict[str, Any]] = None,
+        masked_columns: Optional[List[str]] = None,
     ) -> dict:
         columns = columns or []
         rows = rows or []
+
+        # Coluna pseudonimizada não é eixo (ADR-0018). Os valores dela já
+        # chegam aqui como `#a3f9c1d20b`: plotar 20 barras rotuladas por hash
+        # não é um gráfico, é ruído com legenda. Ela sai da escolha ANTES da
+        # heurística e do LLM — e se o que sobra não dá gráfico, não tem
+        # gráfico, que é o resultado honesto.
+        masked = {c for c in (masked_columns or []) if c}
+        if masked:
+            restantes = [c for c in columns if c not in masked]
+            logger.info(
+                "ChartSpecBuilder: {} coluna(s) mascarada(s) fora do gráfico ({})",
+                len(columns) - len(restantes), ", ".join(sorted(masked)),
+            )
+            columns = restantes
+
         kinds = _infer_kinds(columns, rows)
 
         # Sem dado plotável → nenhum gráfico.

@@ -74,7 +74,8 @@ class SampleRunner:
     def run(self, answer: Dict[str, Any]) -> Dict[str, Any]:
         """Devolve o dict `sample` para a resposta. `ok=False` = sem amostra."""
         empty = {"ok": False, "sql": "", "origin": "", "columns": [], "rows": [],
-                 "row_count": 0, "url": "", "file_name": "", "reason": ""}
+                 "row_count": 0, "url": "", "file_name": "", "reason": "",
+                 "masked_columns": []}
         tables: List[dict] = answer.get("tables") or []
         if not tables:
             empty["reason"] = "nenhuma tabela recuperada"
@@ -135,6 +136,10 @@ class SampleRunner:
             "rows": rows,
             "row_count": len(rows),
             "preview_rows": self.preview_rows,
+            # Colunas que o executor pseudonimizou (ADR-0018). A amostra é o
+            # conteúdo do sistema que MAIS se aproxima do dado bruto, então a
+            # nota de transparência importa mais aqui do que na Persona 2.
+            "masked_columns": out.get("masked_columns") or [],
             "url": "",
             "file_name": "",
             "reason": "",

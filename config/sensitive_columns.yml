@@ -1,0 +1,57 @@
+# Catálogo de colunas sensíveis (ADR-0018).
+#
+# O que este arquivo faz: toda coluna listada aqui sai PSEUDONIMIZADA das
+# respostas do sistema — tabela do chat, gráfico, CSV da amostra, .docx — e
+# nunca chega ao LLM em claro. O mascaramento acontece no `McpSqlExecutor`,
+# ponto único por onde toda linha real passa.
+#
+# O que este arquivo NÃO faz: não é o controle de acesso ao banco. A proteção
+# de fato do dado continua sendo o acesso mascarado do Trino (ADR-0016); isto
+# aqui é a camada que cobre as bases que aquele acesso não alcança.
+#
+# ⚠️ Use o nome FÍSICO `schema.tabela` — o mesmo que aparece no SQL gerado, não
+# o FQN do OpenMetadata. FQN é aceito na leitura e reduzido aos dois últimos
+# segmentos, mas escreva o físico: é o que se confere lendo uma resposta.
+#
+# Estratégias:
+#   hash   (default) — HMAC-SHA256 com segredo, truncado: `#a3f9c1d20b`.
+#                      Mesmo valor → mesmo código, então COUNT(DISTINCT),
+#                      GROUP BY e cruzamento continuam funcionando.
+#   redact          — `[protegido]`. Para o que não deve nem ser contado.
+#
+# Agregação NUNCA é mascarada: `COUNT(cpf)` conta pessoas sem identificar
+# nenhuma, e é exatamente o que a Persona 2 existe para responder.
+#
+# Depois de editar: `docker compose up -d --no-deps hayhooks` não é necessário —
+# o arquivo é relido quando o `mtime` muda.
+
+version: 1
+default_strategy: hash
+
+# ---------------------------------------------------------------------- #
+# Colunas sensíveis por tabela. É a forma preferida: sensibilidade é
+# propriedade de uma coluna DE UMA TABELA, não de um nome solto.
+# ---------------------------------------------------------------------- #
+tables: {}
+  # Exemplo (apagar ao preencher com o mapeamento real):
+  #
+  # entidades_fds.fds_cadastro_pj:
+  #   - cpf_socio                          # usa a estratégia default (hash)
+  #   - {column: email, strategy: redact}
+  #
+  # empreendimento_far.beneficiario:
+  #   - nome
+  #   - cpf
+  #   - endereco
+
+# ---------------------------------------------------------------------- #
+# Regra por NOME de coluna, valendo em QUALQUER tabela.
+#
+# Rede de segurança, não regra principal: é o que pega o identificador que se
+# repete em dezenas de tabelas e o caso em que o resolvedor de SQL não
+# consegue dizer de que tabela a coluna veio (`SELECT *`, parse falho).
+# Cada nome aqui também DESLIGA a autocorreção do SQL por LLM em toda consulta
+# — use com parcimônia.
+# ---------------------------------------------------------------------- #
+columns: []
+  # - num_cpf

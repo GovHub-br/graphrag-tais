@@ -55,3 +55,7 @@ httpx==0.28.1        # cliente REST do OpenMetadataSource
 # extrai tabelas/colunas/JOINs do SQL gerado para conferir contra o subgrafo
 # recuperado. Puro Python, sem dependência nativa.
 sqlglot==30.16.0
+# Leitura do catálogo de colunas sensíveis (ADR-0018). Vinha transitivo pelo
+# Haystack; é dependência DIRETA desde que `rag.sensitivity` passou a ler o
+# `config/sensitive_columns.yml` no caminho de execução do SQL.
+PyYAML==6.0.2

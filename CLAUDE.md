@@ -28,12 +28,13 @@ modo Explorar **não** deve alterar arquivo do caminho da Persona 2.
 
 ## Verdade da arquitetura: os ADRs
 
-Todas as decisões estão em `docs/adr/` (**0000–0017**) — índice em `docs/adr/README.md`.
+Todas as decisões estão em `docs/adr/` (**0000–0018**) — índice em `docs/adr/README.md`.
 **Leia os ADRs antes de decidir algo de arquitetura.** Regra: um ADR só cita ADR de
 número menor. Destaques recentes: **0011** (contrato da ingestão, substitui o 0005),
 **0012** (eval orientado a métricas), **0013** (gráfico por chart-spec — revisa a
 execução do 0008), **0017** (execução via **trino-mcp** + backend configurável —
-revisa a execução do 0013). Antes de mexer em **retrieval**, respeite o
+revisa a execução do 0013), **0018** (mascaramento de dado sensível na saída —
+reabre a Alternativa C que o 0016 recusou). Antes de mexer em **retrieval**, respeite o
 gate MDD: `AGENTS.md` + `skills/evaluate-retrieval-change/SKILL.md` (medir antes/depois).
 
 ## Stack
@@ -279,12 +280,11 @@ primeira metade da Persona 2 (embedding híbrido + Qdrant) via factory, com `top
   que é o degrau que **garante** amostra. `origin` ∈ {llm, corrigido, catalogo} vai no
   `answer["sample"]` e é o que o eval pontua. CSV `utf-8-sig` + `;` (abre no Excel pt-BR),
   bucket **`amostras`** e link assinado **curto** (15 min, servido pelo RAG) — separado dos relatórios porque
-  é o primeiro conteúdo do sistema que **não é metadado**. ⚠️ Sem filtro de PII **na saída**: a
-  ingestão guarda `tags` por coluna, o gancho existe, não está implementado (escopo
-  MCid é público). Decisão do ADR-0016: quem protege o VALOR é o **acesso mascarado
-  no banco**; o guardrail protege a **conversa** (recusa o pedido de dado pessoal
-  antes da pipeline). Mascarar na aplicação foi avaliado e recusado como duplicação
-  no lugar errado.
+  é o primeiro conteúdo do sistema que **não é metadado**. ⚠️ A amostra **passa pelo mascaramento do
+  ADR-0018** como qualquer outro resultado (o executor é o mesmo): coluna listada no
+  `config/sensitive_columns.yml` sai pseudonimizada na tabela E no CSV. As `tags` de
+  coluna da ingestão seguem **não persistidas** — a fonte da sensibilidade é o
+  arquivo, não o catálogo (fase 2 do 0018).
 - Sem gráfico e sem `.docx`. O caminho normal segue em **1 chamada de LLM** (a amostra usa o
   MCP direto); só a autocorreção da amostra gasta modelo, e só quando o banco recusa.
 
@@ -333,6 +333,61 @@ suíte. Ver a seção de validação do ADR-0016.
 a mudança **não está medida**; (b) na autocorreção do `McpSqlExecutor` (só quando
 o banco recusa o SQL) o retorno da ferramenta volta ao contexto do modelo, então
 ali ele vê linhas — o caminho normal (`MCP_DIRECT_FIRST`) não passa por lá.
+✅ (b) deixou de valer nas tabelas do catálogo de sensibilidade: ver ADR-0018.
+
+### Mascaramento de dado sensível na saída (ADR-0018) ✅
+
+Terceira camada, complementar às duas acima: o guardrail protege a **conversa**
+(recusa o pedido antes da pipeline); isto protege o **valor**. Existe porque o
+acesso mascarado do banco — que o ADR-0016 tratou como a proteção de fato — é
+configurado **por base**, e o RAG passa a responder sobre uma base antes de ela
+entrar naquele controle. O 0016 tinha deixado a cláusula de reabertura escrita.
+
+- **Ponto único: `McpSqlExecutor._protect`.** Toda linha real do sistema passa
+  por ali (duas personas, caminho direto e do agente), então mascarar no
+  executor cobre de uma vez tabela do chat, gráfico, digest do
+  `ResultExplainer`, CSV da amostra, `.docx` — e o **LLM**, que hoje recebe 3
+  linhas no prompt do `ChartSpecBuilder`. Mascarar no renderer protegeria só a
+  tela, em cinco lugares diferentes.
+- **Catálogo em arquivo**: `config/sensitive_columns.yml` (YAML ou JSON),
+  montado read-only (`./config:/app/config:ro`), `SENSITIVE_MAP_PATH`. Relido
+  quando o `mtime` muda. Aceita três formatos na leitura (canônico, mapa cru
+  `{"schema.tabela": [colunas]}`, lista de registros) porque o mapeamento nasce
+  fora do repo. ⚠️ **Nome físico `schema.tabela`**, não FQN do OpenMetadata (o
+  FQN é aceito e reduzido aos 2 últimos segmentos). **Vazio = nada mascarado**,
+  que é o comportamento anterior ao ADR.
+- **`hash` (default) pseudonimiza, não apaga**: HMAC-SHA256 truncado,
+  `#a3f9c1d20b`, escopo **global** — mesmo valor, mesmo código em qualquer
+  tabela, então `COUNT(DISTINCT)`, `GROUP BY` e cruzamento continuam
+  funcionando. `redact` (`[protegido]`) para o que não deve nem ser contado.
+  ⚠️ **Sem `SENSITIVE_HASH_PEPPER` não gera hash** — CPF tem 10¹¹ valores e
+  hash sem segredo é reversível; degrada para `redact` e loga erro.
+- ⚠️ **Agregação NUNCA é mascarada.** `COUNT(cpf)` é a resposta certa para
+  "quantas pessoas" — mascarar isso não protegeria ninguém e quebraria a
+  Persona 2. O `resolver` lê a projeção com `sqlglot`: alias e expressão
+  escalar (`CAST(cpf AS VARCHAR)`) **carregam** a sensibilidade; agregação não.
+  Na dúvida (`SELECT *`, coluna sem qualificador em JOIN, parse falho) **fecha
+  em favor da privacidade**.
+- **Dois efeitos colaterais deliberados**: (a) a **autocorreção por LLM é
+  inibida** quando o SQL toca tabela do catálogo — é por lá que dado pessoal
+  entraria em prompt (fecha a pendência (b) abaixo); (b) **coluna mascarada não
+  vira eixo de gráfico** (20 barras de hash não são um gráfico).
+- **A resposta diz que mascarou** (`render_masking_note`, texto único para as
+  duas personas + callout no `.docx`). Ao contrário do erro de execução, que
+  fica no log de propósito, esta limitação **tem** de aparecer: `#a3f9c1d20b`
+  sem explicação é lido como defeito.
+- **Latência**: nula com catálogo vazio (`plan` retorna antes de parsear o SQL),
+  poucos ms com catálogo cheio (1 parse + HMAC memoizado por valor). **Não toca
+  retrieval nem `query_system.md` → não dispara o gate do ADR-0012**, e isso é
+  razão de projeto: é por isso que a proteção entra na execução, não na geração.
+- `SENSITIVE_MASK_DRY_RUN=true` calcula e **loga** o plano sem alterar valor —
+  é como se calibra um catálogo novo em produção.
+
+`tests/test_sensitivity.py` (host, 38 casos) cobre os dois lados, como o do
+guardrail: o que **tem** de ser mascarado (alias, `CAST`, `SELECT *`, envelope
+da amostra, JOIN sem qualificador) e o que **não pode** ser (`COUNT(cpf)`,
+tabela fora do catálogo, coluna resolvida por apelido para outra tabela).
+Mascarar demais não vaza nada, mas transforma indicador em hash em silêncio.
 
 ## Como rodar o eval do modo Explorar (Persona 1)
 
@@ -442,6 +497,12 @@ comportamento e pede o gate do ADR-0012, não é edição de formatação.
 - **`src/rag/guardrails/`** (ADR-0016) — gate determinístico de PII/escopo/acesso
   (`policy.py`, puro) + os textos das recusas (`messages.py`, resposta ao usuário,
   fora de `prompts/`). Chamado pelos DOIS wrappers antes da pipeline.
+- **`src/rag/sensitivity/`** (ADR-0018) — mascaramento na saída, tudo função pura:
+  `catalog.py` (lê/indexa o `config/sensitive_columns.yml`), `resolver.py` (`sqlglot`:
+  de qual `(tabela, coluna)` veio cada coluna do resultado) e `mask.py` (decide a regra
+  e aplica HMAC). Chamado de UM lugar só: `McpSqlExecutor._protect`.
+- **`config/sensitive_columns.yml`** — o mapeamento de colunas sensíveis. Fora da imagem,
+  montado read-only; **é o único arquivo do repo que muda a proteção sem mudar código**.
 - **`src/rag/prompts/`** — **todo texto que vai para o LLM** (um `.md` por prompt) + o loader
   (`prompts.load` / `prompts.render`). Ver o `README.md` de lá para a tabela prompt → quem usa.
 - `src/rag/components/answer/sql_answer_builder.py` — resposta em Markdown.

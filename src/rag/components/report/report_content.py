@@ -126,6 +126,31 @@ def render_answer(doc: _Document, answer: Dict[str, Any],
         w.add_heading(doc, "Gráfico", 3)
         w.add_chart(doc, chart_data_uri)
 
+    # 7) Mascaramento (ADR-0018). Ao contrário do erro de execução — que fica
+    #    no log de propósito —, isto PRECISA aparecer: o documento circula sem
+    #    quem o gerou por perto, e um `#a3f9c1d20b` sem explicação vira, na
+    #    reunião, "o relatório veio com defeito". Callout, não nota de rodapé.
+    aviso = _masking_note(exec_info.get("masked_columns") or [])
+    if aviso:
+        w.add_callout(doc, aviso)
+
+
+# --------------------------------------------------------------------------- #
+def _masking_note(masked_columns: List[str]) -> str:
+    """Mesma mensagem do chat, sem a marcação Markdown (aqui o estilo é do
+    callout). Texto único: a limitação é a mesma nos dois lugares."""
+    nomes = [c for c in (masked_columns or []) if c]
+    if not nomes:
+        return ""
+    lista = ", ".join(nomes)
+    verbo = "contêm dado pessoal e aparecem" if len(nomes) > 1 else "contém dado pessoal e aparece"
+    plural = "s" if len(nomes) > 1 else ""
+    return (
+        f"🔒 {lista} {verbo} pseudonimizada{plural}. O código exibido é estável — "
+        "o mesmo valor recebe sempre o mesmo código, então dá para contar, "
+        "agrupar e cruzar sem identificar ninguém."
+    )
+
 
 # --------------------------------------------------------------------------- #
 def _bullet(doc: _Document):
