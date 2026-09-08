@@ -260,6 +260,18 @@ class Settings(BaseSettings):
     SENSITIVE_MASK_DRY_RUN: bool = Field(
         False, description="Só registra o que seria mascarado, sem mascarar"
     )
+    # Desliga a autocorreção por LLM quando o SQL toca tabela do catálogo. É
+    # por lá que uma linha do banco entraria num prompt: o retorno da tool volta
+    # ao contexto do agente ANTES de qualquer mascaramento (pendência (3) do
+    # ADR-0016). A checagem é pela TABELA, não pela projeção — um SQL recusado
+    # pode ser reescrito para projetar qualquer coluna dela.
+    # ⚠️ O custo é real e medido: consulta puramente agregada numa tabela do
+    # catálogo (`SELECT anoprojeto, COUNT(*) FROM sac__projetos`) também perde a
+    # autocorreção. Em `false`, o agente volta a corrigir e a saída continua
+    # mascarada — o que se abre é o CONTEXTO DO MODELO, não a resposta.
+    SENSITIVE_INHIBIT_AUTOCORRECT: bool = Field(
+        True, description="Não aciona o Agent quando o SQL toca tabela sensível"
+    )
 
     # ------------------------------------------------------------------ #
     # Camada de entrega (ADR-0013/0017): execução do SQL via MCP + gráfico

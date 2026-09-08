@@ -481,7 +481,8 @@ class McpSqlExecutor:
         from rag.sensitivity import catalog as catalog_mod
         from rag.sensitivity import source_tables
 
-        if not settings.SENSITIVE_MASKING_ENABLED:
+        if not (settings.SENSITIVE_MASKING_ENABLED
+                and settings.SENSITIVE_INHIBIT_AUTOCORRECT):
             return False
         try:
             catalog = catalog_mod.load(settings.SENSITIVE_MAP_PATH)

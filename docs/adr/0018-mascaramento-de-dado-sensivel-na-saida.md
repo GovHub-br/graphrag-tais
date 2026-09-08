@@ -177,7 +177,13 @@ essa é a que não sobrevive à primeira auditoria.
   vale exatamente o que vale a revisão do arquivo.
 - **[Médio impacto]** Perde-se a autocorreção do SQL nas tabelas sensíveis: uma
   consulta recusada pelo banco que hoje seria consertada passa a sair sem
-  resultado.
+  resultado. **Medido em 2026-09-08**, e maior do que parecia: a checagem é pela
+  TABELA, então uma consulta **puramente agregada** numa tabela do catálogo
+  (`SELECT anoprojeto, COUNT(*) FROM sac__projetos`) também perde a
+  autocorreção — e `sac__projetos` é tabela central do SALIC (276.887 linhas).
+  Atrás de `SENSITIVE_INHIBIT_AUTOCORRECT` (default `true`): em `false` o agente
+  volta a corrigir e a **resposta continua mascarada**; o que se abre é o
+  contexto do modelo, não a saída.
 - **[Baixo impacto]** Mascarar errado estraga amostra legítima — mitigado pelo
   `SENSITIVE_MASK_DRY_RUN`, que calibra o catálogo em produção sem alterar
   valor.
@@ -220,6 +226,29 @@ zero, e ele volta a ser útil na próxima base nova.
   6. Reavaliar o `SENSITIVE_MASK_SCOPE`: `global` foi escolhido pela utilidade
      analítica; se a correlação entre colunas virar preocupação, `column` está
      pronto.
+
+## Validação em ambiente real (2026-09-08)
+
+Contra o Trino do MinC, com o catálogo importado do inventário do dbt. As
+consultas rodaram pelo `McpSqlExecutor` de produção; **nenhum valor em claro foi
+impresso** — o que se mediu foi fato derivado, no mesmo princípio do `digest` do
+ADR-0010.
+
+| o quê | resultado |
+|---|---|
+| `SELECT cgccpf, idprojeto FROM bronze.sac__projetos LIMIT 50` | 50/50 valores com cara de documento → **0/50**; nenhum valor cru sobreviveu; `idprojeto` intacta |
+| distintos preservados | 49 distintos antes → **49 depois** (o pseudônimo é estável) |
+| `COUNT(DISTINCT cgccpf)` (276.887 linhas) | `masked_columns=[]` — **102.676 proponentes**, indicador intacto |
+| envelope da amostra (Persona 1) sobre `agentes__agentes` | `masked_columns=['cnpjcpf','cnpjcpfsuperior']`, 0/10 com cara de documento |
+| tabela fora do inventário | linhas idênticas com e sem mascaramento |
+| resposta completa do chat com coluna sensível | nota de transparência renderizada; documento não aparece no Markdown final; gráfico corretamente suprimido |
+| base hoje carregada no Neo4j/Qdrant (MCid, 74 tabelas / 1.215 colunas) | **0 colisões** com o catálogo do MinC — as respostas de hoje não mudam |
+| guardrail do ADR-0016 na API viva | 7/7 (5 recusas corretas + 2 que não podiam ser recusadas) |
+| suíte | 309 testes no container, todos verdes |
+
+Uma confirmação de projeto veio daqui: no Trino, cada tabela do dbt aparece em
+**três** schemas (`bronze`, `salic`, `salic_bronze`). A chave curta do catálogo
+cobre os três; um catálogo qualificado por schema teria protegido um terço.
 
 ## Referências
 
