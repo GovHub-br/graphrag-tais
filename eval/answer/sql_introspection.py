@@ -4,14 +4,27 @@
 autorizado e conformidade de grão. Tudo aqui é parse — nenhuma chamada de LLM,
 nenhum acesso ao banco —, então roda em CI e é reproduzível.
 
-O parser é o `sqlglot` com dialeto `postgres`, o mesmo banco que executa.
+O parser é o `sqlglot` no dialeto de quem EXECUTA (`SQL_DIALECT`, hoje `trino`
+— ADR-0017). Dialeto errado aqui não erra "um pouco": ele vira `parse_error` e
+zera fidelidade/JOIN/grão de um SQL que na verdade está correto.
+
+O `settings` é importado de forma tolerante porque este módulo roda também em
+CI, sem as dependências do app — nesse caso vale a env var, com o mesmo default.
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 
 import sqlglot
 from sqlglot import exp
+
+try:  # pragma: no cover — depende do ambiente (container tem, CI pode não ter)
+    from rag.settings.configs import settings
+
+    _DIALECT = settings.SQL_DIALECT
+except Exception:  # noqa: BLE001
+    _DIALECT = os.getenv("SQL_DIALECT", "trino")
 
 
 @dataclass
@@ -51,7 +64,7 @@ def introspect(sql: str) -> SqlShape:
         shape.parse_error = "SQL vazio"
         return shape
     try:
-        tree = sqlglot.parse_one(sql, dialect="postgres")
+        tree = sqlglot.parse_one(sql, dialect=_DIALECT)
     except Exception as exc:  # noqa: BLE001 — SQL vem de LLM, pode ser inválido
         shape.parse_error = f"{type(exc).__name__}: {exc}"
         return shape

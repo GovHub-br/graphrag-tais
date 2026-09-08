@@ -223,14 +223,50 @@ class Settings(BaseSettings):
     )
 
     # ------------------------------------------------------------------ #
-    # Camada de entrega (ADR-0013): execução via postgres-mcp + gráfico
+    # Camada de entrega (ADR-0013/0017): execução do SQL via MCP + gráfico
     # ------------------------------------------------------------------ #
-    # O postgres-mcp (crystaldba) já roda em modo RESTRICTED (read-only) e é o
-    # que executa/autocorrige o SQL. Dentro da rede do compose ele é alcançável
-    # como `postgres-mcp:8000`; o transporte é SSE (endpoint /sse).
+    # QUEM EXECUTA O SQL é um servidor MCP read-only, nunca o RAG: o graphrag
+    # não segura credencial de banco (ADR-0004). O backend default passou a ser
+    # o **trino-mcp** (ADR-0017); o postgres-mcp continua suportado, só não é
+    # mais o default. Os quatro campos abaixo são o CONTRATO com o servidor —
+    # trocar de backend é trocar estes valores, não editar componente.
+    #
+    #   | backend      | SQL_MCP_URL                   | TRANSPORT       | TOOL          | ARG   |
+    #   |--------------|-------------------------------|-----------------|---------------|-------|
+    #   | trino-mcp    | http://trino-mcp:8080/mcp     | streamable_http | execute_query | query |
+    #   | postgres-mcp | http://postgres-mcp:8000/sse  | sse             | execute_sql   | sql   |
+    #
+    # ⚠️ Transporte NÃO se deduz do path: o `/sse` do trino-mcp é servido pelo
+    # mesmo handler Streamable HTTP do `/mcp` (não é o SSE clássico, que abre o
+    # stream no GET e informa o endpoint de POST). Por isso é campo explícito.
+    SQL_MCP_URL: str = Field(
+        "http://trino-mcp:8080/mcp",
+        description="Endpoint do MCP que executa o SQL (trino-mcp por default)",
+    )
+    SQL_MCP_TRANSPORT: str = Field(
+        "streamable_http",
+        description="Transporte do MCP de SQL: streamable_http | sse",
+    )
+    SQL_MCP_TOOL: str = Field(
+        "execute_query", description="Nome da tool de execução no MCP de SQL"
+    )
+    SQL_MCP_TOOL_ARG: str = Field(
+        "query", description="Nome do argumento que leva o SQL na tool acima"
+    )
+    # Dialeto do SQL que o sistema gera, valida e reescreve. Governa o `sqlglot`
+    # (guarda da amostra e introspecção do eval) e é o dialeto citado no prompt
+    # do executor. O prompt da Persona 2 (`query_system.md`) tem as regras de
+    # dialeto ESCRITAS no texto — mudar aqui sem mudar lá gera SQL do dialeto
+    # errado. Valores úteis: trino | postgres.
+    SQL_DIALECT: str = Field(
+        "trino", description="Dialeto do SQL gerado/validado (sqlglot + prompts)"
+    )
+    # ⚠️ LEGADO (ADR-0013): endpoint do postgres-mcp. Nenhum componente lê este
+    # campo desde o ADR-0017 — ele fica para quem voltar ao Postgres saber o
+    # valor histórico. Para de fato voltar, aponte `SQL_MCP_*` para ele.
     POSTGRES_MCP_URL: str = Field(
         "http://postgres-mcp:8000/sse",
-        description="Endpoint SSE do postgres-mcp para o Agent executar o SQL",
+        description="[legado] Endpoint SSE do postgres-mcp (ver SQL_MCP_URL)",
     )
     AGENT_MAX_STEPS: int = Field(
         6, description="Máx. de passos do Agent na execução/autocorreção do SQL"

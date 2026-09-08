@@ -16,7 +16,7 @@ Diferente da Persona 2, aqui não há camada de entrega (sem gráfico, sem
 relatório) e a resposta sai em **uma única chamada de LLM**. A exceção é a
 **amostra de dados** (`EXPLORE_EXECUTE_SAMPLE`): o `sample_sql` é executado
 read-only para a pessoa VER linhas reais e baixar o CSV. O caminho normal dessa
-execução não gasta LLM nenhum (postgres-mcp direto); só a autocorreção gasta, e
+execução não gasta LLM nenhum (MCP direto); só a autocorreção gasta, e
 só quando o banco recusa a consulta do modelo.
 """
 import sys
@@ -36,7 +36,7 @@ class PipelineWrapper(BasePipelineWrapper):
     def setup(self) -> None:
         self.pipeline = build_explore_pipeline()
         # Amostra de dados: instanciada sob demanda para não acoplar o boot do
-        # wrapper à disponibilidade do postgres-mcp / MinIO.
+        # wrapper à disponibilidade do MCP de SQL / MinIO.
         self._sample_runner = None
         logger.info("Wrapper de Exploração (catálogo → panorama) inicializado")
 

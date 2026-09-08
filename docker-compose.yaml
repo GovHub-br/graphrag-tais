@@ -96,6 +96,9 @@ services:
       - neo4j
       - redis
       - minio
+      # Ordem de subida, não requisito: o McpSqlExecutor conecta preguiçosamente
+      # e a resposta degrada para só-texto se o executor estiver fora.
+      - trino-mcp
     healthcheck:
       test: ["CMD", "bash", "-lc", "curl -fsS http://localhost:8000/docs || exit 1"]
       interval: 10s
@@ -106,9 +109,84 @@ services:
     networks:
       - default
 
+  # Executor do SQL (ADR-0017). É ELE que segura a credencial do banco — o RAG
+  # não conhece senha de banco nenhum, só fala MCP (ADR-0004).
+  #
+  # Read-only: `TRINO_ALLOW_WRITE_QUERIES=false` faz o servidor aceitar apenas
+  # SELECT/SHOW/DESCRIBE/EXPLAIN e recusar qualquer DML/DDL. **Não ligue** isso
+  # — é o guardrail que substitui o modo RESTRICTED do postgres-mcp.
+  #
+  # ⚠️ Transporte: `MCP_TRANSPORT=http` publica DOIS caminhos, `/mcp` e `/sse`,
+  # e os dois falam **Streamable HTTP** (o `/sse` é só compatibilidade de rota,
+  # não é o SSE clássico). Use `/mcp` em `SQL_MCP_URL` e
+  # `SQL_MCP_TRANSPORT=streamable_http`.
+  trino-mcp:
+    image: ghcr.io/tuannvm/mcp-trino:${TRINO_MCP_TAG:-latest}
+    container_name: trino-mcp
+    environment:
+      TRINO_HOST: ${TRINO_HOST}
+      TRINO_PORT: ${TRINO_PORT:-443}
+      TRINO_USER: ${TRINO_USER}
+      TRINO_PASSWORD: ${TRINO_PASSWORD}
+      TRINO_CATALOG: ${TRINO_CATALOG}
+      TRINO_SCHEMA: ${TRINO_SCHEMA:-default}
+      # O servidor chama de SCHEME o que a infra do GovHub chama de PROTOCOL.
+      TRINO_SCHEME: ${TRINO_PROTOCOL:-https}
+      # ⚠️ NÃO FUNCIONA nesta imagem — mantido só para não parecer esquecido.
+      # O mcp-trino registra um `custom_client` no driver Go, e no
+      # trino-go-client o ramo do `custom_client` é um `else if` contra o ramo
+      # de TLS: com ele setado o driver NUNCA lê SSLInsecure/SSLCert. O cliente
+      # registrado usa `http.DefaultTransport`, que SEMPRE valida certificado.
+      # Quem resolve de verdade é o par SSL_CERT_FILE + extra_hosts abaixo.
+      TRINO_SSL_INSECURE: ${TRINO_SSL_INSECURE:-true}
+      # Confiança no certificado do Trino. O runtime Go respeita SSL_CERT_FILE
+      # (crypto/x509: se setado, SUBSTITUI o bundle do sistema). Vazio = usa as
+      # CAs públicas da imagem, que é o certo em produção com CA de verdade.
+      SSL_CERT_FILE: ${TRINO_CA_FILE:-}
+      # Guardrail read-only. Não mude.
+      TRINO_ALLOW_WRITE_QUERIES: "false"
+      TRINO_QUERY_TIMEOUT: ${TRINO_QUERY_TIMEOUT:-120}
+      # Teto do SERVIDOR (o do RAG é MAX_EXEC_ROWS): corta o streaming antes de
+      # a resposta virar memória. Deixe acima do teto da aplicação.
+      TRINO_MAX_ROWS: ${TRINO_MAX_ROWS:-5000}
+      MCP_TRANSPORT: http
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: "8080"
+    ports:
+      - "127.0.0.1:${TRINO_MCP_PORT:-8002}:8080"
+    restart: unless-stopped
+    volumes:
+      # PEM do Trino (gitignored — é material do ambiente, e rotaciona).
+      # Como buscar: ver o README de `certs/`.
+      - ./certs:/certs:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8080/status"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      # ⚠️ O certificado da homologação é emitido para o nome do serviço no
+      # cluster (`CN=trino.trino.svc.cluster.local`) e **não tem IP SAN** — por
+      # IP a validação falha SEMPRE, com qualquer CA confiável. Então
+      # `TRINO_HOST` precisa ser o NOME do certificado, e é este mapeamento que
+      # faz esse nome resolver no IP real. Com certificado que cubra o IP (ou
+      # com DNS de verdade), deixe `TRINO_ADDR` vazio e isto vira inofensivo.
+      - "${TRINO_TLS_HOSTNAME:-trino.invalid}:${TRINO_ADDR:-127.0.0.1}"
+    networks:
+      - default
+
+  # LEGADO (ADR-0013), mantido para quem quiser voltar ao Postgres direto.
+  # Fica atrás do profile `postgres` para NÃO subir por engano: sem as
+  # `ANALYTICS_DB_*` preenchidas ele entra em loop de restart.
+  #   docker compose --profile postgres up -d postgres-mcp
+  # e aponte `SQL_MCP_URL=http://postgres-mcp:8000/sse`,
+  # `SQL_MCP_TRANSPORT=sse`, `SQL_MCP_TOOL=execute_sql`, `SQL_MCP_TOOL_ARG=sql`,
+  # `SQL_DIALECT=postgres` (+ reverter o dialeto escrito em `query_system.md`).
   postgres-mcp:
     image: crystaldba/postgres-mcp
     container_name: postgres-mcp
+    profiles: ["postgres"]
     environment:
       DATABASE_URI: "postgresql://${ANALYTICS_DB_USER}:${ANALYTICS_DB_PASSWORD}@${ANALYTICS_DB_HOST}:${ANALYTICS_DB_PORT:-5432}/${ANALYTICS_DB_NAME}"
     command:

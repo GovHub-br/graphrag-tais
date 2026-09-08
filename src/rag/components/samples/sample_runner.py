@@ -7,7 +7,7 @@ coluna?"). O modo Explorar já sugeria um `sample_sql`; o que faltava era rodá-
 Escada de execução, do mais barato ao mais caro — a ordem é a decisão de projeto:
 
 1. **guarda determinística** (`sample_sql.guard`): leitura só, com teto de linhas;
-2. **execução direta** pelo postgres-mcp, **sem LLM** (`MCP_DIRECT_FIRST`);
+2. **execução direta** pelo MCP de SQL, **sem LLM** (`MCP_DIRECT_FIRST`);
 3. **autocorreção** pelo `Agent`, com contexto ENXUTO (as colunas da tabela
    alvo, não o catálogo inteiro) e poucos passos — preserva a intenção da
    consulta quando o banco recusa. Atrás de `EXPLORE_SAMPLE_AUTOCORRECT`;

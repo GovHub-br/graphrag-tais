@@ -12,7 +12,7 @@ carrega com `prompts.load("<nome>")` (cru) ou `prompts.render("<nome>", **vars)`
 | `result_summary_user.md` | `components/answer/result_explainer.py` (P2) | `str.format`: pergunta + resumo estatístico do resultado |
 | `chart_spec_system.md` | `components/charts/chart_spec.py` (P2) | escolhe bar/line/none (só quando a heurística não decide) |
 | `chart_spec_user.md` | `components/charts/chart_spec.py` (P2) | `str.format`: pergunta + colunas + amostra |
-| `sql_executor_system.md` | `components/executors/mcp_sql_executor.py` | agente que executa e autocorrige o SQL via postgres-mcp |
+| `sql_executor_system.md` | `components/executors/mcp_sql_executor.py` | agente que executa e autocorrige o SQL via MCP. ⚠️ Único prompt de SISTEMA que passa por `render`: leva `{dialect}` e `{tool}` (ADR-0017), então não pode ganhar chave literal |
 | `sql_executor_user.md` | `components/executors/mcp_sql_executor.py` | `str.format`: pergunta + schema + SQL a executar |
 | `explore_system.md` | `pipelines/explore` (P1) | guia do catálogo: panorama, tabelas, perguntas, lacunas |
 | `explore_user.md` | `pipelines/explore` (P1) | **template Jinja**: domínios + tabelas recuperadas + JOINs + pergunta |

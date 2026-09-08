@@ -8,7 +8,7 @@ Expõe dois contratos:
                         puro (não executa SQL) — rápido e reusável.
 - `run_chat_completion`: contrato OpenAI-compat que o **OpenWebUI** consome.
                         Compõe o motor com a **camada de entrega** (ADR-0013):
-                        executa o SQL via postgres-mcp (autocorreção), escreve o
+                        executa o SQL via MCP read-only (autocorreção), escreve o
                         parágrafo **"Resultado"** sobre o que voltou (ADR-0010
                         item c) e embute o **gráfico** no Markdown. Aditivo — se
                         a execução, a explicação ou o gráfico falharem, ainda
