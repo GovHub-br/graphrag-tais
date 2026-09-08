@@ -275,6 +275,20 @@ def render_masking_note(masked_columns: List[str]) -> str:
     )
 
 
+def render_truncation_note(truncated: bool, limite: int) -> str:
+    """Uma frase quando o resultado não coube (ADR-0018).
+
+    Curta de propósito: o corte é detalhe de operação, não o assunto da
+    resposta. Mas tem de aparecer — sem ela, o gráfico e a leitura descrevem
+    uma fatia com a cara do todo, e ninguém tem como desconfiar."""
+    if not truncated:
+        return ""
+    return (
+        f"> ⚠️ O resultado tem mais de {limite:,} linhas; a leitura e o gráfico "
+        "acima cobrem só as primeiras — filtre mais ou peça o número agregado."
+    ).replace(",", ".")
+
+
 def render_markdown(answer: Dict[str, Any],
                     exec_info: Dict[str, Any] | None = None) -> str:
     """Markdown do chat a partir do `answer` estruturado.
@@ -345,6 +359,13 @@ def render_markdown(answer: Dict[str, Any],
     aviso = render_masking_note(exec_info.get("masked_columns") or [])
     if aviso:
         parts.append(aviso)
+
+    # 7) Truncamento do resultado. Vem por último: é ressalva sobre tudo o que
+    # foi dito acima, não uma seção.
+    corte = render_truncation_note(bool(exec_info.get("truncated")),
+                                   int(exec_info.get("row_limit") or 0))
+    if corte:
+        parts.append(corte)
 
     # A IR (intent/metric/filters) NÃO é renderizada: ela é ponto de controle de
     # engenharia (ADR-0006/0007) e continua no `answer` da API `/query/run` e no

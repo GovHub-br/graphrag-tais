@@ -168,6 +168,16 @@ mexeu (a tentativa recusada não aparece, só a nota "ajustado na execução"); 
 vinha pronto da pipeline (montado ANTES da execução): a primeira tentativa do LLM aparecia como
 "SQL gerado" mesmo recusada pelo banco, e o dicionário documentava as colunas dela.
 
+⚠️ **Resultado truncado AVISA** (08/09). O corte em `MAX_EXEC_ROWS` (1.000) era
+mudo: gráfico, parágrafo do resultado e `.docx` eram montados sobre a primeira
+fatia com a mesma confiança de sempre — "gastos por município" (5.570 linhas)
+saía com 1.000 e cara de completo. O executor devolve `truncated` (calculado
+ANTES do corte, então `LIMIT 100` que devolve 100 não é truncamento) e a
+resposta ganha uma frase. Não confundir com o teto do SERVIDOR
+(`TRINO_MAX_ROWS`, 5.000, no compose): esse fica acima do da aplicação e nunca
+morde primeiro. Nenhum dos dois limita **agregação** — `COUNT`/`SUM` são feitos
+pelo Trino sobre a tabela inteira e devolvem poucas linhas.
+
 ⚠️ **Erro de execução NÃO vai para a resposta** (decisão de produto, 19/08): sem mensagem de
 banco no chat nem callout no `.docx` — quem lê quer a consulta, não o diagnóstico. O erro fica
 no `delivery["exec_error"]` e num `logger.warning` do `_with_delivery`; **é lá que se debuga**

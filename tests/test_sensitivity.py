@@ -439,6 +439,60 @@ class TestRetornoDaToolNaoVazaParaOModelo(unittest.TestCase):
         self.assertEqual(cols, ["cpf"])
 
 
+@unittest.skipUnless(HAS_SQLGLOT and HAYSTACK, "Haystack/sqlglot indisponíveis no host")
+class TestTruncamentoAvisado(unittest.TestCase):
+    """O corte em `MAX_EXEC_ROWS` era MUDO.
+
+    O gráfico, o parágrafo do resultado e o .docx eram montados sobre as
+    primeiras N linhas com a mesma confiança de sempre — uma fatia com cara de
+    todo. Estes testes fixam que o corte agora se anuncia, e (igualmente
+    importante) que ele NÃO se anuncia quando não houve corte: aviso que
+    aparece à toa é ruído, e ruído se aprende a ignorar."""
+
+    def _protect(self, n_linhas, max_rows):
+        from rag.components.executors.mcp_sql_executor import McpSqlExecutor
+
+        ex = McpSqlExecutor.__new__(McpSqlExecutor)
+        ex.max_rows = max_rows
+        linhas = [{"uf": f"U{i}", "total": i} for i in range(n_linhas)]
+        return ex._protect(linhas[:max_rows], ["uf", "total"],
+                           "SELECT uf, total FROM conjuntura.x",
+                           truncated=n_linhas > max_rows)
+
+    def test_corte_e_sinalizado(self):
+        out = self._protect(3000, 1000)
+        self.assertTrue(out["truncated"])
+        self.assertEqual(len(out["rows"]), 1000)
+
+    def test_resultado_que_coube_nao_avisa(self):
+        self.assertFalse(self._protect(42, 1000)["truncated"])
+
+    def test_limite_exato_nao_e_truncamento(self):
+        """`LIMIT 100` que devolve 100 linhas não foi cortado por nós — avisar
+        aqui seria mentir sobre um resultado completo."""
+        self.assertFalse(self._protect(1000, 1000)["truncated"])
+
+    def test_frase_aparece_na_resposta(self):
+        from rag.components.answer.sql_answer_builder import render_markdown
+
+        answer = {"status": "sucesso", "explanation": "Gastos por município.",
+                  "sql": "SELECT m, v FROM x", "refusal": "", "ir": {},
+                  "references": [], "joins": []}
+        md = render_markdown(answer, {"exec_ok": True, "sql_final": "SELECT m, v FROM x",
+                                      "truncated": True, "row_limit": 1000})
+        self.assertIn("1.000", md)
+        self.assertIn("agregado", md)
+
+    def test_sem_truncamento_a_resposta_fica_limpa(self):
+        from rag.components.answer.sql_answer_builder import render_markdown
+
+        answer = {"status": "sucesso", "explanation": "ok", "sql": "SELECT 1",
+                  "refusal": "", "ir": {}, "references": [], "joins": []}
+        md = render_markdown(answer, {"exec_ok": True, "truncated": False,
+                                      "row_limit": 1000})
+        self.assertNotIn("⚠️", md)
+
+
 @unittest.skipUnless(HAYSTACK, "Haystack indisponível no host")
 class TestNotaDeTransparencia(unittest.TestCase):
     """Sem a nota, `#a3f9c1d20b` é lido como defeito do sistema."""

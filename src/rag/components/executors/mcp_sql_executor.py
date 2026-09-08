@@ -147,10 +147,11 @@ class McpSqlExecutor:
         exec_ok=bool,
         error=str,
         masked_columns=List[str],
+        truncated=bool,
     )
     def run(self, sql: str, query: str = "", schema_context: str = "") -> dict:
         empty = {"rows": [], "columns": [], "sql_final": sql, "exec_ok": False,
-                 "error": "", "masked_columns": []}
+                 "error": "", "masked_columns": [], "truncated": False}
         if not (sql or "").strip():
             empty["error"] = "SQL vazio."
             return empty
@@ -177,7 +178,10 @@ class McpSqlExecutor:
                         "McpSqlExecutor[direto]: {} linhas, {} colunas",
                         len(rows), len(columns),
                     )
-                    return self._protect(rows[: self.max_rows], columns, sql)
+                    return self._protect(
+                        rows[: self.max_rows], columns, sql,
+                        truncated=len(rows) > self.max_rows,
+                    )
             if self.direct_only:
                 empty["error"] = (
                     direct_error
@@ -232,7 +236,8 @@ class McpSqlExecutor:
             "McpSqlExecutor: {} linhas, {} colunas", len(ok.rows), len(columns)
         )
         return self._protect(ok.rows[: self.max_rows], columns, sql_final,
-                             ja_mascarado=True)
+                             ja_mascarado=True,
+                             truncated=len(ok.rows) > self.max_rows)
 
     # ------------------------------------------------------------------ #
     def _client(self):
@@ -592,7 +597,7 @@ class McpSqlExecutor:
             return True
 
     def _protect(self, rows, columns, sql_final: str,
-                 ja_mascarado: bool = False) -> Dict[str, Any]:
+                 ja_mascarado: bool = False, truncated: bool = False) -> Dict[str, Any]:
         """Monta a saída de sucesso com o dado sensível já mascarado (ADR-0018).
 
         ⚠️ **É este o ponto único de saída de linha real do sistema.** Todo
@@ -614,6 +619,15 @@ class McpSqlExecutor:
         # nota de transparência saber quais colunas citar.
         rows, masked = mask_rows(rows, columns, sql_final,
                                  apply_values=not ja_mascarado)
+        # `truncated` existe porque o corte era MUDO: o gráfico, o parágrafo do
+        # resultado e o .docx eram montados sobre as `max_rows` primeiras
+        # linhas com a mesma confiança de sempre. Errar em silêncio é pior que
+        # errar — o leitor não tem como desconfiar.
+        if truncated:
+            logger.warning(
+                "McpSqlExecutor: resultado truncado em {} linhas — a leitura e o "
+                "gráfico cobrem só essa fatia", self.max_rows,
+            )
         return {
             "rows": rows,
             "columns": columns,
@@ -621,6 +635,7 @@ class McpSqlExecutor:
             "exec_ok": True,
             "error": "",
             "masked_columns": masked,
+            "truncated": truncated,
         }
 
     @staticmethod

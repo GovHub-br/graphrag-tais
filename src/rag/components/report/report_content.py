@@ -134,6 +134,16 @@ def render_answer(doc: _Document, answer: Dict[str, Any],
     if aviso:
         w.add_callout(doc, aviso)
 
+    # 8) Resultado truncado. O documento circula sozinho, então a ressalva
+    #    precisa viajar com ele.
+    if exec_info.get("truncated"):
+        limite = f"{int(exec_info.get('row_limit') or 0):,}".replace(",", ".")
+        w.add_callout(
+            doc,
+            f"⚠️ O resultado tem mais de {limite} linhas; a leitura e o gráfico "
+            "acima cobrem só as primeiras — filtre mais ou peça o número agregado.",
+        )
+
 
 # --------------------------------------------------------------------------- #
 def _masking_note(masked_columns: List[str]) -> str:
