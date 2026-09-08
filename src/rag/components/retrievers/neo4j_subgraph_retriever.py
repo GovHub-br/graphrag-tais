@@ -130,7 +130,8 @@ def _grain_for(table_fqn: str) -> str:
 
 def _schema_short(schema_fqn: str | None, table_fqn: str) -> str:
     """Último segmento do FQN do schema (ex.: 'Cidades.cidades.conjuntura_gold'
-    → 'conjuntura_gold'). É o schema físico usado no SQL do Postgres."""
+    → 'conjuntura_gold'). É o schema físico usado no SQL (hoje contra o Trino,
+    cujo catálogo já é o default da conexão — o SQL não o prefixa)."""
     if schema_fqn:
         return schema_fqn.rsplit(".", 1)[-1]
     # Fallback pelo FQN da tabela: service.database.schema.table

@@ -1,23 +1,29 @@
-"""McpSqlExecutor — executa o SQL com auto-correção via postgres-mcp (ADR-0013).
+"""McpSqlExecutor — executa o SQL com auto-correção via MCP (ADR-0013/0017).
 
 Recebe o SQL candidato (do motor) e o executa através de um `Agent` do Haystack
-equipado com o `postgres-mcp` (tool `execute_sql`, modo read-only). Se o SQL der
-erro, o próprio agente lê a mensagem do banco, corrige e tenta de novo, até
-`AGENT_MAX_STEPS`. Devolve o SQL que rodou + as linhas do resultado.
+equipado com o **MCP de SQL** (hoje o `trino-mcp`; o `postgres-mcp` continua
+suportado). Se o SQL der erro, o próprio agente lê a mensagem do banco, corrige
+e tenta de novo, até `AGENT_MAX_STEPS`. Devolve o SQL que rodou + as linhas.
 
 Princípios (ADR-0013):
-- **read-only garantido pelo MCP** (RESTRICTED: só SELECT, timeout, sem COMMIT);
+- **read-only garantido pelo MCP** (o trino-mcp só aceita SELECT/SHOW/DESCRIBE/
+  EXPLAIN enquanto `TRINO_ALLOW_WRITE_QUERIES=false`; o postgres-mcp fazia o
+  mesmo pelo modo RESTRICTED);
 - **tolerante a falha**: se o MCP estiver fora ou o SQL não rodar, devolve
   `exec_ok=False` e a entrega degrada para só-texto — nunca derruba a resposta;
 - **conexão preguiçosa**: o toolset MCP só conecta na primeira execução, para
-  não travar o setup da pipeline se o postgres-mcp estiver indisponível.
+  não travar o setup da pipeline se o MCP estiver indisponível.
+
+⚠️ O componente é **agnóstico de backend**: nome da tool, nome do argumento,
+URL e transporte vêm de `SQL_MCP_*` (ADR-0017). Não escreva "execute_sql" nem
+"execute_query" no código — leia da config.
 """
 from __future__ import annotations
 
 import datetime as _dt
 import json
 from decimal import Decimal
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 from loguru import logger
 from haystack import component
@@ -27,11 +33,24 @@ from rag import prompts
 from rag.settings.configs import settings
 from rag.components.generators.openai_generator import OpenAIChatGeneratorFactory
 
-_SYSTEM_PROMPT = prompts.load("sql_executor_system")
+# O nome da tool e o dialeto entram no prompt: o agente tem de chamar a tool que
+# EXISTE no servidor configurado, e corrigir SQL no dialeto que o banco fala.
+_SYSTEM_PROMPT = prompts.render(
+    "sql_executor_system",
+    dialect=settings.SQL_DIALECT,
+    tool=settings.SQL_MCP_TOOL,
+)
+
+#: Tools de execução conhecidas. O histórico do Agent é varrido por nome, e
+#: aceitar os dois backends evita que trocar `SQL_MCP_TOOL` invalide um trace
+#: gravado com o outro (o campo configurado entra junto em `_sql_tool_names`).
+_KNOWN_SQL_TOOLS = frozenset({"execute_query", "execute_sql"})
+#: Nomes de argumento conhecidos, na mesma lógica.
+_KNOWN_SQL_ARGS = ("query", "sql")
 
 
 class _Attempt(NamedTuple):
-    """Uma chamada de `execute_sql` no histórico do agente, já interpretada.
+    """Uma chamada da tool de execução no histórico do agente, já interpretada.
     `error` vazio = a chamada rodou e o resultado é utilizável."""
     sql: Optional[str]
     columns: List[str]
@@ -48,7 +67,10 @@ class McpSqlExecutor:
         max_rows: int | None = None,
         direct_only: bool = False,
     ) -> None:
-        self.mcp_url = mcp_url or settings.POSTGRES_MCP_URL
+        self.mcp_url = mcp_url or settings.SQL_MCP_URL
+        self.transport = (settings.SQL_MCP_TRANSPORT or "streamable_http").lower()
+        self.tool_name = settings.SQL_MCP_TOOL
+        self.tool_arg = settings.SQL_MCP_TOOL_ARG
         self.max_steps = max_steps or settings.AGENT_MAX_STEPS
         self.max_rows = max_rows or settings.MAX_EXEC_ROWS
         self.direct_timeout = settings.MCP_DIRECT_TIMEOUT
@@ -60,15 +82,36 @@ class McpSqlExecutor:
         self._agent = None  # construído preguiçosamente
 
     # ------------------------------------------------------------------ #
+    def _server_info(self):
+        """`MCPServerInfo` do transporte configurado.
+
+        `streamable_http` é o default porque é o que o trino-mcp fala nos DOIS
+        endpoints que publica (`/mcp` e `/sse`); `sse` é o SSE clássico, que é
+        o que o postgres-mcp fala.
+
+        O `timeout` é passado de propósito: o default do transporte é 30s, e
+        consulta analítica passa disso com facilidade — quem manda no tempo tem
+        de ser a nossa config (`MCP_DIRECT_TIMEOUT`), não o default da lib."""
+        from haystack_integrations.tools.mcp import SSEServerInfo, StreamableHttpServerInfo
+
+        if self.transport == "sse":
+            return SSEServerInfo(url=self.mcp_url, timeout=self.direct_timeout)
+        if self.transport != "streamable_http":
+            logger.warning(
+                "McpSqlExecutor: SQL_MCP_TRANSPORT='{}' desconhecido; usando streamable_http",
+                self.transport,
+            )
+        return StreamableHttpServerInfo(url=self.mcp_url, timeout=self.direct_timeout)
+
     def _build_agent(self):
-        """Constrói o Agent + MCPToolset(postgres-mcp). Import tardio para não
-        acoplar o resto da pipeline à dependência de MCP."""
+        """Constrói o Agent + MCPToolset. Import tardio para não acoplar o resto
+        da pipeline à dependência de MCP."""
         from haystack.components.agents import Agent
-        from haystack_integrations.tools.mcp import MCPToolset, SSEServerInfo
+        from haystack_integrations.tools.mcp import MCPToolset
 
         toolset = MCPToolset(
-            server_info=SSEServerInfo(url=self.mcp_url),
-            tool_names=["execute_sql"],
+            server_info=self._server_info(),
+            tool_names=[self.tool_name],
         )
         # Gerador em modo tool-calling (json_mode=False: o agente precisa
         # chamar ferramentas e depois responder texto).
@@ -108,12 +151,14 @@ class McpSqlExecutor:
         # (fidelidade ao schema medida em 1,0). Só caímos no Agent se o banco
         # recusar, preservando a autocorreção onde ela de fato serve.
         if settings.MCP_DIRECT_FIRST or self.direct_only:
-            direct = self._execute_direct(sql)
+            direct, direct_error = self._execute_direct(sql)
             if direct is not None:
                 columns, rows, parse_error = self._parse_rows(direct)
                 if parse_error:
                     logger.warning("McpSqlExecutor[direto]: {}", parse_error)
+                    direct_error = direct_error or parse_error
                 else:
+                    columns = self._order_columns(sql, columns)
                     logger.info(
                         "McpSqlExecutor[direto]: {} linhas, {} colunas",
                         len(rows), len(columns),
@@ -126,7 +171,10 @@ class McpSqlExecutor:
                         "error": "",
                     }
             if self.direct_only:
-                empty["error"] = "o banco recusou o SQL (execução direta, sem autocorreção)"
+                empty["error"] = (
+                    direct_error
+                    or "o banco recusou o SQL (execução direta, sem autocorreção)"
+                )
                 return empty
             logger.info("McpSqlExecutor: execução direta falhou; acionando autocorreção")
 
@@ -151,60 +199,112 @@ class McpSqlExecutor:
             empty["error"] = failed.error
             return empty
 
+        columns = self._order_columns(ok.sql or sql, ok.columns)
         logger.info(
-            "McpSqlExecutor: {} linhas, {} colunas", len(ok.rows), len(ok.columns)
+            "McpSqlExecutor: {} linhas, {} colunas", len(ok.rows), len(columns)
         )
         return {
             "rows": ok.rows[: self.max_rows],
-            "columns": ok.columns,
+            "columns": columns,
             "sql_final": ok.sql or sql,
             "exec_ok": True,
             "error": "",
         }
 
     # ------------------------------------------------------------------ #
-    def _execute_direct(self, sql: str) -> Optional[str]:
-        """Chama `execute_sql` pelo protocolo MCP, sem Agent e sem LLM.
+    def _client(self):
+        """Context manager do transporte configurado, já normalizado para
+        `(read, write)` — o `streamablehttp_client` devolve uma tripla (o
+        terceiro item é o getter do session id, que não usamos)."""
+        import contextlib
 
-        Devolve o texto cru do resultado, ou None se o banco recusou — nesse
-        caso o chamador aciona o Agent para autocorrigir.
+        if self.transport == "sse":
+            from mcp.client.sse import sse_client
 
-        Usa o transporte SSE clássico (`GET /sse` abre o stream e informa o
-        endpoint de POST); o MCPToolset do Haystack tenta POST no próprio /sse
-        (Streamable HTTP) e recebe 405 desta versão do postgres-mcp.
+            return sse_client(self.mcp_url, timeout=self.direct_timeout)
+
+        from mcp.client.streamable_http import streamablehttp_client
+
+        @contextlib.asynccontextmanager
+        async def _streams():
+            # `timeout` explícito: o default da lib é 30s e uma consulta
+            # analítica passa disso. Quem manda é MCP_DIRECT_TIMEOUT.
+            async with streamablehttp_client(
+                self.mcp_url, timeout=self.direct_timeout
+            ) as (read, write, _sid):
+                yield read, write
+
+        return _streams()
+
+    def _execute_direct(self, sql: str) -> Tuple[Optional[str], str]:
+        """Chama a tool de execução pelo protocolo MCP, sem Agent e sem LLM.
+
+        Devolve `(texto cru do resultado, erro)`. Texto `None` = o banco (ou o
+        transporte) recusou — nesse caso o chamador aciona o Agent para
+        autocorrigir, e o `erro` serve para quem não tem Agent (a amostra da
+        Persona 1, `direct_only`) reportar o motivo em vez de "recusou".
+
+        Os dois backends sinalizam erro de forma DIFERENTE e as duas são
+        tratadas: o trino-mcp marca `isError=True` no envelope; o postgres-mcp
+        devolve `isError=False` com o erro do banco como TEXTO (ver `_db_error`).
         """
         import asyncio
 
-        async def _call() -> Optional[str]:
+        async def _call() -> Tuple[Optional[str], str]:
             from mcp import ClientSession
-            from mcp.client.sse import sse_client
 
-            async with sse_client(self.mcp_url) as (read, write):
+            async with self._client() as (read, write):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
-                    res = await session.call_tool("execute_sql", {"sql": sql})
-                    if getattr(res, "isError", False):
-                        return None
+                    res = await session.call_tool(
+                        self.tool_name, {self.tool_arg: sql}
+                    )
                     text = "\n".join(
                         c.text for c in res.content
                         if getattr(c, "type", "") == "text"
                     )
-                    # O envelope pode trazer erro do banco em vez de linhas.
-                    if not text or '"isError": true' in text.lower():
-                        return None
+                    if getattr(res, "isError", False):
+                        message = " ".join((text or "").split())[:300]
+                        logger.info(
+                            "McpSqlExecutor: o MCP recusou o SQL ({})",
+                            message or "sem mensagem",
+                        )
+                        return None, message
+                    if not text:
+                        return None, "o executor não devolveu resultado"
                     db_error = self._db_error(text)
                     if db_error:
                         logger.info(
                             "McpSqlExecutor: banco recusou o SQL ({})", db_error[:160]
                         )
-                        return None
-                    return text
+                        return None, db_error
+                    return text, ""
 
         try:
-            return asyncio.run(asyncio.wait_for(_call(), timeout=self.direct_timeout))
+            # Margem sobre o timeout do transporte de propósito: assim quem
+            # estoura primeiro é a camada de baixo, que sabe dizer O QUE falhou;
+            # este `wait_for` é a rede de segurança contra travar para sempre.
+            return asyncio.run(
+                asyncio.wait_for(_call(), timeout=self.direct_timeout + 5)
+            )
         except Exception as exc:  # noqa: BLE001 — degrada para o Agent
             logger.warning("McpSqlExecutor: execução direta indisponível ({})", exc)
-            return None
+            return None, f"Execução indisponível: {exc}"
+
+    # ------------------------------------------------------------------ #
+    @classmethod
+    def _sql_tool_names(cls) -> frozenset:
+        """Nomes de tool que contam como "execução de SQL" na varredura."""
+        return _KNOWN_SQL_TOOLS | {settings.SQL_MCP_TOOL}
+
+    @classmethod
+    def _tool_sql(cls, args: Dict[str, Any]) -> Optional[str]:
+        """O SQL de uma chamada, seja qual for o nome do argumento no backend."""
+        for key in (settings.SQL_MCP_TOOL_ARG, *_KNOWN_SQL_ARGS):
+            value = (args or {}).get(key)
+            if value:
+                return value
+        return None
 
     @classmethod
     def _scan_executions(cls, messages: list) -> tuple[Optional["_Attempt"], Optional["_Attempt"]]:
@@ -217,20 +317,28 @@ class McpSqlExecutor:
         a função devolvia a última TENTATIVA, não a última bem-sucedida. Dois
         efeitos: um resultado bom seguido de uma tentativa recusada era
         descartado (resposta sem gráfico à toa), e o `sql_final` exibido podia
-        ser um SQL que nunca rodou."""
+        ser um SQL que nunca rodou.
+
+        Com o trino-mcp o erro VEM marcado (`isError=True`), e o Haystack o
+        converte num `ToolCallResult` com `error=True` cujo `result` é a
+        mensagem — por isso a tentativa falha carrega o texto, não um genérico."""
+        tools = cls._sql_tool_names()
         ok: Optional[_Attempt] = None
         failed: Optional[_Attempt] = None
         last_sql: Optional[str] = None
         for msg in messages or []:
             for res in (getattr(msg, "tool_call_results", None) or []):
                 origin = getattr(res, "origin", None)
-                if getattr(origin, "tool_name", None) != "execute_sql":
+                if getattr(origin, "tool_name", None) not in tools:
                     continue
-                args = getattr(origin, "arguments", None) or {}
-                last_sql = args.get("sql") or args.get("query") or last_sql
+                last_sql = cls._tool_sql(getattr(origin, "arguments", None) or {}) or last_sql
                 raw = getattr(res, "result", None)
                 if getattr(res, "error", False):
-                    failed = _Attempt(last_sql, [], [], "a ferramenta execute_sql falhou")
+                    detail = " ".join(str(raw or "").split())[:300]
+                    failed = _Attempt(
+                        last_sql, [], [],
+                        detail or f"a ferramenta {settings.SQL_MCP_TOOL} falhou",
+                    )
                     continue
                 # O que conta como resultado utilizável é decidido num lugar só.
                 columns, rows, error = cls._parse_rows(raw)
@@ -246,6 +354,8 @@ class McpSqlExecutor:
     # autocorreção do Agent (ADR-0013) nunca é acionada e o `eval` do repr
     # quebra com "invalid syntax" — sobrando 0 linhas com exec_ok=True, ou
     # seja, resposta sem gráfico e sem aviso nenhum para o usuário.
+    # O trino-mcp marca `isError=True`, então para ele isto é redundante — e
+    # continua valendo, porque a heurística é barata e o backend é configurável.
     _DB_ERROR_MARKERS = ("error:", "erro:", "exception:", "traceback")
 
     @classmethod
@@ -258,12 +368,16 @@ class McpSqlExecutor:
 
     @classmethod
     def _parse_rows(cls, raw: Any) -> tuple[List[str], List[Dict[str, Any]], str]:
-        """Parse do resultado do execute_sql em (colunas, linhas, erro).
+        """Parse do resultado da tool de execução em (colunas, linhas, erro).
 
-        O postgres-mcp devolve um envelope MCP JSON cujo `content[].text` é o
-        **repr Python** das linhas (aspas simples, `Decimal('...')`, datas como
-        `datetime.date(...)`). Desembrulhamos o envelope e avaliamos o repr num
-        namespace restrito (só Decimal/datetime), normalizando os valores.
+        Os dois backends entregam a MESMA forma lógica (lista de dicts), em
+        serializações diferentes, e as duas são aceitas:
+
+        - **trino-mcp**: `content[].text` é **JSON** (`json.MarshalIndent` das
+          linhas) — cai no caminho feliz do `json.loads`;
+        - **postgres-mcp**: `content[].text` é o **repr Python** das linhas
+          (aspas simples, `Decimal('...')`, `datetime.date(...)`) — avaliado num
+          namespace restrito (só Decimal/datetime), com os valores normalizados.
 
         O terceiro elemento é o que separa "consulta sem resultado" (válido, 0
         linhas, erro vazio) de "não entendi a resposta" (falha). Sem essa
@@ -278,15 +392,26 @@ class McpSqlExecutor:
         data = cls._eval_repr(text)
         if isinstance(data, list) and data and isinstance(data[0], dict):
             rows = [cls._normalize_row(r) for r in data if isinstance(r, dict)]
-            columns = list(rows[0].keys()) if rows else []
+            # As colunas saem da UNIÃO das chaves, na ordem de aparição: o
+            # trino-mcp serializa cada linha a partir de um `map[string]any`,
+            # e um valor nulo pode não aparecer na primeira linha.
+            columns: List[str] = []
+            for row in rows:
+                for key in row:
+                    if key not in columns:
+                        columns.append(key)
             return columns, rows, ""
-        if text.strip() in {"[]", "()"}:
+        if text.strip() in {"[]", "()", "null"}:
             return [], [], ""  # consulta válida, sem linhas
         return [], [], "não consegui interpretar o resultado da execução"
 
     @staticmethod
     def _unwrap_mcp_text(raw: Any) -> str:
-        """Extrai o texto das linhas do envelope MCP (ou aceita texto/JSON cru)."""
+        """Extrai o texto das linhas do envelope MCP (ou aceita texto/JSON cru).
+
+        Quando o envelope vem marcado com `isError`, o texto É a mensagem do
+        banco: devolvê-la (em vez de string vazia) faz o `_parse_rows` reportar
+        o erro de verdade em vez de "o executor não devolveu resultado"."""
         if not isinstance(raw, str):
             return ""
         try:
@@ -294,26 +419,28 @@ class McpSqlExecutor:
         except json.JSONDecodeError:
             return raw  # já é o texto das linhas
         if isinstance(obj, dict):
-            if obj.get("isError"):
-                return ""
             parts = obj.get("content") or []
             texts = [
                 p.get("text", "")
                 for p in parts
                 if isinstance(p, dict) and p.get("type") == "text"
             ]
-            return "\n".join(t for t in texts if t)
+            text = "\n".join(t for t in texts if t)
+            if obj.get("isError"):
+                message = " ".join(text.split())[:300]
+                return f"Error: {message}" if message else "Error: execução recusada"
+            return text
         return raw
 
     @staticmethod
     def _eval_repr(text: str) -> Any:
-        """Avalia o repr Python das linhas de forma contida (sem builtins;
-        só Decimal/datetime disponíveis). Valores string ficam como literais —
+        """Avalia as linhas de forma contida. JSON (trino-mcp) é o caminho
+        feliz; o repr Python do postgres-mcp cai no `eval` sem builtins, com
+        só Decimal/datetime disponíveis — valores string ficam como literais,
         não são executados."""
         text = text.strip()
         if not text or text in {"[]", "()"}:
             return []
-        # Caminho feliz: pode já ser JSON.
         try:
             return json.loads(text)
         except json.JSONDecodeError:
@@ -331,7 +458,15 @@ class McpSqlExecutor:
     @staticmethod
     def _normalize_row(row: Dict[str, Any]) -> Dict[str, Any]:
         """Converte tipos não-JSON (Decimal→float, date/datetime→ISO) para o
-        gráfico e para a serialização da resposta."""
+        gráfico e para a serialização da resposta.
+
+        ⚠️ O trino-mcp entrega `DECIMAL` como **string** (limitação do driver
+        Go do Trino, que não tem tipo decimal). Não convertemos aqui de
+        propósito: "12345" tanto pode ser um `SUM(decimal)` quanto um código de
+        IBGE/CNPJ, e transformar código em número estragaria rótulo de eixo e
+        CSV. Quem precisa de número já coage sozinho — `_infer_kinds`
+        (chart_spec), `pd.to_numeric` (renderers) e `_as_float`
+        (result_explainer) aceitam string numérica."""
         out: Dict[str, Any] = {}
         for key, value in row.items():
             if isinstance(value, Decimal):
@@ -341,3 +476,49 @@ class McpSqlExecutor:
             else:
                 out[key] = value
         return out
+
+    @staticmethod
+    def _order_columns(sql: str, columns: List[str]) -> List[str]:
+        """Reordena as colunas na ordem do `SELECT`.
+
+        Existe por causa de um detalhe do trino-mcp: cada linha é um
+        `map[string]interface{}` em Go, e o `encoding/json` serializa mapa com
+        as chaves **em ordem alfabética**. O resultado chega correto, mas com as
+        colunas embaralhadas — `SELECT uf, total` volta como `total, uf`, e é
+        essa ordem que vai para a tabela do chat, para o CSV da amostra e para o
+        `.docx`. O envelope não traz metadado de coluna, então a ordem tem de
+        ser reconstruída da única fonte que a conhece: o próprio SQL.
+
+        Conservadora por construção: só reordena quando o parse dá certo E o
+        conjunto de nomes projetados é EXATAMENTE o que voltou (nada de `*`,
+        nada de projeção sem nome). Qualquer dúvida devolve a ordem recebida —
+        o pior caso é continuar alfabético, nunca perder coluna."""
+        if len(columns) < 2 or not (sql or "").strip():
+            return columns
+        try:
+            import sqlglot
+
+            from sqlglot import exp
+
+            tree = sqlglot.parse_one(sql, read=settings.SQL_DIALECT)
+            # A amostra da Persona 1 chega envelopada (`SELECT * FROM (…) AS
+            # amostra LIMIT n`, ver `sample_sql.guard`): a projeção de fora é
+            # `*` e quem conhece a ordem é a consulta de dentro.
+            for _ in range(3):
+                projected = [expression.alias_or_name for expression in tree.selects]
+                if projected != ["*"]:
+                    break
+                # `from_` no sqlglot 30+, `from` nas gerações anteriores.
+                source = tree.args.get("from_") or tree.args.get("from")
+                inner = source.this if source is not None else None
+                if not isinstance(inner, exp.Subquery):
+                    break
+                tree = inner.this
+            projected = [expression.alias_or_name for expression in tree.selects]
+        except Exception:  # noqa: BLE001 — SQL de LLM; ordem é cosmética
+            return columns
+        if not projected or any(not name or name == "*" for name in projected):
+            return columns
+        by_lower = {name.lower(): name for name in columns}
+        ordered = [by_lower[name.lower()] for name in projected if name.lower() in by_lower]
+        return ordered if set(ordered) == set(columns) else columns

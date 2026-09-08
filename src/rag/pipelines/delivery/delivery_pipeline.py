@@ -1,7 +1,7 @@
 """
 Pipeline de ENTREGA (ADR-0010/0013) — separada do motor, consome sua saída.
 
-    SQL (do motor) ─► mcp_executor (Agent + postgres-mcp, autocorreção)
+    SQL (do motor) ─► mcp_executor (MCP de SQL; direto e, no erro, Agent)
                           │ linhas + colunas
                           ├─► chart_spec (LLM escolhe o gráfico)
                           │        │ spec
@@ -10,7 +10,8 @@ Pipeline de ENTREGA (ADR-0010/0013) — separada do motor, consome sua saída.
                           └─► result_explainer ─► parágrafo sobre o resultado
 
 O motor (recuperação + geração de SQL) permanece inalterado e reusável; esta
-pipeline executa o SQL contra o banco (read-only, via MCP) e produz o gráfico e
+pipeline executa o SQL contra o banco (read-only, via MCP — trino-mcp por
+default desde o ADR-0017, backend configurável) e produz o gráfico e
 a explicação do resultado (itens b e c do ADR-0010). Tolerante a falha: se a
 execução, o gráfico ou a explicação falharem, os componentes devolvem vazio e a
 resposta segue só com o texto do motor.

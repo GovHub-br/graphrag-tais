@@ -53,10 +53,11 @@ inclusive o próprio autor daqui a seis meses — entenda *por que* o sistema é
 | [0010](./0010-camada-de-entrega-tabelas-grafico-explicacao-relatorio.md) | Camada de entrega — tabelas, gráfico, explicação e relatório | Proposto |
 | [0011](./0011-contrato-detalhado-da-ingestao-openmetadata-neo4j-qdrant.md) | Contrato detalhado da ingestão OpenMetadata → Neo4j e Qdrant | Proposto |
 | [0012](./0012-desenvolvimento-orientado-a-metricas-no-retrieval.md) | Desenvolvimento orientado a métricas no retrieval | Proposto |
-| [0013](./0013-execucao-via-postgres-mcp-e-grafico-chart-spec-no-v1.md) | Execução via postgres-mcp com auto-correção e gráfico por chart-spec | Proposto |
+| [0013](./0013-execucao-via-postgres-mcp-e-grafico-chart-spec-no-v1.md) | Execução via postgres-mcp com auto-correção e gráfico por chart-spec | Proposto (execução revisada pelo ADR-0017) |
 | [0014](./0014-personas-e-modos-de-uso-do-assistente.md) | Duas personas como dois modos de uso do assistente | Proposto |
 | [0015](./0015-amostra-de-dados-reais-no-modo-explorar.md) | Amostra de dados reais na resposta do modo Explorar | Proposto |
 | [0016](./0016-guardrails-de-resposta.md) | Guardrails de resposta — dado pessoal, acesso ao dado e escopo | Proposto |
+| [0017](./0017-execucao-do-sql-via-trino-mcp.md) | Execução do SQL via trino-mcp e contrato de backend configurável | Proposto |
 
 ### Temas candidatos a ADR (backlog)
 

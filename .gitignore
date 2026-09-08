@@ -78,3 +78,6 @@ temp/
 *.tmp
 eval/reports/*
 !eval/reports/.gitkeep
+
+# Certificado do Trino: material de ambiente, como o .env (ver certs/README.md)
+certs/*.crt

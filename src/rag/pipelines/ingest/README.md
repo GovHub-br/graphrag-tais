@@ -7,7 +7,8 @@ grafo confirmar, gera embeddings e grava os **cards no Qdrant**.
 
 Nada de dado de linha entra aqui: a pipeline lê apenas `Table` + `Column`
 (nomes, tipos, descrições, tags, constraints e relações documentadas). Os dados
-reais vivem no PostgreSQL analítico e são tocados só na execução do SQL.
+reais vivem no banco analítico (alcançado pelo Trino, ADR-0017) e são tocados só
+na execução do SQL.
 
 - Decisão de contrato: [ADR-0011](../../../../docs/adr/0011-contrato-detalhado-da-ingestao-openmetadata-neo4j-qdrant.md)
 - Fonte: [ADR-0004](../../../../docs/adr/0004-openmetadata-como-fonte-de-metadados.md)

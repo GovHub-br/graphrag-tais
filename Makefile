@@ -1,4 +1,4 @@
-RAG_SERVICES := qdrant neo4j minio hayhooks postgres-mcp
+RAG_SERVICES := qdrant neo4j minio hayhooks trino-mcp
 PYTHON ?= python3
 
 # Persona 1 (modo Explorar, ADR-0014)

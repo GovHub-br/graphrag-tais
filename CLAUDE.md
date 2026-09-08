@@ -28,18 +28,24 @@ modo Explorar **não** deve alterar arquivo do caminho da Persona 2.
 
 ## Verdade da arquitetura: os ADRs
 
-Todas as decisões estão em `docs/adr/` (**0000–0014**) — índice em `docs/adr/README.md`.
+Todas as decisões estão em `docs/adr/` (**0000–0017**) — índice em `docs/adr/README.md`.
 **Leia os ADRs antes de decidir algo de arquitetura.** Regra: um ADR só cita ADR de
 número menor. Destaques recentes: **0011** (contrato da ingestão, substitui o 0005),
-**0012** (eval orientado a métricas), **0013** (execução via postgres-mcp + gráfico por
-chart-spec — revisa a execução do 0008). Antes de mexer em **retrieval**, respeite o
+**0012** (eval orientado a métricas), **0013** (gráfico por chart-spec — revisa a
+execução do 0008), **0017** (execução via **trino-mcp** + backend configurável —
+revisa a execução do 0013). Antes de mexer em **retrieval**, respeite o
 gate MDD: `AGENTS.md` + `skills/evaluate-retrieval-change/SKILL.md` (medir antes/depois).
 
 ## Stack
 
 - **Haystack 3.0 + Hayhooks 1.22** (serve as pipelines como REST OpenAI-compat).
 - **Qdrant** (vetor híbrido denso+esparso), **Neo4j 5** (grafo puro, Cypher), **Redis** (cache, ocioso).
-- **postgres-mcp** (crystaldba, modo RESTRICTED read-only) — executa o SQL gerado.
+- **trino-mcp** (tuannvm, read-only: só SELECT/SHOW/DESCRIBE/EXPLAIN) — executa o SQL
+  gerado, contra o catálogo **`hml_analytics`** do Trino (ADR-0017). O RAG **não tem
+  credencial de banco**: quem a segura é o container do MCP. O `postgres-mcp` continua
+  no compose, atrás do profile `postgres`, como caminho legado.
+- ⚠️ **O SQL gerado é Trino (Presto), não PostgreSQL.** `SQL_DIALECT` governa o
+  `sqlglot`; as regras de dialeto que o LLM segue são TEXTO em `prompts/query_system.md`.
 - Embedding **denso**: Ollama `aroxima/gte-qwen2-1.5b-instruct:f16` (1536 dims, remoto via
   `OLLAMA_URL`, multilíngue/on-prem). **Esparso**: BM25 (`Qdrant/bm25`, fastembed).
   Costura Qdrant↔Neo4j por `node_id`.
@@ -54,17 +60,22 @@ gate MDD: `AGENTS.md` + `skills/evaluate-retrieval-change/SKILL.md` (medir antes
 |---|---|---|
 | **Qdrant** (`localhost:6333`) | embeddings dos cards de schema | ❌ só metadados |
 | **Neo4j** (`localhost:7687`) | grafo (tabelas, colunas, joins) | ❌ só metadados |
-| **PostgreSQL `cidades`** (`10.0.0.50:5432`) | **os dados reais** | ✅ **sim** — banco analítico à parte |
+| **Trino** (catálogo `hml_analytics`, via `trino-mcp`) | **os dados reais** | ✅ **sim** — banco analítico à parte |
 
-O RAG só conhece o *schema*. As **linhas** vivem num **PostgreSQL separado** (`cidades` @
-`10.0.0.50`, ~35 schemas, só 5 ingeridos). Os nomes físicos `schema.tabela` batem com o
-SQL gerado (a serialização usa o nome físico, não o FQN do catálogo).
+O RAG só conhece o *schema*. As **linhas** vivem no **banco analítico**, alcançado pelo
+**Trino** (ADR-0017; antes era conexão direta ao PostgreSQL `cidades`). Os nomes físicos
+`schema.tabela` batem com o SQL gerado (a serialização usa o nome físico, não o FQN do
+catálogo) — o **catálogo do Trino é o default da conexão**, então o SQL não o prefixa.
+⚠️ Isso pressupõe que os schemas do `hml_analytics` têm os mesmos nomes que o
+OpenMetadata ingeriu; divergência aí se conserta no catálogo, não no prompt.
 
 ## Como subir e rodar
 
 1. Docker Desktop ligado. **VPN/rede da lab conectada** (ver Gotchas). `.env` na raiz —
    ⚠️ **sem cercas markdown (```) no `.env`** (quebra o `docker compose`).
-2. `make up` → rebuild + sobe **qdrant, neo4j, minio, hayhooks, postgres-mcp** (NÃO sobe redis nem webui).
+2. `make up` → rebuild + sobe **qdrant, neo4j, minio, hayhooks, trino-mcp** (NÃO sobe redis nem webui).
+   O `postgres-mcp` está atrás do profile `postgres` e **não sobe** — de propósito: sem
+   `ANALYTICS_DB_*` preenchidas ele fica em loop de restart.
    MinIO (armazenamento do relatório, ADR-0010): API/S3 `localhost:9000`, console `localhost:9001`
    (user/senha = `MINIO_ACCESS_KEY`/`SECRET`).
 3. **Ingestão**: `curl -X POST http://localhost:8000/ingest/run -d '{}'` (escopo vem do `.env`).
@@ -120,12 +131,24 @@ Fluxo: `pergunta → dense(Ollama)+sparse(BM25) → Qdrant híbrido → subgrafo
   O Markdown é montado por `render_markdown(answer, exec_info)` — **função de módulo**, porque o
   wrapper do chat a chama DE NOVO depois da execução (ver invariante do SQL abaixo).
 
-### Camada de entrega — execução + gráfico (ADR-0013) ✅
+### Camada de entrega — execução + gráfico (ADR-0013/0017) ✅
 
 Pipeline SEPARADA `pipelines/delivery/` que o `run_chat_completion` compõe (motor fica reusável):
-- **`McpSqlExecutor`**: roda o SQL via **Haystack `Agent` + `MCPToolset(postgres-mcp)`** (SSE
-  `http://postgres-mcp:8000/sse`, read-only, **autocorreção no erro** até `AGENT_MAX_STEPS`).
-  O `execute_sql` devolve envelope MCP JSON cujo `content[].text` é **repr Python** (Decimal/datetime) → parser contido.
+- **`McpSqlExecutor`**: roda o SQL via **Haystack `Agent` + `MCPToolset`**, read-only, com
+  **autocorreção no erro** até `AGENT_MAX_STEPS`. **Agnóstico de backend** (ADR-0017): URL,
+  transporte, nome da tool, nome do argumento e dialeto vêm de `SQL_MCP_*`/`SQL_DIALECT`.
+  Default = **trino-mcp** (`http://trino-mcp:8080/mcp`, `streamable_http`, `execute_query(query=…)`).
+  ⚠️ **Transporte não se deduz do path**: o `/sse` do trino-mcp é a MESMA rota Streamable
+  HTTP do `/mcp` — não é o SSE clássico que o postgres-mcp (legado, `execute_sql(sql=…)`) fala.
+  ⚠️ **Duas serializações, um parser**: trino devolve **JSON** e marca `isError=True`;
+  postgres devolve **repr Python** (Decimal/datetime) e erro como TEXTO. `_parse_rows` aceita as duas.
+  ⚠️ **`_order_columns`**: o trino-mcp serializa cada linha de um `map` do Go, e o
+  `encoding/json` ordena chave **alfabeticamente** — `SELECT uf, total` voltaria `total, uf`
+  na tabela, no CSV e no `.docx`. A ordem é reconstruída da projeção do próprio SQL (inclusive
+  desembrulhando o envelope da amostra); em `SELECT *` ou parse falho, fica o que veio.
+  ⚠️ **`DECIMAL` chega como string** (o driver Go do Trino não tem decimal). NÃO convertemos
+  em `_normalize_row`: "12345" tanto é `SUM` quanto código de IBGE. Quem precisa de número já
+  coage — `_infer_kinds`, `pd.to_numeric`, `_as_float`.
 - **`ChartSpecBuilder`** (LLM JSON): escolhe bar/line/none, validado nas colunas reais.
 - **`ResultExplainer`** (ADR-0010 item c, 21/08): 1 parágrafo dizendo o que o resultado mostra —
   vai na seção **`### Resultado`**, imediatamente acima do gráfico (é a legenda dele) e no `.docx`.
@@ -153,7 +176,10 @@ uma resposta que saiu sem gráfico. Mesma regra no `.docx` (`report_content.rend
 como TEXTO com `isError=False`, então filtrar por `res.error` fazia "última bem-sucedida" virar
 "última tentativa" — um resultado bom seguido de uma tentativa recusada era descartado (resposta
 sem gráfico à toa) e o `sql_final` podia ser um SQL que nunca rodou. Agora a função devolve
-`(ok, failed)`, decidindo o que é utilizável pelo `_parse_rows` (fonte única).
+`(ok, failed)`, decidindo o que é utilizável pelo `_parse_rows` (fonte única). Com o trino-mcp o
+erro VEM marcado, e o Haystack o entrega como `error=True` com a mensagem no `result` — a
+tentativa falha carrega o texto do banco, não um genérico. A varredura casa os nomes de tool
+dos DOIS backends, para um trace antigo continuar legível.
 
 ### Relatório .docx editável (ADR-0010 item d) ✅
 
@@ -244,8 +270,10 @@ primeira metade da Persona 2 (embedding híbrido + Qdrant) via factory, com `top
   desembolsado"). **Vazio por default** → `gap_disclosure` mede pouco até ser preenchido.
 - **Amostra de dados reais (ADR-0015)** ✅: o `sample_sql` é executado e a resposta traz
   **10 linhas** numa tabela + link do **CSV** (100 linhas) + a consulta que rodou.
-  Escada em `components/samples/`: guarda `sqlglot` (uma instrução, leitura só, envelope
-  `SELECT * FROM (…) LIMIT n`) → execução **direta** pelo MCP (0 LLM) → autocorreção do
+  Escada em `components/samples/`: guarda `sqlglot` **no dialeto de `SQL_DIALECT`** (uma
+  instrução, leitura só, envelope `SELECT * FROM (…) LIMIT n`) — como ela REEMITE a consulta,
+  ela também traduz Postgres-ismo simples (`uf::text` → `CAST(uf AS VARCHAR)`) →
+  execução **direta** pelo MCP (0 LLM) → autocorreção do
   `Agent` com contexto **enxuto** (só a tabela alvo; `EXPLORE_SAMPLE_AUTOCORRECT`) →
   **reconstrução pelo catálogo** (`SELECT <colunas do Neo4j> FROM <tabela> LIMIT n`, 0 LLM),
   que é o degrau que **garante** amostra. `origin` ∈ {llm, corrigido, catalogo} vai no
@@ -375,9 +403,16 @@ comportamento e pede o gate do ADR-0012, não é edição de formatação.
 
 ## Gotchas de ambiente (aprendidos na marra)
 
-- **Rede `10.0.0.x`**: Ollama (`10.0.0.10`) e o banco analítico (`10.0.0.50`) só respondem com a
-  **VPN/rede da lab conectada**. Se der timeout nesses dois mas a internet funcionar, é a VPN caída —
-  bloqueia embeddings (retrieval) e execução de SQL (gráfico).
+- **Rede `10.0.0.x` / VPN**: Ollama (`10.0.0.10`) e o Trino só respondem com a **VPN/rede da lab
+  conectada**. Se der timeout nesses dois mas a internet funcionar, é a VPN caída — bloqueia
+  embeddings (retrieval) e execução de SQL (gráfico).
+- **trino-mcp**: ele faz `Ping` no Trino no boot e **sai com `log.Fatal`** se não conectar —
+  com `restart: unless-stopped` isso vira loop de restart (sintoma de VPN caída, host errado ou
+  senha errada; o motivo está em `docker logs trino-mcp`). De pé,
+  `curl localhost:8002/status` responde `{"status":"ok"}`.
+  Erro de certificado ⇒ `TRINO_SSL_INSECURE` (a INVERSA de `TRINO_VERIFY_TLS`).
+  ⚠️ Reiniciar o `trino-mcp` NÃO basta se você mudou `SQL_MCP_*`: essas são do hayhooks
+  (`docker compose up -d --no-deps hayhooks`).
 - **OpenAI quota**: se aparecer `429 insufficient_quota`, a conta OpenAI ficou sem crédito → geração de
   SQL/gráfico quebra (retrieval não usa OpenAI). Recarregar ou trocar `OPENAI_API_KEY` + recriar hayhooks.
 - **Memória (OOM)**: Docker Desktop com ~7.75 GiB não roda **Airflow + RAG + open-webui** juntos; o

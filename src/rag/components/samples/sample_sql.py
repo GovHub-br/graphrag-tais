@@ -15,7 +15,13 @@ from typing import Any, Dict, List, Sequence, Tuple
 import sqlglot
 from sqlglot import exp
 
-_DIALECT = "postgres"
+from rag.settings.configs import settings
+
+#: Dialeto do parse E da reescrita. Vem da config porque o `guard` não só lê o
+#: SQL: ele o REEMITE dentro do envelope (`statement.sql(dialect=...)`). Com o
+#: dialeto errado a reescrita pode gerar sintaxe que o banco não aceita — desde
+#: o ADR-0017 quem executa é o Trino, não o Postgres.
+_DIALECT = settings.SQL_DIALECT
 
 #: Colunas exibidas na prévia do chat (o arquivo leva todas).
 MAX_PREVIEW_COLUMNS = 6
@@ -41,8 +47,9 @@ def guard(sql: str, limit: int) -> Tuple[str, str]:
     Duas garantias, ambas independentes do modelo:
 
     1. **É uma leitura só.** Uma instrução, `SELECT`/`WITH`, sem nó de escrita
-       em lugar nenhum (nem dentro de CTE). O postgres-mcp já roda em modo
-       RESTRICTED — isto é o cinto além do suspensório, e devolve motivo legível.
+       em lugar nenhum (nem dentro de CTE). O MCP de SQL já recusa escrita por
+       conta própria (o trino-mcp só aceita SELECT/SHOW/DESCRIBE/EXPLAIN) —
+       isto é o cinto além do suspensório, e devolve motivo legível.
     2. **Tem teto.** O `LIMIT` do LLM não é confiável (pode não existir): a
        consulta vira subconsulta de um `SELECT * FROM (...) LIMIT n`, então o
        teto vale mesmo que a original não tenha nenhum.
