@@ -347,5 +347,151 @@ class TestNotaDeTransparencia(unittest.TestCase):
         self.assertIn("estável", nota)
 
 
+# --------------------------------------------------------------------------- #
+# O catálogo QUE VAI PARA PRODUÇÃO, não um de mentira.
+#
+# As classes acima provam que o mecanismo funciona; esta prova que o ARQUIVO
+# está certo — que o inventário do MinC, depois de convertido, mascara o que
+# deve e deixa passar o que o sistema precisa para medir. É o teste que pega
+# erro de conversão, de nome de tabela e de estratégia, e o único que continua
+# valendo quando o inventário for regerado.
+# --------------------------------------------------------------------------- #
+_CONFIG = ROOT / "config" / "sensitive_columns.yml"
+
+
+def _catalogo_real():
+    catalog_mod.clear_cache()
+    return catalog_mod.read(str(_CONFIG))
+
+
+@unittest.skipUnless(HAS_SQLGLOT, "sqlglot indisponível no host")
+@unittest.skipUnless(_CONFIG.exists() and bool(_catalogo_real()),
+                     "config/sensitive_columns.yml vazio (estado de template)")
+class TestCatalogoDeProducao(unittest.TestCase):
+    """Corpus de SQL realista do MinC contra o catálogo real."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.cat = _catalogo_real()
+
+    def _cols(self, sql, columns):
+        return plan(sql, columns, self.cat, dialect="trino").columns
+
+    # -- o que TEM de ser mascarado ------------------------------------- #
+    def test_cpf_do_proponente(self):
+        self.assertEqual(
+            self._cols("SELECT cgccpf, nrprojeto FROM salic_bronze.sac__projetos",
+                       ["cgccpf", "nrprojeto"]),
+            ["cgccpf"],
+        )
+
+    def test_senha_e_redigida_nao_pseudonimizada(self):
+        """Não se conta senha distinta: `hash` aqui seria proteção teatral."""
+        self.assertEqual(self.cat.strategy("tabelas__usuarios", "usu_senha"), "redact")
+        self.assertEqual(self.cat.strategy("tabelas__usuarios", "usu_sql_login"), "redact")
+
+    def test_dado_bancario(self):
+        self.assertEqual(
+            self._cols("SELECT agencia, cidade FROM sac__agenciasbb",
+                       ["agencia", "cidade"]),
+            ["agencia"],
+        )
+
+    def test_amostra_da_persona_1_com_envelope(self):
+        sql = ("SELECT * FROM (SELECT cnpjcpf, cnpjcpfsuperior FROM agentes__agentes) "
+               "AS amostra LIMIT 100")
+        self.assertEqual(sorted(self._cols(sql, ["cnpjcpf", "cnpjcpfsuperior"])),
+                         ["cnpjcpf", "cnpjcpfsuperior"])
+
+    def test_select_estrela_na_tabela_sensivel(self):
+        self.assertEqual(
+            self._cols("SELECT * FROM stg_agentes_pf LIMIT 10",
+                       ["identificador_unico", "nome_agente", "uf"]),
+            ["identificador_unico"],
+        )
+
+    def test_alias_nao_escapa(self):
+        self.assertEqual(
+            self._cols("SELECT cgccpf AS doc FROM sac__projetos", ["doc"]), ["doc"]
+        )
+
+    def test_join_leva_a_sensibilidade_da_tabela_certa(self):
+        sql = ("SELECT p.cgccpf, i.nrcnpjcpfincentivador "
+               "FROM sac__projetos p JOIN sac__tbapiincentivos i ON 1=1")
+        self.assertEqual(sorted(self._cols(sql, ["cgccpf", "nrcnpjcpfincentivador"])),
+                         ["cgccpf", "nrcnpjcpfincentivador"])
+
+    # -- o que NÃO PODE ser mascarado ----------------------------------- #
+    def test_contagem_de_pessoas_continua_inteira(self):
+        """O indicador central do sistema. Se este quebrar, a Persona 2 morre."""
+        self.assertEqual(
+            self._cols(
+                "SELECT uf, COUNT(DISTINCT cgccpf) AS proponentes "
+                "FROM sac__projetos GROUP BY uf",
+                ["uf", "proponentes"],
+            ),
+            [],
+        )
+
+    def test_soma_de_valor_passa_limpa(self):
+        self.assertEqual(
+            self._cols("SELECT ano, SUM(valor) AS total FROM sac__projetos GROUP BY ano",
+                       ["ano", "total"]),
+            [],
+        )
+
+    def test_tabela_fora_do_inventario_nao_e_tocada(self):
+        self.assertEqual(
+            self._cols("SELECT nome, uf FROM conjuntura_gold.municipio", ["nome", "uf"]),
+            [],
+        )
+
+    def test_natureza_revisar_ficou_de_fora(self):
+        """O próprio inventário diz que `revisar` provavelmente não é dado
+        pessoal — importar isso mascararia laudo e nome de proponente PJ, que o
+        ADR-0016 trata como informação pública."""
+        self.assertEqual(self.cat.strategy("sac__tblaudofinal", "dslaudofinal"), "")
+
+    def test_coluna_comum_nao_vaza_para_tabela_errada(self):
+        """`nome` não está no catálogo como regra global: uma tabela sem
+        inventário não pode herdar mascaramento de outra."""
+        self.assertEqual(self.cat.strategy_by_name("nome"), "")
+        self.assertEqual(self.cat.by_column, {})
+
+    # -- o tradeoff aberto ----------------------------------------------- #
+    def test_marcador_de_baixa_cardinalidade_e_mascarado_hoje(self):
+        """⚠️ Registro de uma decisão em aberto, não de um acerto.
+
+        `raca_bruto` e `pcd_bruto` são dado pessoal sensível pela LGPD art. 5º
+        II, e o inventário os marca — então eles entram, e este teste fixa isso.
+        O custo é real: `SELECT raca_bruto, COUNT(*) GROUP BY raca_bruto` volta
+        com hashes, e o recorte de equidade (beneficiários por raça/cor, por
+        PCD) deixa de ser legível.
+
+        E o ganho de privacidade é pequeno: são colunas de meia dúzia de valores
+        distintos, então o hash cai por análise de frequência — a maior barra
+        continua sendo a maior barra. Se a decisão for privilegiar o indicador,
+        regere o catálogo com
+        `--excluir-natureza revisar,raca_etnia,deficiencia` e inverta este
+        teste; é uma linha de comando, e é por isso que a conversão é um script.
+        """
+        self.assertEqual(
+            self._cols(
+                "SELECT raca_bruto, COUNT(*) AS total FROM stg_agentes_pf "
+                "GROUP BY raca_bruto",
+                ["raca_bruto", "total"],
+            ),
+            ["raca_bruto"],
+        )
+
+    # -- a chave curta ---------------------------------------------------- #
+    def test_chave_curta_casa_com_qualquer_schema(self):
+        """O inventário nomeia o modelo dbt; o SQL qualifica com o schema."""
+        for tabela in ("sac__projetos", "salic_bronze.sac__projetos",
+                       "hml_analytics.salic.sac__projetos"):
+            with self.subTest(tabela=tabela):
+                self.assertEqual(self.cat.strategy(tabela, "cgccpf"), "hash")
+
+
 if __name__ == "__main__":
     unittest.main()
