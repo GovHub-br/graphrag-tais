@@ -125,6 +125,13 @@ class McpSqlExecutor:
             max_agent_steps=self.max_steps,
         )
         agent.warm_up()
+        # ⚠️ DEPOIS do warm_up, nunca antes. O `MCPToolset` nasce com uma tool
+        # placeholder (`mcp_not_connected_placeholder_…`) e, ao conectar, faz
+        # `self.tools = self._connect_and_load_tools()` — ele SUBSTITUI a lista.
+        # Envolver antes é envolver o descartado: o agente receberia as linhas
+        # cruas e o log diria que estava tudo mascarado. É o pior tipo de bug de
+        # segurança, o que parece resolvido.
+        self._mask_toolset(toolset)
         return agent
 
     def _get_agent(self):
@@ -224,7 +231,8 @@ class McpSqlExecutor:
         logger.info(
             "McpSqlExecutor: {} linhas, {} colunas", len(ok.rows), len(columns)
         )
-        return self._protect(ok.rows[: self.max_rows], columns, sql_final)
+        return self._protect(ok.rows[: self.max_rows], columns, sql_final,
+                             ja_mascarado=True)
 
     # ------------------------------------------------------------------ #
     def _client(self):
@@ -470,6 +478,92 @@ class McpSqlExecutor:
             logger.warning("McpSqlExecutor: não consegui parsear as linhas ({})", exc)
             return []
 
+    # ------------------------------------------------------------------ #
+    def _mask_toolset(self, toolset) -> None:
+        """Faz a tool de execução devolver linhas JÁ MASCARADAS ao agente.
+
+        É aqui que a autocorreção deixa de ser um vazamento. O agente corrige
+        SQL lendo a MENSAGEM DE ERRO do banco e os nomes de coluna — ele nunca
+        precisou dos valores. Então mascarar o retorno da ferramenta preserva a
+        autocorreção inteira e fecha a pendência (3) do ADR-0016 de vez, em vez
+        de escolher entre uma coisa e outra.
+
+        Envolve `function` (e `async_function`, se houver) de cada tool. O
+        `Tool` do Haystack guarda a função como atributo comum; `object.__setattr__`
+        cobre o caso de a dataclass ser congelada."""
+        envolvidas = 0
+        for tool in list(toolset or []):
+            if getattr(tool, "_mascarada_adr0018", False):
+                envolvidas += 1
+                continue
+            if "placeholder" in (getattr(tool, "name", "") or ""):
+                # Chamado cedo demais: o toolset ainda não conectou e esta tool
+                # vai ser descartada. Envolver aqui daria falsa sensação de
+                # proteção — ver o comentário em `_build_agent`.
+                logger.error(
+                    "McpSqlExecutor: _mask_toolset chamado ANTES do warm_up — "
+                    "o retorno da tool NÃO será mascarado"
+                )
+                return
+            for campo in ("function", "async_function"):
+                original = getattr(tool, campo, None)
+                if original is None:
+                    continue
+                envolvida = (self._envolver_async(original) if campo == "async_function"
+                             else self._envolver(original))
+                try:
+                    object.__setattr__(tool, campo, envolvida)
+                except Exception as exc:  # noqa: BLE001
+                    logger.error(
+                        "McpSqlExecutor: NÃO consegui mascarar o retorno da tool "
+                        "({}) — a autocorreção fica inibida por segurança", exc,
+                    )
+                    return
+            object.__setattr__(tool, "_mascarada_adr0018", True)
+            envolvidas += 1
+            logger.info("McpSqlExecutor: retorno da tool '{}' será mascarado", tool.name)
+        if not envolvidas:
+            logger.error(
+                "McpSqlExecutor: NENHUMA tool foi envolvida — o retorno da "
+                "execução chegará CRU ao modelo na autocorreção"
+            )
+
+    def _envolver(self, original):
+        def chamada(**kwargs):
+            return self._mask_tool_result(original(**kwargs), self._tool_sql(kwargs) or "")
+        return chamada
+
+    def _envolver_async(self, original):
+        async def chamada(**kwargs):
+            return self._mask_tool_result(await original(**kwargs), self._tool_sql(kwargs) or "")
+        return chamada
+
+    def _mask_tool_result(self, raw: Any, sql: str) -> Any:
+        """Mascara o resultado da tool antes de ele virar contexto do modelo.
+
+        Erro e resultado vazio passam intactos: não há valor para vazar, e a
+        mensagem do banco é exatamente o que o agente precisa ler para
+        corrigir. Falha aqui **fecha** (devolve erro em vez do texto original) —
+        deixar passar seria transformar um bug em vazamento."""
+        try:
+            columns, rows, error = self._parse_rows(raw)
+            if error or not rows:
+                return raw
+            masked, cols = mask_rows(rows, columns, sql)
+            if not cols:
+                return raw
+            logger.info(
+                "McpSqlExecutor: retorno da tool mascarado antes do contexto ({})",
+                ", ".join(cols),
+            )
+            return json.dumps(masked, ensure_ascii=False, default=str)
+        except Exception as exc:  # noqa: BLE001 — nunca devolve o cru na dúvida
+            logger.error(
+                "McpSqlExecutor: falha ao mascarar retorno da tool ({}) — "
+                "resultado descartado", exc,
+            )
+            return "Error: resultado indisponível (falha no mascaramento)"
+
     @staticmethod
     def _sensitive_sql(sql: str) -> bool:
         """A consulta toca alguma tabela do catálogo de sensibilidade?
@@ -497,7 +591,8 @@ class McpSqlExecutor:
             logger.warning("McpSqlExecutor: checagem de sensibilidade falhou ({})", exc)
             return True
 
-    def _protect(self, rows, columns, sql_final: str) -> Dict[str, Any]:
+    def _protect(self, rows, columns, sql_final: str,
+                 ja_mascarado: bool = False) -> Dict[str, Any]:
         """Monta a saída de sucesso com o dado sensível já mascarado (ADR-0018).
 
         ⚠️ **É este o ponto único de saída de linha real do sistema.** Todo
@@ -512,7 +607,13 @@ class McpSqlExecutor:
         Custo: nulo quando o catálogo está vazio (`mask_rows` nem chega a
         parsear o SQL), e alguns milissegundos quando não está.
         """
-        rows, masked = mask_rows(rows, columns, sql_final)
+        # `ja_mascarado`: caminho do agente, onde as linhas foram mascaradas no
+        # retorno da tool. Reaplicar geraria hash de hash — o mesmo CPF sairia
+        # com códigos diferentes conforme o caminho, quebrando a estabilidade
+        # que é a razão de ser do `hash`. Aqui só se recalcula o PLANO, para a
+        # nota de transparência saber quais colunas citar.
+        rows, masked = mask_rows(rows, columns, sql_final,
+                                 apply_values=not ja_mascarado)
         return {
             "rows": rows,
             "columns": columns,

@@ -368,10 +368,20 @@ entrar naquele controle. O 0016 tinha deixado a cláusula de reabertura escrita.
   escalar (`CAST(cpf AS VARCHAR)`) **carregam** a sensibilidade; agregação não.
   Na dúvida (`SELECT *`, coluna sem qualificador em JOIN, parse falho) **fecha
   em favor da privacidade**.
-- **Dois efeitos colaterais deliberados**: (a) a **autocorreção por LLM é
-  inibida** quando o SQL toca tabela do catálogo — é por lá que dado pessoal
-  entraria em prompt (fecha a pendência (b) abaixo); (b) **coluna mascarada não
-  vira eixo de gráfico** (20 barras de hash não são um gráfico).
+- **O retorno da tool é mascarado antes de virar contexto do modelo**
+  (`_mask_toolset`): fecha a pendência (b) acima SEM abrir mão da autocorreção —
+  o agente corrige lendo a mensagem de erro, nunca precisou dos valores. A
+  mensagem de erro passa intacta e falha no mascaramento FECHA (devolve erro).
+  ⚠️ **Instalar só DEPOIS do `agent.warm_up()`**: o `MCPToolset` nasce com uma
+  tool placeholder e a SUBSTITUI ao conectar (`self.tools = self._connect_and_load_tools()`)
+  — envolver antes protege o objeto descartado e o log mente dizendo que
+  envolveu. `_protect` então usa `apply_values=False` nesse caminho, senão sai
+  hash de hash e o mesmo CPF ganha códigos diferentes conforme o caminho.
+  `SENSITIVE_INHIBIT_AUTOCORRECT` (default **false**) é cinto além do
+  suspensório: ligar custa a autocorreção em toda consulta às tabelas do
+  catálogo, inclusive nas agregadas.
+- **Coluna mascarada não vira eixo de gráfico** (20 barras de hash não são um
+  gráfico).
 - **A resposta diz que mascarou** (`render_masking_note`, texto único para as
   duas personas + callout no `.docx`). Ao contrário do erro de execução, que
   fica no log de propósito, esta limitação **tem** de aparecer: `#a3f9c1d20b`
@@ -383,7 +393,7 @@ entrar naquele controle. O 0016 tinha deixado a cláusula de reabertura escrita.
 - `SENSITIVE_MASK_DRY_RUN=true` calcula e **loga** o plano sem alterar valor —
   é como se calibra um catálogo novo em produção.
 
-`tests/test_sensitivity.py` (host, 38 casos) cobre os dois lados, como o do
+`tests/test_sensitivity.py` (host, 59 casos) cobre os dois lados, como o do
 guardrail: o que **tem** de ser mascarado (alias, `CAST`, `SELECT *`, envelope
 da amostra, JOIN sem qualificador) e o que **não pode** ser (`COUNT(cpf)`,
 tabela fora do catálogo, coluna resolvida por apelido para outra tabela).

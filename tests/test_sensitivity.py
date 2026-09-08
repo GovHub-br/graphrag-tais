@@ -263,7 +263,8 @@ class TestIntegracaoNoExecutor(unittest.TestCase):
         self._antes = {
             k: getattr(settings, k)
             for k in ("SENSITIVE_MASKING_ENABLED", "SENSITIVE_MAP_PATH",
-                      "SENSITIVE_HASH_PEPPER", "SENSITIVE_MASK_DRY_RUN")
+                      "SENSITIVE_HASH_PEPPER", "SENSITIVE_MASK_DRY_RUN",
+                      "SENSITIVE_INHIBIT_AUTOCORRECT")
         }
         handle = tempfile.NamedTemporaryFile(
             "w", suffix=".json", delete=False, encoding="utf-8"
@@ -315,15 +316,28 @@ class TestIntegracaoNoExecutor(unittest.TestCase):
         )
         self.assertEqual(out["rows"][0]["cpf"], "111")
 
-    def test_autocorrecao_inibida_em_tabela_sensivel(self):
-        """A autocorreção devolve o retorno da tool ao contexto do modelo — é
-        por ali que dado pessoal entraria num prompt."""
-        self.assertTrue(
+    def test_autocorrecao_NAO_e_inibida_por_default(self):
+        """O default mudou quando o retorno da tool passou a ser mascarado.
+
+        Inibir a autocorreção era o remédio para o modelo ver linhas; com o
+        remédio certo no lugar (`_mask_toolset`), inibir só custaria — a
+        checagem é pela TABELA, então até consulta agregada perderia a correção,
+        e num catálogo do tamanho do MinC errar SQL não é raro."""
+        self.assertFalse(
             McpSqlExecutor._sensitive_sql("SELECT cpf FROM far.beneficiario")
         )
-        self.assertFalse(
-            McpSqlExecutor._sensitive_sql("SELECT uf FROM conjuntura_gold.municipio")
-        )
+
+    def test_inibicao_disponivel_como_cinto_alem_do_suspensorio(self):
+        self.settings.SENSITIVE_INHIBIT_AUTOCORRECT = True
+        try:
+            self.assertTrue(
+                McpSqlExecutor._sensitive_sql("SELECT cpf FROM far.beneficiario")
+            )
+            self.assertFalse(
+                McpSqlExecutor._sensitive_sql("SELECT uf FROM conjuntura_gold.municipio")
+            )
+        finally:
+            self.settings.SENSITIVE_INHIBIT_AUTOCORRECT = False
 
     def test_coluna_mascarada_nao_vira_eixo_do_grafico(self):
         rows = [{"cpf": "#abc", "total": 10}, {"cpf": "#def", "total": 20}]
@@ -331,6 +345,98 @@ class TestIntegracaoNoExecutor(unittest.TestCase):
             query="", columns=["cpf", "total"], rows=rows, masked_columns=["cpf"]
         )["spec"]
         self.assertEqual(spec["chart_type"], "none")
+
+
+@unittest.skipUnless(HAS_SQLGLOT and HAYSTACK, "Haystack/sqlglot indisponíveis no host")
+class TestRetornoDaToolNaoVazaParaOModelo(unittest.TestCase):
+    """A autocorreção deixou de ser um vazamento (ADR-0018).
+
+    O agente corrige SQL lendo a MENSAGEM DE ERRO do banco e nomes de coluna —
+    ele nunca precisou dos valores. Estes testes fixam as três coisas que fazem
+    isso funcionar: o resultado é mascarado antes de virar contexto, o erro
+    passa intacto (senão o agente não teria o que corrigir) e uma falha no
+    mascaramento FECHA em vez de devolver o cru.
+
+    A tool é falsa de propósito: o que se testa é o envelope, não o MCP.
+    """
+
+    CPF = "12345678901"
+
+    def setUp(self):
+        import json
+        import tempfile
+
+        from rag.settings.configs import settings
+        from rag.components.executors.mcp_sql_executor import McpSqlExecutor
+
+        self.settings = settings
+        self._antes = {k: getattr(settings, k) for k in
+                       ("SENSITIVE_MASKING_ENABLED", "SENSITIVE_MAP_PATH",
+                        "SENSITIVE_HASH_PEPPER")}
+        h = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8")
+        json.dump({"tables": {"far.beneficiario": ["cpf"]}}, h)
+        h.close()
+        self.path = h.name
+        catalog_mod.clear_cache()
+        settings.SENSITIVE_MASKING_ENABLED = True
+        settings.SENSITIVE_MAP_PATH = self.path
+        settings.SENSITIVE_HASH_PEPPER = PEPPER
+        self.ex = McpSqlExecutor.__new__(McpSqlExecutor)
+
+    def tearDown(self):
+        import os
+
+        for k, v in self._antes.items():
+            setattr(self.settings, k, v)
+        catalog_mod.clear_cache()
+        os.unlink(self.path)
+
+    def _resultado(self, linhas):
+        import json
+
+        return json.dumps(linhas)
+
+    def test_valor_sensivel_nao_chega_ao_contexto(self):
+        cru = self._resultado([{"cpf": self.CPF, "uf": "BA"}])
+        saida = self.ex._mask_tool_result(cru, "SELECT cpf, uf FROM far.beneficiario")
+        self.assertNotIn(self.CPF, saida)
+        self.assertIn("BA", saida)          # o que não é sensível continua legível
+        self.assertIn("#", saida)
+
+    def test_erro_do_banco_passa_intacto(self):
+        """Se o erro não chegar ao agente, não há autocorreção nenhuma."""
+        erro = "Error: line 1:8: Column 'ano_projeto' cannot be resolved"
+        self.assertEqual(
+            self.ex._mask_tool_result(erro, "SELECT ano_projeto FROM far.beneficiario"),
+            erro,
+        )
+
+    def test_tabela_sem_coluna_sensivel_passa_intacta(self):
+        cru = self._resultado([{"uf": "BA", "total": 3}])
+        self.assertEqual(
+            self.ex._mask_tool_result(cru, "SELECT uf, total FROM conjuntura.x"), cru
+        )
+
+    def test_falha_no_mascaramento_fecha_em_vez_de_vazar(self):
+        from unittest import mock
+
+        cru = self._resultado([{"cpf": self.CPF}])
+        with mock.patch("rag.components.executors.mcp_sql_executor.mask_rows",
+                        side_effect=RuntimeError("boom")):
+            saida = self.ex._mask_tool_result(cru, "SELECT cpf FROM far.beneficiario")
+        self.assertNotIn(self.CPF, saida)
+        self.assertIn("Error:", saida)
+
+    def test_nao_mascara_duas_vezes(self):
+        """Hash de hash daria códigos diferentes para o mesmo valor conforme o
+        caminho (direto x agente), destruindo a estabilidade do pseudônimo."""
+        from rag.sensitivity.mask import mask_rows
+
+        sql = "SELECT cpf FROM far.beneficiario"
+        uma_vez, _ = mask_rows([{"cpf": self.CPF}], ["cpf"], sql)
+        de_novo, cols = mask_rows(uma_vez, ["cpf"], sql, apply_values=False)
+        self.assertEqual(de_novo, uma_vez)
+        self.assertEqual(cols, ["cpf"])
 
 
 @unittest.skipUnless(HAYSTACK, "Haystack indisponível no host")

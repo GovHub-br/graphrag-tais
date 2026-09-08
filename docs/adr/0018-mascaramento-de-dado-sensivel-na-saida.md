@@ -85,9 +85,16 @@ com JOIN, parse falho — **fecha em favor da privacidade**.
 
 Duas consequências operacionais decorrem direto disso:
 
-- **A autocorreção por LLM é inibida** quando a consulta toca tabela do
-  catálogo. Perde-se a chance de consertar um SQL recusado; ganha-se a garantia
-  de que dado pessoal não entra em prompt. Fecha a pendência (3) do ADR-0016.
+- **O retorno da ferramenta é mascarado antes de virar contexto do modelo.**
+  É aqui que a pendência (3) do ADR-0016 fecha de vez. O agente corrige SQL
+  lendo a **mensagem de erro** do banco e nomes de coluna — ele nunca precisou
+  dos valores —, então mascarar o retorno preserva a autocorreção inteira em
+  vez de trocar uma coisa pela outra. A mensagem de erro passa intacta (sem
+  ela não há correção) e uma falha no mascaramento **fecha**: devolve erro, não
+  o texto original. ⚠️ O wrapper tem de ser instalado **depois** do
+  `warm_up()`: o `MCPToolset` nasce com uma tool placeholder e a substitui ao
+  conectar — envolver antes é envolver o que vai ser descartado, e o log diria
+  que está tudo protegido.
 - **Coluna mascarada não vira eixo de gráfico.** Vinte barras rotuladas por
   hash não são um gráfico; o `ChartSpecBuilder` a descarta antes de escolher, e
   se o que sobra não dá gráfico, não há gráfico.
@@ -175,15 +182,15 @@ essa é a que não sobrevive à primeira auditoria.
 - **[Médio impacto]** O catálogo é mantido à mão: coluna sensível que ninguém
   listou **não é protegida**, e o sistema não tem como saber disso. A proteção
   vale exatamente o que vale a revisão do arquivo.
-- **[Médio impacto]** Perde-se a autocorreção do SQL nas tabelas sensíveis: uma
-  consulta recusada pelo banco que hoje seria consertada passa a sair sem
-  resultado. **Medido em 2026-09-08**, e maior do que parecia: a checagem é pela
-  TABELA, então uma consulta **puramente agregada** numa tabela do catálogo
-  (`SELECT anoprojeto, COUNT(*) FROM sac__projetos`) também perde a
-  autocorreção — e `sac__projetos` é tabela central do SALIC (276.887 linhas).
-  Atrás de `SENSITIVE_INHIBIT_AUTOCORRECT` (default `true`): em `false` o agente
-  volta a corrigir e a **resposta continua mascarada**; o que se abre é o
-  contexto do modelo, não a saída.
+- **[Baixo impacto]** ~~Perde-se a autocorreção nas tabelas sensíveis.~~
+  **Resolvido em 2026-09-08**, e a história merece registro porque a primeira
+  solução estava errada. O desenho inicial *inibia* a autocorreção nas tabelas
+  do catálogo; o teste ponta a ponta mostrou o custo verdadeiro — a checagem é
+  pela TABELA, então até `SELECT anoprojeto, COUNT(*) FROM sac__projetos`
+  perdia a correção, numa tabela central do SALIC, e num catálogo do tamanho do
+  MinC errar SQL não é raro. Trocar autocorreção por privacidade era um falso
+  dilema: mascarar o **retorno da ferramenta** dá as duas. `SENSITIVE_INHIBIT_AUTOCORRECT`
+  fica como cinto além do suspensório, default `false`.
 - **[Baixo impacto]** Mascarar errado estraga amostra legítima — mitigado pelo
   `SENSITIVE_MASK_DRY_RUN`, que calibra o catálogo em produção sem alterar
   valor.
@@ -211,7 +218,8 @@ zero, e ele volta a ser útil na próxima base nova.
   vira artefato revisável em PR; a resposta explica a limitação em vez de
   parecer defeituosa.
 - **Negativas**: duas fontes de verdade sobre sensibilidade; manutenção manual
-  do catálogo; perda da autocorreção nas tabelas sensíveis.
+  do catálogo. (A perda da autocorreção, prevista aqui, foi resolvida pelo
+  mascaramento do retorno da ferramenta — ver Tradeoffs.)
 - **Ações decorrentes**:
   1. **Preencher `config/sensitive_columns.yml`** com o mapeamento revisado —
      sem ele nada disto tem efeito, e o sistema roda como antes.
@@ -253,7 +261,8 @@ ADR-0010.
 | resposta completa do chat com coluna sensível | nota de transparência renderizada; documento não aparece no Markdown final; gráfico corretamente suprimido |
 | base hoje carregada no Neo4j/Qdrant (MCid, 74 tabelas / 1.215 colunas) | **0 colisões** com o catálogo do MinC — as respostas de hoje não mudam |
 | guardrail do ADR-0016 na API viva | 7/7 (5 recusas corretas + 2 que não podiam ser recusadas) |
-| suíte | 309 testes no container, todos verdes |
+| autocorreção com SQL errado de propósito (`cpf_cnpj` → `cgccpf`) | agente corrigiu sozinho; retorno mascarado **antes** do contexto; `exec_ok=True`, `masked_columns=['cgccpf']`, sem hash de hash |
+| suíte | 316 testes no container, todos verdes |
 
 Uma confirmação de projeto veio daqui: no Trino, cada tabela do dbt aparece em
 **três** schemas (`bronze`, `salic`, `salic_bronze`). A chave curta do catálogo

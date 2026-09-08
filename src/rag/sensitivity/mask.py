@@ -214,6 +214,7 @@ def mask_rows(
     columns: Sequence[str],
     sql: str,
     resolution: Optional[Resolution] = None,
+    apply_values: bool = True,
 ) -> Tuple[List[Dict[str, Any]], List[str]]:
     """`plan` + `apply` com a configuração do ambiente aplicada.
 
@@ -223,7 +224,12 @@ def mask_rows(
 
     `SENSITIVE_MASK_DRY_RUN=true` calcula e loga o plano sem alterar valor
     nenhum: é como se calibra o mapeamento em produção sem risco de estragar
-    uma amostra legítima."""
+    uma amostra legítima.
+
+    `apply_values=False` devolve só o PLANO (as colunas), sem tocar nas linhas.
+    Existe porque no caminho do agente as linhas já foram mascaradas lá atrás,
+    no retorno da ferramenta — e mascarar de novo geraria hash de hash, dando
+    códigos diferentes para o mesmo valor conforme o caminho percorrido."""
     from rag.settings.configs import settings
 
     if not settings.SENSITIVE_MASKING_ENABLED or not rows:
@@ -257,6 +263,10 @@ def mask_rows(
     if settings.SENSITIVE_MASK_DRY_RUN:
         logger.warning("[sensibilidade] DRY-RUN — mascararia: {}", detail)
         return [dict(row) for row in rows], []
+
+    if not apply_values:
+        logger.info("[sensibilidade] plano sem aplicar (linhas já mascaradas): {}", detail)
+        return [dict(row) for row in rows], decided.columns
 
     logger.info("[sensibilidade] mascarando {} coluna(s): {}", len(decided.rules), detail)
     try:

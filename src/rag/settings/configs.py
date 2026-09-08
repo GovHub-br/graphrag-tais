@@ -260,17 +260,18 @@ class Settings(BaseSettings):
     SENSITIVE_MASK_DRY_RUN: bool = Field(
         False, description="Só registra o que seria mascarado, sem mascarar"
     )
-    # Desliga a autocorreção por LLM quando o SQL toca tabela do catálogo. É
-    # por lá que uma linha do banco entraria num prompt: o retorno da tool volta
-    # ao contexto do agente ANTES de qualquer mascaramento (pendência (3) do
-    # ADR-0016). A checagem é pela TABELA, não pela projeção — um SQL recusado
-    # pode ser reescrito para projetar qualquer coluna dela.
-    # ⚠️ O custo é real e medido: consulta puramente agregada numa tabela do
-    # catálogo (`SELECT anoprojeto, COUNT(*) FROM sac__projetos`) também perde a
-    # autocorreção. Em `false`, o agente volta a corrigir e a saída continua
-    # mascarada — o que se abre é o CONTEXTO DO MODELO, não a resposta.
+    # Desliga a autocorreção por LLM quando o SQL toca tabela do catálogo.
+    #
+    # ⚠️ **Default `false` desde que o retorno da tool passou a ser mascarado**
+    # (`McpSqlExecutor._mask_toolset`): o agente já não vê valor cru, então não
+    # há mais o que inibir. Ligar isto custa caro e protege pouco — a checagem é
+    # pela TABELA, então uma consulta puramente agregada numa tabela do catálogo
+    # (`SELECT anoprojeto, COUNT(*) FROM sac__projetos`) também perderia a
+    # autocorreção, e num catálogo do tamanho do MinC errar SQL não é raro.
+    # Existe como cinto além do suspensório, para quem quiser a garantia de que
+    # nem uma falha no mascaramento da tool exponha linha ao modelo.
     SENSITIVE_INHIBIT_AUTOCORRECT: bool = Field(
-        True, description="Não aciona o Agent quando o SQL toca tabela sensível"
+        False, description="Não aciona o Agent quando o SQL toca tabela sensível"
     )
 
     # ------------------------------------------------------------------ #
