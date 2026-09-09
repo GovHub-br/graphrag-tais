@@ -257,6 +257,38 @@ def _render_data_dictionary(references: List[Dict[str, Any]], sql: str) -> str:
     return "\n\n".join(blocks)
 
 
+def render_masking_note(masked_columns: List[str]) -> str:
+    """Nota de transparência sobre as colunas pseudonimizadas (ADR-0018).
+
+    Compartilhada pelas duas personas e pelo relatório: a mesma limitação tem
+    de ser explicada com as mesmas palavras no chat, no CSV e no `.docx`."""
+    nomes = [c for c in (masked_columns or []) if c]
+    if not nomes:
+        return ""
+    lista = ", ".join(f"`{c}`" for c in nomes)
+    plural = "contêm dado pessoal e aparecem" if len(nomes) > 1 else "contém dado pessoal e aparece"
+    return (
+        f"> 🔒 {lista} {plural} pseudonimizada"
+        + ("s" if len(nomes) > 1 else "")
+        + ". O código exibido é estável — o mesmo valor recebe sempre o mesmo "
+        "código, então dá para contar, agrupar e cruzar sem identificar ninguém."
+    )
+
+
+def render_truncation_note(truncated: bool, limite: int) -> str:
+    """Uma frase quando o resultado não coube (ADR-0018).
+
+    Curta de propósito: o corte é detalhe de operação, não o assunto da
+    resposta. Mas tem de aparecer — sem ela, o gráfico e a leitura descrevem
+    uma fatia com a cara do todo, e ninguém tem como desconfiar."""
+    if not truncated:
+        return ""
+    return (
+        f"> ⚠️ O resultado tem mais de {limite:,} linhas; a leitura e o gráfico "
+        "acima cobrem só as primeiras — filtre mais ou peça o número agregado."
+    ).replace(",", ".")
+
+
 def render_markdown(answer: Dict[str, Any],
                     exec_info: Dict[str, Any] | None = None) -> str:
     """Markdown do chat a partir do `answer` estruturado.
@@ -319,6 +351,21 @@ def render_markdown(answer: Dict[str, Any],
     resumo = (exec_info.get("result_summary") or "").strip()
     if resumo:
         parts.append("### Resultado\n\n" + resumo)
+
+    # 6) Mascaramento (ADR-0018). Sem esta nota, `#a3f9c1d20b` numa célula é
+    # lido como bug ou como código do sistema — e o usuário volta a pedir o
+    # "valor certo". Dizer que a coluna é pessoal e que o código é ESTÁVEL
+    # (mesma pessoa, mesmo código) transforma a limitação em instrução de uso.
+    aviso = render_masking_note(exec_info.get("masked_columns") or [])
+    if aviso:
+        parts.append(aviso)
+
+    # 7) Truncamento do resultado. Vem por último: é ressalva sobre tudo o que
+    # foi dito acima, não uma seção.
+    corte = render_truncation_note(bool(exec_info.get("truncated")),
+                                   int(exec_info.get("row_limit") or 0))
+    if corte:
+        parts.append(corte)
 
     # A IR (intent/metric/filters) NÃO é renderizada: ela é ponto de controle de
     # engenharia (ADR-0006/0007) e continua no `answer` da API `/query/run` e no

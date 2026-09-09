@@ -58,6 +58,7 @@ inclusive o próprio autor daqui a seis meses — entenda *por que* o sistema é
 | [0015](./0015-amostra-de-dados-reais-no-modo-explorar.md) | Amostra de dados reais na resposta do modo Explorar | Proposto |
 | [0016](./0016-guardrails-de-resposta.md) | Guardrails de resposta — dado pessoal, acesso ao dado e escopo | Proposto |
 | [0017](./0017-execucao-do-sql-via-trino-mcp.md) | Execução do SQL via trino-mcp e contrato de backend configurável | Proposto |
+| [0018](./0018-mascaramento-de-dado-sensivel-na-saida.md) | Mascaramento de dado sensível na saída, por catálogo de colunas | Proposto (reabre a Alternativa C do ADR-0016) |
 
 ### Temas candidatos a ADR (backlog)
 

@@ -35,6 +35,9 @@ def build_delivery_pipeline() -> Pipeline:
     # execução → spec do gráfico
     pipeline.connect("mcp_executor.rows", "chart_spec.rows")
     pipeline.connect("mcp_executor.columns", "chart_spec.columns")
+    # Coluna pseudonimizada (ADR-0018) não pode virar eixo: os valores dela são
+    # hashes, e um gráfico de hashes não informa nada.
+    pipeline.connect("mcp_executor.masked_columns", "chart_spec.masked_columns")
     # execução + spec → render
     pipeline.connect("mcp_executor.rows", "chart_renderer.rows")
     pipeline.connect("chart_spec.spec", "chart_renderer.spec")

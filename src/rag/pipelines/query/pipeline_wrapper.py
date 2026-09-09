@@ -109,9 +109,11 @@ class PipelineWrapper(BasePipelineWrapper):
         Nunca levanta: se a entrega falhar, devolve o texto + entrega vazia.
 
         Retorna: (markdown_do_chat, delivery) onde
-          delivery = {chart_image, result_summary, sql_final, exec_ok, exec_error}."""
+          delivery = {chart_image, result_summary, sql_final, exec_ok, exec_error,
+                      masked_columns, truncated, row_limit}."""
         delivery = {"chart_image": "", "result_summary": "", "sql_final": "",
-                    "exec_ok": False, "exec_error": ""}
+                    "exec_ok": False, "exec_error": "", "masked_columns": [],
+                    "truncated": False, "row_limit": settings.MAX_EXEC_ROWS}
         sql = (answer or {}).get("sql", "")
         if not sql.strip():
             return markdown, delivery  # sem SQL (ex.: fora de domínio)
@@ -139,6 +141,13 @@ class PipelineWrapper(BasePipelineWrapper):
             sql_final=execu.get("sql_final", ""),
             exec_ok=bool(execu.get("exec_ok")),
             exec_error=execu.get("error", "") or "",
+            # Colunas pseudonimizadas na execução (ADR-0018): viram a nota de
+            # transparência no chat e no .docx. Vêm do executor, não de uma
+            # segunda consulta ao catálogo — quem mascarou é quem sabe o quê.
+            masked_columns=execu.get("masked_columns") or [],
+            # O resultado não coube no teto: a resposta tem de dizer isso, senão
+            # o gráfico e a leitura passam uma fatia por inteiro.
+            truncated=bool(execu.get("truncated")),
         )
 
         # A falha de execução NÃO vai para a resposta (decisão de produto: o

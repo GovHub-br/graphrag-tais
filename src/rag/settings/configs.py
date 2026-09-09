@@ -223,6 +223,58 @@ class Settings(BaseSettings):
     )
 
     # ------------------------------------------------------------------ #
+    # Mascaramento de dado sensível na saída (ADR-0018)
+    # ------------------------------------------------------------------ #
+    # Segunda camada, complementar ao gate acima: o guardrail protege a
+    # CONVERSA (recusa o pedido de dado pessoal antes da pipeline); isto
+    # protege o VALOR, pseudonimizando a célula no `McpSqlExecutor` — o único
+    # ponto por onde toda linha real do sistema passa. Existe porque o acesso
+    # mascarado do banco (a proteção de fato, ADR-0016) não cobre toda base.
+    SENSITIVE_MASKING_ENABLED: bool = Field(
+        True, description="Mascara valores de coluna sensível nas linhas do resultado"
+    )
+    # O mapeamento é grande demais para env e é revisado por gente de domínio:
+    # mora em arquivo versionado, montado read-only no container. Ausente ou
+    # vazio = nada mascarado (o comportamento anterior ao ADR-0018).
+    SENSITIVE_MAP_PATH: str = Field(
+        "/app/config/sensitive_columns.yml",
+        description="Catálogo (YAML/JSON) de colunas sensíveis por tabela",
+    )
+    # ⚠️ SEGREDO. Sem ele o hash de um CPF é reversível por força bruta (10¹¹
+    # valores), então o mascarador NÃO gera hash: degrada para redação
+    # (`[protegido]`) e registra erro. Trocar o valor invalida todo pseudônimo
+    # já emitido — é o botão de "recomeçar" do mascaramento.
+    SENSITIVE_HASH_PEPPER: str = Field(
+        "", description="Segredo do HMAC que gera o pseudônimo (obrigatório p/ hash)"
+    )
+    # `global`: o mesmo valor vira o mesmo pseudônimo em qualquer tabela —
+    # preserva COUNT(DISTINCT) e cruzamento sem revelar quem é. `column`: um
+    # pseudônimo por coluna de origem, impedindo até a correlação (protege
+    # mais, e custa a capacidade analítica de cruzar).
+    SENSITIVE_MASK_SCOPE: str = Field(
+        "global", description="Escopo do pseudônimo: global | column"
+    )
+    # Calcula e LOGA o plano de mascaramento sem alterar valor nenhum. É como
+    # se calibra um catálogo novo em produção sem risco de estragar amostra
+    # legítima: ligue, leia os logs por alguns dias, depois desligue.
+    SENSITIVE_MASK_DRY_RUN: bool = Field(
+        False, description="Só registra o que seria mascarado, sem mascarar"
+    )
+    # Desliga a autocorreção por LLM quando o SQL toca tabela do catálogo.
+    #
+    # ⚠️ **Default `false` desde que o retorno da tool passou a ser mascarado**
+    # (`McpSqlExecutor._mask_toolset`): o agente já não vê valor cru, então não
+    # há mais o que inibir. Ligar isto custa caro e protege pouco — a checagem é
+    # pela TABELA, então uma consulta puramente agregada numa tabela do catálogo
+    # (`SELECT anoprojeto, COUNT(*) FROM sac__projetos`) também perderia a
+    # autocorreção, e num catálogo do tamanho do MinC errar SQL não é raro.
+    # Existe como cinto além do suspensório, para quem quiser a garantia de que
+    # nem uma falha no mascaramento da tool exponha linha ao modelo.
+    SENSITIVE_INHIBIT_AUTOCORRECT: bool = Field(
+        False, description="Não aciona o Agent quando o SQL toca tabela sensível"
+    )
+
+    # ------------------------------------------------------------------ #
     # Camada de entrega (ADR-0013/0017): execução do SQL via MCP + gráfico
     # ------------------------------------------------------------------ #
     # QUEM EXECUTA O SQL é um servidor MCP read-only, nunca o RAG: o graphrag

@@ -1,0 +1,412 @@
+# Catálogo de colunas sensíveis (ADR-0018) — GERADO, não edite à mão.
+#
+# Fonte: inventário de PII do projeto dbt do MinC
+#   repositório : data-application-minc
+#   commit      : e610c31
+#   levantado em: 2026-09-08
+#   taxonomia   : OpenMetadata (PII.Sensitive / PII.NonSensitive), conforme scripts/classificar_pii.py
+#
+# Regerar após qualquer mudança no inventário:
+#   python scripts/import_sensitive_map.py \
+#       --entrada <inventario.json> --saida config/sensitive_columns.yml
+#   (excluídas: deficiencia, raca_etnia, revisar)
+#
+# Gerado em 2026-09-08: 161 tabelas, 212 colunas (273 hash, 28 redact, 45 descartadas).
+#
+# ⚠️ A chave é o nome do MODELO dbt, sem schema. O `Catalog` casa nome
+# curto com `schema.tabela` do SQL, então isto vale em qualquer schema —
+# de propósito, enquanto o schema físico do MinC no `hml_analytics` não
+# estiver confirmado. Fecha para o lado de proteger.
+#
+# ⚠️ Agregação NUNCA é mascarada: `COUNT(cgccpf)` continua contando
+# pessoas. Ver a decisão 4 do ADR-0018.
+
+version: 1
+default_strategy: hash
+
+tables:
+  agentes__agentes:
+    - cnpjcpf
+    - cnpjcpfsuperior
+  agentes__vprefeiturasregiaouf:
+    - cnpj
+  agentes__vwcadastrarparecerista:
+    - cnpjcpf
+  agentes__vwempresajuridica:
+    - nrcnpj
+  agentes__vwempresajuridicasocios:
+    - nrcnpj
+    - nrcnpjcpfsocio
+  agentes__vwpropostasemavaliacao:
+    - cnpjcpf
+  anexos_relatorios:
+    - {column: auditlogin, strategy: redact}
+    - {column: tipoanexo__auditlogin, strategy: redact}
+  bbagil_extrato_filtrado:
+    - beneficiario_documento
+  bbagil_subtransacoes_filtrado:
+    - beneficiario_documento
+  bdcorporativo__tbalteracaonomeproponente:
+    - nrcnpjcpf
+  brg_projeto_proponente_rouanet:
+    - documento_proponente
+    - documento_valido
+  consulta:
+    - cnpj investidor
+    - cnpj proponente
+  contemplados_unif:
+    - identificador_unico
+  controledeacesso__sgcacesso:
+    - cpf
+    - {column: senha, strategy: redact}
+  eventos_fomento:
+    - beneficiario_documento
+  eventos_fomento_ancine:
+    - beneficiario_documento
+  eventos_fomento_rouanet:
+    - beneficiario_documento
+  extrato_bbagil:
+    - beneficiaryaccountnumber
+    - beneficiarybranchcode
+    - beneficiarydocumentid
+    - id_agencia_conta
+  fct_pagamento_profissional_rouanet:
+    - documento_prestador
+    - numero_documento_pagamento
+    - tipo_documento_comprovante
+  fct_pagamentos_bbagil:
+    - identificador_unico
+  fct_pagamentos_elegiveis:
+    - identificador_unico
+  fct_proponente_ano_rouanet:
+    - documento_proponente
+  identificadores_agentes_cotas:
+    - identificador_unico
+  pagamentos_bbagil_beneficiarios:
+    - beneficiario_documento
+  perfil_agentes_normalizado:
+    - identificador_unico
+  plano_acao_dado_bancario_minc:
+    - dv_agencia_plano_acao_dado_bancario
+    - id_agencia_conta
+    - numero_agencia_plano_acao_dado_bancario
+    - numero_conta_plano_acao_dado_bancario
+  plano_acao_minc:
+    - cnpj_ente_recebedor_plano_acao
+    - cnpj_ente_repassador_plano_acao
+    - cnpj_fundo_repassador_plano_acao
+    - cnpj_fundo_vinculado_plano_acao
+    - cnpj_orgao_repassador_plano_acao
+  primeiro_acesso_agentes:
+    - beneficiario_documento
+  programa_minc:
+    - cnpj_fundo_programa
+    - cnpj_orgao_superior_programa
+  sac__agenciasbb:
+    - agencia
+  sac__avaliacaoproponente:
+    - cgccpf
+  sac__bancoagencia:
+    - agencia
+  sac__bancoagencia20100824:
+    - agencia
+  sac__bancoagencia_bkp_04112009x:
+    - agencia
+  sac__bancoagencianovo1:
+    - agencia
+  sac__bcoagmar2011$:
+    - agencia
+  sac__bcoagmar2011_:
+    - agencia
+  sac__captacao:
+    - cgccpfmecena
+  sac__captacaoold:
+    - cgccpfmecena
+  sac__captacaoquotas:
+    - cgccpfsub
+  sac__carregarecibocaptacaodanca:
+    - cpfcnpj
+  sac__carregarecibocaptacaodanca2010:
+    - cpfcnpj
+  sac__carregarecibocaptacaodanca2012:
+    - cpfcnpj
+  sac__carregarecibocaptacaodanca2013:
+    - cpfcnpj
+  sac__certidoesnegativas:
+    - cgccpf
+  sac__contabancaria:
+    - agencia
+    - idcontabancaria
+  sac__curriculo:
+    - cgccpf
+  sac__distribuicaopassagem:
+    - cgccpf
+  sac__documentosproponente:
+    - cgccpf
+  sac__geralext:
+    - cnpj/cpf
+  sac__guiarecolhimento:
+    - cgccpf
+  sac__historicoinabilitado:
+    - cgccpf
+  sac__inabilitado:
+    - cgccpf
+  sac__incentivoporcgccpf:
+    - cgccpf
+  sac__interessado:
+    - cgccpf
+  sac__kitentregue:
+    - documento
+  sac__preprojeto:
+    - agenciabancaria
+  sac__projetos:
+    - cgccpf
+  sac__tbapiincentivos:
+    - nrcnpjcpfincentivador
+    - nrcnpjcpfproponente
+  sac__tbapiprojetorouanet:
+    - nragenciabancaria
+    - nrcnpjcpf
+    - stcontabancarialiberada
+  sac__tbcontabancariabloqueada:
+    - idcontabancariabloqueada
+  sac__tbcontacartao:
+    - cdportadorcartaonobanco
+    - idcontabancaria
+    - idcontacartao
+    - nrcontacartao
+    - nrcpfportadordocartao
+  sac__tbdeclaracaobeneficiosfiscais:
+    - nrcpfcnpjdoadorpatrocinador
+    - nrcpfcnpjproponente
+  sac__tbdispositivomovel:
+    - nrcpf
+  sac__tbfundopatrimonial:
+    - cpfcnpjexecutor
+    - cpfcnpjfundo
+  sac__tbfundopatrimonialusuario:
+    - cpfcnpjapoiado
+  sac__tbhistoricoalteracaoprojeto:
+    - cgccpf
+  sac__tbhistoricoexclusaoconta:
+    - agencia
+    - idcontabancaria
+  sac__tbinadimplente:
+    - nrcnpjcpf
+  sac__tblancamentobancario:
+    - nragencialancamento
+  sac__tblogintentativasacesso:
+    - nrcpf
+  sac__tbmensagem:
+    - nrcpf
+  sac__tbmovimentacaobancariaitem:
+    - nragencia
+    - nrcnpjcpf
+  sac__tbpareceristavaloranalisado:
+    - cnpjcpf
+  sac__tbprojetosclonados:
+    - nrcnpjcpforiginal
+  sac__vcartas:
+    - cgccpf
+  sac__vchecaproponente:
+    - cgccpf
+  sac__vchecaqteinabilitacao:
+    - cgccpf
+  sac__vcnpjcpf:
+    - cgccpf
+  sac__vcnpjvalido:
+    - cgccpf
+    - cnpjvalido
+  sac__vcontacorrente:
+    - agencia
+  sac__vdadoscomplementaresdecartas:
+    - cgccpf
+  sac__vempresasincentivadorasano:
+    - cgccpf
+  sac__vetiquetaeneida:
+    - cgccpf
+  sac__vfninccaprenuncia:
+    - cgccpf
+  sac__vguianaovinculada:
+    - cgccpf
+  sac__vguiasderecolhimento:
+    - cgccpf
+  sac__vincentivador:
+    - cgccpf
+  sac__vincentivadorano:
+    - cgccpf
+  sac__vincentivadoraudioano:
+    - cgccpf
+  sac__vincentivadoresma:
+    - cgccpf
+  sac__vincentivadorporprojeto:
+    - cgccpf
+  sac__vnegativainabilitadoetiqueta:
+    - pcgccpf
+  sac__vpropapreaproexec:
+    - cgccpf
+  sac__vproponenteanouf:
+    - cgccpf
+  sac__vproponenteavaliado:
+    - cgccpf
+  sac__vproponentecaptacaoanouf:
+    - cgccpf
+  sac__vproponentecommaisdecincoproj:
+    - cgccpf
+  sac__vproponentemecenato:
+    - cgccpf
+  sac__vproponenteporarea:
+    - cgccpf
+  sac__vproponenteprojetos:
+    - cgccpf
+  sac__vproponenteprojetosongs:
+    - cgccpf
+  sac__vproponentetipopessoa:
+    - cgccpf
+  sac__vpropquereceberbandadenovo:
+    - cgccpf
+  sac__vproprecebeubanda:
+    - cgccpf
+  sac__vpropufareaseg:
+    - cgccpf
+  sac__vregularidade:
+    - cgccpf
+  sac__vrenunciaporano:
+    - cgccpf
+  sac__vrenunciaporincentivador:
+    - cgccpf
+  sac__vtermodecompromisso:
+    - cgccpf
+  sac__vwagentesseusprojetos:
+    - cgccpf
+  sac__vwalterarprojeto:
+    - cgccpf
+  sac__vwinformacoes_tcu_etce:
+    - cnpj_destinatario
+  sac__vwinformacoesconsolidadasparaavaliacaofinanceira:
+    - cnpjcpf
+  sac__vwitemorcamentarioimpugnado:
+    - documento
+  sac__vwlaudofinalavaliacaoderesultadodoprojeto:
+    - cnpjcpf
+  sac__vwliberacao:
+    - cgccpf
+  sac__vwlistarcaptacoes:
+    - nrcnpj_cpf_incentivador
+  sac__vwmaioresincentivadoresporanouf:
+    - cnpj_cpf_incentivador
+  sac__vwmaioresproponentesporanouf:
+    - cgccpf
+  sac__vwpagamentodefornecedordoprojetoporitem:
+    - cnpjcpf
+  sac__vwpagamentodefornecedordoprojetoporitemdetalhado:
+    - cnpjcpf
+  sac__vwpagamentofinalizadoparecerista:
+    - cnpjcpf
+  sac__vwpagamentofornecedorirregularreceitafederal:
+    - nrcnpj
+  sac__vwpagamentoparecerista:
+    - cnpjcpf
+  sac__vwpaineladequacaorealidadeexecucao:
+    - cnpjcpf
+  sac__vwpaineladmissibilidade:
+    - nrcnpjcpf
+  sac__vwpainelavaliarpropostas:
+    - cnpjcpf
+  sac__vwpainelcoordenadoravaliacaotrimestral:
+    - cgccpf
+  sac__vwpaineldedocumentosaguardandoassinatura:
+    - cgccpf
+  sac__vwpaineldeemissaodelaudofinalderesultado:
+    - cnpjcpf
+  sac__vwpaineldeemissaodelaudofinalderesultadopassivo:
+    - cnpjcpf
+  sac__vwpaineldetransferenciaderecursos:
+    - cgccpfmecena
+  sac__vwpaineltecnicoavaliacaotrimestral:
+    - cgccpf
+  sac__vwpareceristascredenciados:
+    - nrcnpjcpf
+  sac__vwprocuradordeprojeto:
+    - cnpjcpf_proponente
+    - cnpjcpfprocurador
+    - cpfsolicitante
+  sac__vwprodutosemanalisetecnicanasvinculadas:
+    - nrcpf_parecerista
+  sac__vwprogramarouanetavaliadores:
+    - cpf
+  sac__vwprogramarouaneteditais:
+    - nrcnpjcpfincentivador
+  sac__vwprogramarouanetincentivadorprojetosapoiados:
+    - nrcnpfcpf
+    - nrcnpjcpfincentivador
+  sac__vwprogramarouanetprojetosselecionados:
+    - nrcnpfcpf
+  sac__vwprogramarouanetpropostasrecebidas:
+    - nrcnpjcpf
+  sac__vwprojetos_na_pauta_cnic:
+    - cgccpf
+  sac__vwprojetosadequadosrealidadeexecucao:
+    - cnpjcpf
+  sac__vwprojetosaprovadossemhomologacao:
+    - cgccpf
+  sac__vwprojetoscominconsistencianacaptacao:
+    - cgccpf
+    - nragenciaproponente
+    - nrcpfcnpjincentivador
+    - nrcpfcnpjproponente
+  sac__vwprojetosliberadosparaadequacaorealidadeexecucao:
+    - agencia
+  stg_agentes_coletivos:
+    - identificador_unico
+  stg_agentes_pf:
+    - identificador_unico
+  stg_agentes_pj:
+    - identificador_unico
+  stg_agentes_pnab_pf:
+    - identificador_unico
+  stg_agentes_pnab_pj:
+    - identificador_unico
+  stg_bbagil:
+    - documento_raw
+    - identificador_unico
+  stg_contemplados_lpg:
+    - identificador_unico
+  stg_contemplados_pnab:
+    - identificador_unico
+  subtransacao_bbagil:
+    - beneficiaryaccountnumber
+    - beneficiarybranchcode
+    - beneficiarydocumentid
+    - id_agencia_conta
+  tabelas__emails:
+    - eml_cpf
+  tabelas__usuarios:
+    - {column: usu_duracao_senha, strategy: redact}
+    - {column: usu_senha, strategy: redact}
+    - {column: usu_sql_login, strategy: redact}
+    - {column: usu_sql_senha, strategy: redact}
+  tabelas__usuarios_ares:
+    - {column: usu_duracao_senha, strategy: redact}
+    - {column: usu_senha, strategy: redact}
+    - {column: usu_sql_login, strategy: redact}
+    - {column: usu_sql_senha, strategy: redact}
+  tabelas__usuexternosistemas:
+    - {column: ususenha, strategy: redact}
+  tabelas__v_usuario_completo:
+    - {column: usu_duracao_senha, strategy: redact}
+    - {column: usu_senha, strategy: redact}
+    - {column: usu_sql_login, strategy: redact}
+    - {column: usu_sql_senha, strategy: redact}
+
+# Regra por NOME de coluna, valendo em QUALQUER tabela.
+#
+# É o instrumento para o que o inventário do dbt não alcança: o Trino
+# tem tabelas que o projeto dbt não modela (views, temporárias), e
+# naturezas que o inventário não classifica (telefone, e-mail). Rode
+# `scripts/audit_sensitive_map.py` para ver o que está descoberto.
+#
+# ⚠️ Cuidado com o que é público: telefone de prefeitura e CNPJ de
+# empresa contratada são informação pública (ADR-0016), e uma regra
+# global por nome não distingue os dois casos.
+columns: []

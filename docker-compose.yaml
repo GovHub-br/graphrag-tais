@@ -70,6 +70,10 @@ services:
       - "8000:8000"
     volumes:
       - ./src:/app/src:rw
+      # Catálogo de colunas sensíveis (ADR-0018). Read-only e FORA da imagem:
+      # o mapeamento é revisado por gente de domínio e muda sem deploy de
+      # código — mas entra por PR, como o resto do repositório.
+      - ./config:/app/config:ro
     # Sobe o app do PROJETO (`rag.server.app`), que é o app do Hayhooks + as
     # rotas próprias (hoje: /files, o download do relatório e da amostra). O
     # `hayhooks run` não tem gancho para rota custom; com --reload ele mesmo
