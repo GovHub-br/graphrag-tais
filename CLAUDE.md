@@ -77,8 +77,10 @@ OpenMetadata ingeriu; divergência aí se conserta no catálogo, não no prompt.
 2. `make up` → rebuild + sobe **qdrant, neo4j, minio, hayhooks, trino-mcp** (NÃO sobe redis nem webui).
    O `postgres-mcp` está atrás do profile `postgres` e **não sobe** — de propósito: sem
    `ANALYTICS_DB_*` preenchidas ele fica em loop de restart.
-   MinIO (armazenamento do relatório, ADR-0010): API/S3 `localhost:9000`, console `localhost:9001`
-   (user/senha = `MINIO_ACCESS_KEY`/`SECRET`).
+   MinIO (armazenamento do relatório, ADR-0010): API/S3 `localhost:9000`, console
+   `localhost:9001/rustfs/console/` (user/senha = `MINIO_ACCESS_KEY`/`SECRET`).
+   ⚠️ O serviço se chama `minio`, mas a imagem é o **RustFS** (`rustfs/rustfs`, S3-compatível):
+   a `minio/minio` saiu do Docker Hub em set/2026. As envs `MINIO_*` seguem as mesmas.
 3. **Ingestão**: `curl -X POST http://localhost:8000/ingest/run -d '{}'` (escopo vem do `.env`).
    Grava Neo4j primeiro; o `GraphWriteGate` só libera embeddings→Qdrant após o Neo4j confirmar.
 4. **Query (JSON, só motor)**: `POST http://localhost:8000/query/run` `{"query":"..."}` — devolve

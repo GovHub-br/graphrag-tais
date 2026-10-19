@@ -44,18 +44,28 @@ services:
     networks:
       - default
 
+  # Armazenamento S3 do relatório e da amostra. A imagem é o RustFS, não mais o
+  # MinIO: a MinIO arquivou a edição comunitária e tirou `minio/minio` do Docker
+  # Hub (e do quay.io) — `docker pull` passou a dar "access denied". O RustFS é
+  # S3-compatível, então o `MinIOUploader` (boto3) não muda. O serviço segue
+  # chamado `minio` de propósito: é o hostname do `MINIO_ENDPOINT` de todo .env.
   minio:
-    image: minio/minio:latest
+    image: rustfs/rustfs:1.0.3
     container_name: minio
     ports:
-      - "9000:9000"   # API S3 (upload + download assinado)
-      - "9001:9001"   # console web
+      - "9000:9000"   # API S3 (upload + leitura do download)
+      - "9001:9001"   # console web: http://localhost:9001/rustfs/console/
     environment:
-      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-minioadmin}
-      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-minioadmin}
-    command: server /data --console-address ":9001"
+      - RUSTFS_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - RUSTFS_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - RUSTFS_ADDRESS=:9000
+      - RUSTFS_CONSOLE_ENABLE=true
+      - RUSTFS_CONSOLE_ADDRESS=:9001
+    # Volume NOVO: o formato em disco do MinIO não é garantido no RustFS e a
+    # imagem roda como uid 10001 (o `minio_data` antigo é de root). O que se
+    # perde são relatórios/amostras com link de no máximo 7 dias.
     volumes:
-      - minio_data:/data
+      - rustfs_data:/data
     restart: unless-stopped
     networks:
       - default
@@ -267,7 +277,7 @@ volumes:
     driver: local
   redis_data:
     driver: local
-  minio_data:
+  rustfs_data:
     driver: local
   open-webui:
     driver: local
