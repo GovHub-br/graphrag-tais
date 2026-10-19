@@ -44,8 +44,12 @@ services:
     networks:
       - default
 
+  # `pgsty/minio` é um fork comunitário do MinIO (mesmo binário, mesmas envs e
+  # mesmo formato em disco). A MinIO arquivou a edição comunitária e tirou
+  # `minio/minio` do Docker Hub e do quay.io — o pull passou a dar 401/"access
+  # denied". Tag fixa: o fork publica `RELEASE.*` como o upstream fazia.
   minio:
-    image: minio/minio:latest
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     container_name: minio
     ports:
       - "9000:9000"   # API S3 (upload + download assinado)
