@@ -79,6 +79,7 @@ OpenMetadata ingeriu; divergência aí se conserta no catálogo, não no prompt.
    `ANALYTICS_DB_*` preenchidas ele fica em loop de restart.
    MinIO (armazenamento do relatório, ADR-0010): API/S3 `localhost:9000`, console `localhost:9001`
    (user/senha = `MINIO_ACCESS_KEY`/`SECRET`).
+   ⚠️ Imagem `pgsty/minio` (fork comunitário): a `minio/minio` saiu do Docker Hub e do quay.io em set/2026.
 3. **Ingestão**: `curl -X POST http://localhost:8000/ingest/run -d '{}'` (escopo vem do `.env`).
    Grava Neo4j primeiro; o `GraphWriteGate` só libera embeddings→Qdrant após o Neo4j confirmar.
 4. **Query (JSON, só motor)**: `POST http://localhost:8000/query/run` `{"query":"..."}` — devolve
