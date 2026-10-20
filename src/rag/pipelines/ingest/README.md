@@ -216,7 +216,9 @@ autorizado.
 | `OM_SERVICE`, `OM_DATABASE` | service e database permitidos |
 | `OM_SCHEMAS` | **allowlist** de FQNs `Service.database.schema`, separados por vírgula |
 | `OM_REQUIRE_DOCUMENTED_TABLES` | aceita só tabelas com a Custom Property documental |
-| `OM_RELATIONSHIP_ADAPTER` | `mcid_markdown_v1` ou `none`/vazio para desligar |
+| `OM_RELATIONSHIP_ADAPTER` | `mcid_markdown_v1`, `minc_markdown_v1` ou `none`/vazio para desligar |
+| `OM_SQL_ELIGIBLE_JOIN_RULES` | `join_rule` autorizadas para igualdade SQL direta, separadas por vírgula; default `exact` |
+| `OM_TABLE_GRAIN_PROPERTY` | Custom Property textual com o grão medido; vazio mantém apenas o fallback `OM_GRAIN_KEYS` |
 | `OM_PAGE_SIZE`, `OM_TIMEOUT`, `OM_MAX_RETRIES` | paginação e resiliência HTTP |
 
 ### Cards e embeddings

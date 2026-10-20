@@ -50,12 +50,20 @@ class FakeGraphStore:
         raise AssertionError(f"Cypher inesperada: {cypher[:60]}")
 
 
-def _table_row(fqn: str, name: str, schema: str, columns: list[dict], desc: str = ""):
+def _table_row(
+    fqn: str,
+    name: str,
+    schema: str,
+    columns: list[dict],
+    desc: str = "",
+    grain: str = "",
+):
     return {
         "table_fqn": fqn,
         "table_name": name,
         "schema_fqn": f"Cidades.cidades.{schema}",
         "table_desc": desc,
+        "table_grain": grain,
         "columns": columns,
     }
 
@@ -146,6 +154,19 @@ class TestCatalogRetrieverOrdering(unittest.TestCase):
         retriever = Neo4jCatalogRetriever(graph_store=self._store())
         out = retriever.run(documents=self._seed_docs(), query="alfa")
         self.assertTrue(all(d.meta["is_island"] for d in out["documents"]))
+
+    def test_table_grain_from_graph_is_exposed(self):
+        store = self._store()
+        store.tables[0]["table_grain"] = "Uma linha por APF, medida por contagem exata."
+        retriever = Neo4jCatalogRetriever(graph_store=store)
+
+        out = retriever.run(documents=self._seed_docs(), query="alfa")
+
+        table = next(doc for doc in out["documents"] if doc.meta["table"] == "alfa")
+        self.assertEqual(
+            table.meta["grain"], "Uma linha por APF, medida por contagem exata."
+        )
+        self.assertIn("Grão: Uma linha por APF", table.content)
 
 
 @unittest.skipUnless(HAYSTACK, "Haystack indisponível no host — rode no container")

@@ -53,7 +53,7 @@ UNWIND $tids AS tid
 MATCH (tab:Table {node_id: tid})-[:HAS_COLUMN]->(col:Column)
 WITH tab, col ORDER BY col.ordinal_position
 RETURN tab.node_id AS table_fqn, tab.name AS table_name, tab.schema AS schema_fqn,
-       tab.description AS table_desc,
+       tab.description AS table_desc, tab.grain AS table_grain,
        collect({
          name: col.name,
          type: coalesce(col.data_type_display, col.data_type),
@@ -106,14 +106,21 @@ def _col_matches(name: str, description: str, tokens: set) -> bool:
 _GRAIN_CACHE: dict | None = None
 
 
-def _grain_for(table_fqn: str) -> str:
+def _grain_for(table_fqn: str, node_grain: str | None = None) -> str:
     """Grão declarado da tabela, para o contexto do LLM.
 
-    Vem de `OM_GRAIN_KEYS` (FQN -> frase). O MCid não declara PK nem FK, então o
-    grão foi medido no banco — ver docs/20260812-metodo-profiling-grao.md. A
-    casa definitiva é uma Custom Property no OpenMetadata, virando propriedade
-    do nó `Table`; a config é a ponte até lá.
+    Duas fontes, nesta ordem:
+
+    1. **propriedade do nó `Table`** — o grão medido que a fonte publica numa
+       Custom Property (`OM_TABLE_GRAIN_PROPERTY`; no MinC, `mincTableGrain`,
+       presente em 407 das 408 tabelas, contado exato via Trino). É a casa
+       definitiva que o MCid ainda não tinha;
+    2. **`OM_GRAIN_KEYS`** (FQN -> frase) — a ponte manual, que segue valendo
+       para o MCid, onde não há PK, FK nem property e o grão foi medido no
+       banco (docs/20260812-metodo-profiling-grao.md).
     """
+    if node_grain and node_grain.strip():
+        return node_grain.strip()
     global _GRAIN_CACHE
     if _GRAIN_CACHE is None:
         import json
@@ -218,7 +225,8 @@ class Neo4jSubgraphRetriever:
             total_cols += len(kept)
             out.append(Document(
                 content=self._serialize_table(row, sql_name, kept,
-                                              grain=_grain_for(table_fqn)),
+                                              grain=_grain_for(table_fqn,
+                                                               row.get("table_grain"))),
                 meta={
                     "node_id": table_fqn,
                     "fqn": table_fqn,

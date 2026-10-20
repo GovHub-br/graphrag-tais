@@ -193,7 +193,7 @@ UNWIND $tids AS tid
 MATCH (tab:Table {node_id: tid})-[:HAS_COLUMN]->(col:Column)
 WITH tab, col ORDER BY col.ordinal_position
 RETURN tab.node_id AS table_fqn, tab.name AS table_name, tab.schema AS schema_fqn,
-       tab.description AS table_desc,
+       tab.description AS table_desc, tab.grain AS table_grain,
        collect({
          name: col.name,
          type: coalesce(col.data_type_display, col.data_type),
@@ -338,7 +338,7 @@ class Neo4jCatalogRetriever:
                     "table": row["table_name"],
                     "sql_name": sql_name,
                     "description": row.get("table_desc") or "",
-                    "grain": _grain_for(table_fqn),
+                    "grain": _grain_for(table_fqn, row.get("table_grain")),
                     "is_seed": table_fqn in seed_table_fqns,
                     "is_island": not neighbors,
                     "neighbors": neighbors,
@@ -483,7 +483,7 @@ class Neo4jCatalogRetriever:
             f"Tabela: {sql_name}   (FQN: {row['table_fqn']})",
             f"  Domínio: {_domain_label(schema)}",
         ]
-        grain = _grain_for(row["table_fqn"])
+        grain = _grain_for(row["table_fqn"], row.get("table_grain"))
         if grain:
             lines.append(f"  Grão: {grain}")
         if row.get("table_desc"):

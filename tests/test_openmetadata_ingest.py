@@ -5,11 +5,13 @@ import unittest
 from unittest.mock import patch
 
 from rag.components.converters.graph_card_builder import GraphCardBuilder
+from rag.components.converters.metadata_record_builder import _texto
 from rag.components.converters.metadata_record_builder import MetadataRecordBuilder
 from rag.components.sources.openmetadata_source import OpenMetadataSource
 from rag.components.sources.relationship_adapters import (
     MCDMarkdownRelationshipAdapter,
 )
+from rag.settings.configs import settings
 from rag.components.writers.neo4j_graph_writer import Neo4jGraphWriter
 
 
@@ -33,6 +35,17 @@ Catálogo `mcid-semantic-relationships`, evidência agregada de `2026-07-23T03:5
 - **Relação candidata** (origem): `empreendimento_far.empreendimento.apf` → `empreendimento_far.cadastro_pj.apf`; chave `apf`; JOIN `normalized_exact`; cardinalidade `unknown`; confiança `low`.
 
 ### Lógica de JOIN do modelo
+"""
+
+
+def _validated_markdown(join_rule: str) -> str:
+    return f"""## Relações semânticas MCID
+
+Catálogo `mcid-semantic-relationships`, evidência agregada de `2026-07-23T03:51:45+00:00`.
+
+### Relações explícitas
+
+- **Relação validada por agregados** (origem): `empreendimento_far.empreendimento.apf` → `empreendimento_far.cadastro_pj.apf`; chave `apf`; JOIN `{join_rule}`; cardinalidade `many_to_one`; confiança `high`.
 """
 
 
@@ -257,6 +270,73 @@ class CanonicalRecordTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "FK composta inconsistente"):
             self._builder().run(snapshot)
 
+    def test_reads_table_grain_from_configured_custom_property(self) -> None:
+        snapshot = _snapshot()
+        snapshot["tables"][0]["extension"]["testTableGrain"] = (
+            "Uma linha por APF, medida por contagem exata."
+        )
+
+        with patch.object(settings, "OM_TABLE_GRAIN_PROPERTY", "testTableGrain"):
+            records = self._builder().run(snapshot)["records"]
+
+        table = next(
+            item for item in records["tables"] if item["node_id"] == SOURCE_TABLE
+        )
+        self.assertEqual(
+            table["grain"], "Uma linha por APF, medida por contagem exata."
+        )
+
+    def test_allows_configured_normalized_exact_for_compatible_types(self) -> None:
+        snapshot = _snapshot()
+        for table in snapshot["tables"]:
+            table["extension"]["mcidSemanticRelationships"] = (
+                _validated_markdown("normalized_exact")
+            )
+        builder = MetadataRecordBuilder(
+            relationship_adapter=MCDMarkdownRelationshipAdapter(
+                markdown_property="mcidSemanticRelationships",
+                related_tables_property="mcidRelatedTables",
+                eligible_join_rules="exact,normalized_exact",
+            )
+        )
+
+        records = builder.run(snapshot)["records"]
+        semantic = next(
+            relationship
+            for relationship in records["relationships"]
+            if relationship["relationship_type"] == "SEMANTIC_JOIN"
+        )
+        self.assertTrue(semantic["sql_join_eligible"])
+        self.assertIsNone(semantic["sql_eligibility_reason"])
+        self.assertEqual(records["stats"]["semantic_relationships_sql_eligible"], 1)
+
+    def test_rejects_configured_rule_when_endpoint_types_are_incompatible(self) -> None:
+        snapshot = _snapshot()
+        for table in snapshot["tables"]:
+            table["extension"]["mcidSemanticRelationships"] = (
+                _validated_markdown("normalized_exact")
+            )
+        snapshot["tables"][1]["columns"][0]["dataType"] = "INTEGER"
+        builder = MetadataRecordBuilder(
+            relationship_adapter=MCDMarkdownRelationshipAdapter(
+                markdown_property="mcidSemanticRelationships",
+                related_tables_property="mcidRelatedTables",
+                eligible_join_rules="exact,normalized_exact",
+            )
+        )
+
+        records = builder.run(snapshot)["records"]
+        semantic = next(
+            relationship
+            for relationship in records["relationships"]
+            if relationship["relationship_type"] == "SEMANTIC_JOIN"
+        )
+        self.assertFalse(semantic["sql_join_eligible"])
+        self.assertIn("TEXT -> INTEGER", semantic["sql_eligibility_reason"])
+        self.assertEqual(
+            records["stats"]["semantic_relationships_type_incompatible"], 1
+        )
+
 
 class CardProjectionTest(unittest.TestCase):
     def test_card_ids_and_point_ids_are_stable(self) -> None:
@@ -328,3 +408,23 @@ class Neo4jWriterTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TextoDoOpenMetadataTest(unittest.TestCase):
+    """O OM escapa a descrição; o card e o vetor precisam do texto real."""
+
+    def test_desfaz_entidades_html(self):
+        cru = "Grão por &#96;idagente&#96; &#43; ano, &#34;porta de entrada&#34;"
+        self.assertEqual(
+            _texto(cru),
+            'Grão por `idagente` + ano, "porta de entrada"',
+        )
+
+    def test_idempotente(self):
+        """Reingestão sobre dado já limpo não pode corromper."""
+        limpo = 'Grão por `idagente`, "porta de entrada"'
+        self.assertEqual(_texto(limpo), limpo)
+        self.assertEqual(_texto(_texto(limpo)), limpo)
+
+    def test_ausente_vira_string_vazia(self):
+        self.assertEqual(_texto(None), "")
