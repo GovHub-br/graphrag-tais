@@ -14,6 +14,7 @@ import matplotlib
 matplotlib.use("Agg")  # headless, sem display
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import matplotlib.ticker as mticker
 from matplotlib import font_manager
 import pandas as pd
 
@@ -110,12 +111,31 @@ def render_bar(
     return _to_png(fig, dpi)
 
 
+def _eh_ano(serie: pd.Series) -> bool:
+    """True quando a coluna do eixo x é um ANO simples (1993, "2020").
+
+    ⚠️ `pd.to_datetime(1993)` NÃO devolve o ano de 1993: lê o inteiro como
+    nanossegundos desde a época e devolve 1970-01-01. Um gráfico de "projetos
+    por ano" saía com todos os pontos empilhados em 1970 e o eixo rotulado
+    `1970-Jan-01 00:00` — sem erro nenhum, só um gráfico errado.
+
+    Por isso o ano é tratado como número, não como data. A faixa 1900-2100
+    separa ano de código numérico qualquer que tenha caído no eixo.
+    """
+    n = pd.to_numeric(serie, errors="coerce").dropna()
+    if n.empty or len(n) != len(serie.dropna()):
+        return False
+    return bool(((n >= 1900) & (n <= 2100) & (n == n.astype(int))).all())
+
+
 def render_line(
     df: pd.DataFrame, x: str, y: str, *, title: str = "", dpi: int = 120,
 ) -> Optional[bytes]:
     data = df[[x, y]].copy()
     data[y] = pd.to_numeric(data[y], errors="coerce")
-    data[x] = pd.to_datetime(data[x], errors="coerce")
+    ano = _eh_ano(data[x])
+    data[x] = (pd.to_numeric(data[x], errors="coerce").astype("Int64")
+               if ano else pd.to_datetime(data[x], errors="coerce"))
     data = data.dropna(subset=[x, y]).sort_values(x)
     if data.empty:
         return None
@@ -125,7 +145,14 @@ def render_line(
             markersize=3.5, markerfacecolor="white",
             markeredgecolor=_ACCENT, markeredgewidth=1.3)
     ax.fill_between(data[x], data[y], alpha=0.15, color=_ACCENT)
-    ax.xaxis.set_major_formatter(mdates.ConciseDateFormatter(ax.xaxis.get_major_locator()))
+    if ano:
+        # Ano é inteiro: sem separador de milhar (2020, não "2,0 mil") e sem
+        # marca fracionária entre anos.
+        ax.xaxis.set_major_locator(mticker.MaxNLocator(integer=True, nbins=12))
+        ax.xaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _: f"{int(v)}"))
+    else:
+        ax.xaxis.set_major_formatter(
+            mdates.ConciseDateFormatter(ax.xaxis.get_major_locator()))
     _compact_axis(ax.yaxis)
     if title:
         ax.set_title(title, fontsize=12, pad=10)
