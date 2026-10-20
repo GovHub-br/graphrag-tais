@@ -57,8 +57,9 @@ inclusive o próprio autor daqui a seis meses — entenda *por que* o sistema é
 | [0014](./0014-personas-e-modos-de-uso-do-assistente.md) | Duas personas como dois modos de uso do assistente | Proposto |
 | [0015](./0015-amostra-de-dados-reais-no-modo-explorar.md) | Amostra de dados reais na resposta do modo Explorar | Proposto |
 | [0016](./0016-guardrails-de-resposta.md) | Guardrails de resposta — dado pessoal, acesso ao dado e escopo | Proposto |
-| [0017](./0017-execucao-do-sql-via-trino-mcp.md) | Execução do SQL via trino-mcp e contrato de backend configurável | Proposto |
+| [0017](./0017-execucao-do-sql-via-trino-mcp.md) | Execução do SQL via trino-mcp e contrato de backend configurável | Proposto (execução revisada pelo ADR-0019) |
 | [0018](./0018-mascaramento-de-dado-sensivel-na-saida.md) | Mascaramento de dado sensível na saída, por catálogo de colunas | Proposto (reabre a Alternativa C do ADR-0016) |
+| [0019](./0019-execucao-via-postgres-mcp-com-tunel-ssh.md) | Volta ao postgres-mcp, com túnel SSH até o banco | Proposto (execução revisada do ADR-0017) |
 
 ### Temas candidatos a ADR (backlog)
 

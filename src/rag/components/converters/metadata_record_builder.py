@@ -13,6 +13,8 @@ from rag.components.sources.relationship_adapters import (
     RelationshipSourceAdapter,
     build_relationship_adapter,
 )
+import html as _html
+
 from rag.settings.configs import settings
 
 
@@ -26,6 +28,38 @@ def _tag_fqns(tags: Any) -> list[str]:
             if isinstance(tag, Mapping) and tag.get("tagFQN")
         }
     )
+
+
+def _texto(valor: Any) -> str:
+    """Texto vindo do OpenMetadata, com as entidades HTML desfeitas.
+
+    O OM **escapa** caracteres ao guardar `description` — crase, aspas, `+`, `=`
+    viram `&#96;`, `&#34;`, `&#43;`, `&#61;`. A origem (dbt) é limpa: conferido
+    byte a byte contra o `schema.yml`, 785 caracteres dos dois lados. É
+    codificação, não conteúdo, e nada se perde ao desfazer.
+
+    Importa porque a descrição vai no card que é EMBUTIDO NO VETOR e no prompt
+    do LLM: `&#96;` no lugar de crase é ruído para os dois. `html.unescape` é
+    idempotente, então reingestão sobre dado já limpo não corrompe.
+    """
+    return _html.unescape(valor) if isinstance(valor, str) else ""
+
+
+def _table_grain(raw_table: Mapping[str, Any]) -> str:
+    """Grão medido, lido da Custom Property configurada em OM_TABLE_GRAIN_PROPERTY.
+
+    É a frase que a fonte já mediu por contagem exata (no MinC, 407 das 408
+    tabelas; 211 delas dizem explicitamente que somar após JOIN duplica valores).
+    Guardar na ingestão evita reingerir quando o lado do retrieval passar a usá-la.
+    """
+    prop = (settings.OM_TABLE_GRAIN_PROPERTY or "").strip()
+    if not prop:
+        return ""
+    extension = raw_table.get("extension")
+    if not isinstance(extension, Mapping):
+        return ""
+    value = extension.get(prop)
+    return _texto(value).strip()
 
 
 def _reference_fqn(reference: Any) -> str:
@@ -64,6 +98,8 @@ class MetadataRecordBuilder:
                 settings.OM_RELATIONSHIP_ADAPTER,
                 markdown_property=settings.OM_SEMANTIC_RELATIONSHIPS_PROPERTY,
                 related_tables_property=settings.OM_RELATED_TABLES_PROPERTY,
+                eligible_join_rules=settings.OM_SQL_ELIGIBLE_JOIN_RULES,
+                catalog_id=settings.OM_SEMANTIC_CATALOG_ID,
             )
         )
 
@@ -137,11 +173,15 @@ class MetadataRecordBuilder:
                 "om_id": om_id,
                 "name": name,
                 "display_name": raw_table.get("displayName"),
-                "description": raw_table.get("description") or "",
+                "description": _texto(raw_table.get("description")),
                 "service": service_fqn,
                 "database": database_fqn,
                 "schema": schema_fqn,
                 "table_type": raw_table.get("tableType"),
+                # Grão medido publicado pela fonte (MinC: `mincTableGrain`).
+                # No MCid a property não existe e o campo fica vazio — o grão
+                # segue vindo de OM_GRAIN_KEYS.
+                "grain": _table_grain(raw_table),
                 "tags": _tag_fqns(raw_table.get("tags")),
                 "source_updated_at": raw_table.get("updatedAt")
                 or raw_table.get("updated"),
@@ -206,7 +246,7 @@ class MetadataRecordBuilder:
                     "table_node_id": table_fqn,
                     "table_om_id": om_id,
                     "name": column_name,
-                    "description": raw_column.get("description") or "",
+                    "description": _texto(raw_column.get("description")),
                     "data_type": data_type,
                     "data_type_display": raw_column.get("dataTypeDisplay"),
                     "ordinal_position": ordinal,
@@ -299,6 +339,10 @@ class MetadataRecordBuilder:
                 service=service,
                 database=database_name,
                 column_node_ids=set(column_by_fqn),
+                column_data_types={
+                    column_fqn: str(column["data_type"])
+                    for column_fqn, column in column_by_fqn.items()
+                },
             )
             relationships.extend(semantic)
 

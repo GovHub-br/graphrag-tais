@@ -32,7 +32,8 @@ Todas as decisões estão em `docs/adr/` (**0000–0018**) — índice em `docs/
 **Leia os ADRs antes de decidir algo de arquitetura.** Regra: um ADR só cita ADR de
 número menor. Destaques recentes: **0011** (contrato da ingestão, substitui o 0005),
 **0012** (eval orientado a métricas), **0013** (gráfico por chart-spec — revisa a
-execução do 0008), **0017** (execução via **trino-mcp** + backend configurável —
+execução do 0008), **0017** (backend de execução configurável) e **0019** (volta ao
+**postgres-mcp** com túnel SSH, porque o Trino descartava toda coluna `numeric` —
 revisa a execução do 0013), **0018** (mascaramento de dado sensível na saída —
 reabre a Alternativa C que o 0016 recusou). Antes de mexer em **retrieval**, respeite o
 gate MDD: `AGENTS.md` + `skills/evaluate-retrieval-change/SKILL.md` (medir antes/depois).
@@ -41,12 +42,14 @@ gate MDD: `AGENTS.md` + `skills/evaluate-retrieval-change/SKILL.md` (medir antes
 
 - **Haystack 3.0 + Hayhooks 1.22** (serve as pipelines como REST OpenAI-compat).
 - **Qdrant** (vetor híbrido denso+esparso), **Neo4j 5** (grafo puro, Cypher), **Redis** (cache, ocioso).
-- **trino-mcp** (tuannvm, read-only: só SELECT/SHOW/DESCRIBE/EXPLAIN) — executa o SQL
-  gerado, contra o catálogo **`hml_analytics`** do Trino (ADR-0017). O RAG **não tem
-  credencial de banco**: quem a segura é o container do MCP. O `postgres-mcp` continua
-  no compose, atrás do profile `postgres`, como caminho legado.
-- ⚠️ **O SQL gerado é Trino (Presto), não PostgreSQL.** `SQL_DIALECT` governa o
+- **postgres-mcp** (crystaldba, `--access-mode=restricted`) — executa o SQL gerado contra o
+  PostgreSQL analítico (**ADR-0019**), alcançado por um **túnel SSH** que o serviço
+  `postgres-tunnel` mantém (`ssh -N -L`, chave do host em bind read-only, healthcheck `nc -z`;
+  o `postgres-mcp` só sobe com o túnel `healthy`). O RAG **não tem credencial de banco**:
+  quem a segura é o container do MCP. O **trino-mcp** ficou atrás do profile `trino`.
+- ⚠️ **O SQL gerado é PostgreSQL** (voltou a ser, no ADR-0019). `SQL_DIALECT` governa o
   `sqlglot`; as regras de dialeto que o LLM segue são TEXTO em `prompts/query_system.md`.
+  Trocar de backend é trocar `SQL_MCP_*` + `SQL_DIALECT` **e** os prompts — não só a URL.
 - Embedding **denso**: Ollama `aroxima/gte-qwen2-1.5b-instruct:f16` (1536 dims, remoto via
   `OLLAMA_URL`, multilíngue/on-prem). **Esparso**: BM25 (`Qdrant/bm25`, fastembed).
   Costura Qdrant↔Neo4j por `node_id`.
@@ -61,20 +64,24 @@ gate MDD: `AGENTS.md` + `skills/evaluate-retrieval-change/SKILL.md` (medir antes
 |---|---|---|
 | **Qdrant** (`localhost:6333`) | embeddings dos cards de schema | ❌ só metadados |
 | **Neo4j** (`localhost:7687`) | grafo (tabelas, colunas, joins) | ❌ só metadados |
-| **Trino** (catálogo `hml_analytics`, via `trino-mcp`) | **os dados reais** | ✅ **sim** — banco analítico à parte |
+| **PostgreSQL** analítico (via `postgres-mcp` + túnel SSH) | **os dados reais** | ✅ **sim** — banco analítico à parte |
 
 O RAG só conhece o *schema*. As **linhas** vivem no **banco analítico**, alcançado pelo
-**Trino** (ADR-0017; antes era conexão direta ao PostgreSQL `cidades`). Os nomes físicos
-`schema.tabela` batem com o SQL gerado (a serialização usa o nome físico, não o FQN do
-catálogo) — o **catálogo do Trino é o default da conexão**, então o SQL não o prefixa.
-⚠️ Isso pressupõe que os schemas do `hml_analytics` têm os mesmos nomes que o
-OpenMetadata ingeriu; divergência aí se conserta no catálogo, não no prompt.
+**postgres-mcp através de um túnel SSH** (ADR-0019; o ADR-0017 passou pelo Trino no meio do
+caminho). Os nomes físicos `schema.tabela` batem com o SQL gerado (a serialização usa o nome
+físico, não o FQN do catálogo).
+⚠️ **A premissa a vigiar é que o catálogo descreve o MESMO banco que executa o SQL.** Ela já
+falhou uma vez, em silêncio: com o Trino no meio, 390 colunas que o OpenMetadata publicava
+não existiam para quem executava (ADR-0019). Divergência aí se conserta na fonte, não no
+prompt — e um gate que compare o catálogo com o `information_schema` do alvo continua sendo
+a forma barata de descobrir isso em tempo de ingestão, não em produção.
 
 ## Como subir e rodar
 
 1. Docker Desktop ligado. **VPN/rede da lab conectada** (ver Gotchas). `.env` na raiz —
    ⚠️ **sem cercas markdown (```) no `.env`** (quebra o `docker compose`).
-2. `make up` → rebuild + sobe **qdrant, neo4j, minio, hayhooks, trino-mcp** (NÃO sobe redis nem webui).
+2. `make up` → rebuild + sobe **qdrant, neo4j, minio, postgres-tunnel, postgres-mcp, hayhooks**
+   (NÃO sobe redis nem webui). O túnel precisa de `PRIVATE_KEY_PATH` e do bloco `TUNNEL_*` no `.env`.
    O `postgres-mcp` está atrás do profile `postgres` e **não sobe** — de propósito: sem
    `ANALYTICS_DB_*` preenchidas ele fica em loop de restart.
    MinIO (armazenamento do relatório, ADR-0010): API/S3 `localhost:9000`, console `localhost:9001`
@@ -133,13 +140,21 @@ Fluxo: `pergunta → dense(Ollama)+sparse(BM25) → Qdrant híbrido → subgrafo
   O Markdown é montado por `render_markdown(answer, exec_info)` — **função de módulo**, porque o
   wrapper do chat a chama DE NOVO depois da execução (ver invariante do SQL abaixo).
 
-### Camada de entrega — execução + gráfico (ADR-0013/0017) ✅
+### Camada de entrega — execução + gráfico (ADR-0013/0017/0019) ✅
 
 Pipeline SEPARADA `pipelines/delivery/` que o `run_chat_completion` compõe (motor fica reusável):
 - **`McpSqlExecutor`**: roda o SQL via **Haystack `Agent` + `MCPToolset`**, read-only, com
   **autocorreção no erro** até `AGENT_MAX_STEPS`. **Agnóstico de backend** (ADR-0017): URL,
   transporte, nome da tool, nome do argumento e dialeto vêm de `SQL_MCP_*`/`SQL_DIALECT`.
-  Default = **trino-mcp** (`http://trino-mcp:8080/mcp`, `streamable_http`, `execute_query(query=…)`).
+  Default = **postgres-mcp** (`http://postgres-mcp:8000/sse`, `sse`, `execute_sql(sql=…)`),
+  alcançando o banco por **túnel SSH** (ADR-0019). O trino-mcp continua disponível atrás do
+  profile `trino`, para comparação explícita.
+  ⚠️ **Por que voltou do Trino** (ADR-0019): o conector `postgresql` do Trino **descarta em
+  silêncio** coluna `numeric` sem precisão/escala declaradas. No escopo MinC isso apagava
+  **390 colunas (100% das NUMERIC, 34% das tabelas)** — ou seja, TODA coluna de valor
+  monetário. O catálogo prometia a coluna, o LLM escrevia SQL correto e o banco respondia
+  `Column cannot be resolved`; a resposta saía como "SQL gerado", sem gráfico, parecendo
+  erro do modelo.
   ⚠️ **Transporte não se deduz do path**: o `/sse` do trino-mcp é a MESMA rota Streamable
   HTTP do `/mcp` — não é o SSE clássico que o postgres-mcp (legado, `execute_sql(sql=…)`) fala.
   ⚠️ **Duas serializações, um parser**: trino devolve **JSON** e marca `isError=True`;

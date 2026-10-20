@@ -278,9 +278,9 @@ class Settings(BaseSettings):
     # Camada de entrega (ADR-0013/0017): execução do SQL via MCP + gráfico
     # ------------------------------------------------------------------ #
     # QUEM EXECUTA O SQL é um servidor MCP read-only, nunca o RAG: o graphrag
-    # não segura credencial de banco (ADR-0004). O backend default passou a ser
-    # o **trino-mcp** (ADR-0017); o postgres-mcp continua suportado, só não é
-    # mais o default. Os quatro campos abaixo são o CONTRATO com o servidor —
+    # não segura credencial de banco (ADR-0004). O backend default é o
+    # **postgres-mcp** por túnel SSH (ADR-0019); o trino-mcp continua suportado.
+    # Os quatro campos abaixo são o CONTRATO com o servidor —
     # trocar de backend é trocar estes valores, não editar componente.
     #
     #   | backend      | SQL_MCP_URL                   | TRANSPORT       | TOOL          | ARG   |
@@ -292,18 +292,18 @@ class Settings(BaseSettings):
     # mesmo handler Streamable HTTP do `/mcp` (não é o SSE clássico, que abre o
     # stream no GET e informa o endpoint de POST). Por isso é campo explícito.
     SQL_MCP_URL: str = Field(
-        "http://trino-mcp:8080/mcp",
-        description="Endpoint do MCP que executa o SQL (trino-mcp por default)",
+        "http://postgres-mcp:8000/sse",
+        description="Endpoint do MCP que executa o SQL (postgres-mcp por default)",
     )
     SQL_MCP_TRANSPORT: str = Field(
-        "streamable_http",
+        "sse",
         description="Transporte do MCP de SQL: streamable_http | sse",
     )
     SQL_MCP_TOOL: str = Field(
-        "execute_query", description="Nome da tool de execução no MCP de SQL"
+        "execute_sql", description="Nome da tool de execução no MCP de SQL"
     )
     SQL_MCP_TOOL_ARG: str = Field(
-        "query", description="Nome do argumento que leva o SQL na tool acima"
+        "sql", description="Nome do argumento que leva o SQL na tool acima"
     )
     # Dialeto do SQL que o sistema gera, valida e reescreve. Governa o `sqlglot`
     # (guarda da amostra e introspecção do eval) e é o dialeto citado no prompt
@@ -311,14 +311,12 @@ class Settings(BaseSettings):
     # dialeto ESCRITAS no texto — mudar aqui sem mudar lá gera SQL do dialeto
     # errado. Valores úteis: trino | postgres.
     SQL_DIALECT: str = Field(
-        "trino", description="Dialeto do SQL gerado/validado (sqlglot + prompts)"
+        "postgres", description="Dialeto do SQL gerado/validado (sqlglot + prompts)"
     )
-    # ⚠️ LEGADO (ADR-0013): endpoint do postgres-mcp. Nenhum componente lê este
-    # campo desde o ADR-0017 — ele fica para quem voltar ao Postgres saber o
-    # valor histórico. Para de fato voltar, aponte `SQL_MCP_*` para ele.
+    # Alias histórico. O contrato ativo continua sendo `SQL_MCP_URL`.
     POSTGRES_MCP_URL: str = Field(
         "http://postgres-mcp:8000/sse",
-        description="[legado] Endpoint SSE do postgres-mcp (ver SQL_MCP_URL)",
+        description="Endpoint SSE histórico do postgres-mcp (ver SQL_MCP_URL)",
     )
     AGENT_MAX_STEPS: int = Field(
         6, description="Máx. de passos do Agent na execução/autocorreção do SQL"
@@ -433,9 +431,32 @@ class Settings(BaseSettings):
         "mcid_markdown_v1",
         description="Adapter configurável para relações semânticas",
     )
+    OM_SEMANTIC_CATALOG_ID: str = Field(
+        "",
+        description=(
+            "Identificador do catálogo no cabeçalho do Markdown de relações. "
+            "Vazio = derivado de OM_RELATIONSHIP_ADAPTER pela convenção "
+            "`<escopo>_markdown_v1` -> `<escopo>-semantic-relationships`. "
+            "Declare só se o catálogo não seguir a convenção."
+        ),
+    )
+    OM_SQL_ELIGIBLE_JOIN_RULES: str = Field(
+        "exact",
+        description=(
+            "Lista de join_rule autorizadas para JOIN SQL direto, separada por "
+            "vírgula. O default preserva o comportamento do catálogo MCid."
+        ),
+    )
     OM_SEMANTIC_RELATIONSHIPS_PROPERTY: str = Field(
         "mcidSemanticRelationships",
         description="Custom Property com relações semânticas documentadas",
+    )
+    OM_TABLE_GRAIN_PROPERTY: str = Field(
+        "",
+        description=(
+            "Custom Property do OpenMetadata com o grão medido da tabela "
+            "(MinC: mincTableGrain). Vazio = grão vem só de OM_GRAIN_KEYS."
+        ),
     )
     OM_RELATED_TABLES_PROPERTY: str = Field(
         "mcidRelatedTables",
