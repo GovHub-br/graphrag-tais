@@ -1,0 +1,21 @@
+# Catálogo de colunas sensíveis — escopo MCid (ADR-0018).
+#
+# Escopo restrito a DOCUMENTO DE PESSOA FÍSICA. CPF de beneficiário de programa
+# habitacional é o dado mais sensível desta base.
+#
+# NÃO entram, e é decisão consciente:
+#  - CNPJ / razão social de PJ: empresa contratada pelo poder público é
+#    informação pública (ADR-0016). Mascarar quebraria "qual construtora".
+#  - endereço, data de nascimento e e-mail: são dado pessoal e estão na base
+#    (logradouro em 9 tabelas, dt_nascimento em 4). Ficam de fora porque a
+#    decisão é de política, não técnica — precisa de dono.
+
+version: 1
+default_strategy: hash
+tables:
+  bronze_gefus_fundo_social:
+    - nu_cpf_cnpj_mutuario
+  bronze_shpt_monit_cadastro_pf_rural_mensal:
+    - nu_cpf_beneficiario
+  prata_rural_cadastro_pf:
+    - beneficiario_cpf

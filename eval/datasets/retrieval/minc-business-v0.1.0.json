@@ -1,0 +1,1314 @@
+{
+  "schema_version": "1",
+  "name": "minc-business-retrieval",
+  "version": "0.1.0",
+  "status": "draft",
+  "metadata": {
+    "scope_id": "minc",
+    "language": "pt-BR",
+    "review_status": "pending_domain_review",
+    "description": "Casos diagnósticos do escopo MinC (SALIC/Lei Rouanet e Meta 5 de fomento a agentes culturais), ancorados no snapshot de ingestão de 08/09/2026: 408 tabelas, 3.957 colunas, 112 SEMANTIC_JOIN. O gold representa o menor subgrafo documental suficiente e NÃO pode ser promovido sem revisão de domínio. Cinco casos são armadilhas de grão declaradas (slice grain_trap), porque 211 das 407 tabelas com grão medido avisam que somar após JOIN duplica valores — é o modo de falha dominante deste escopo."
+  },
+  "cases": [
+    {
+      "id": "rouanet-projetos-valor-aprovado-001",
+      "question": "Quais são os 10 projetos da Lei Rouanet com maior valor aprovado? Mostre o nome do projeto, o proponente, o mecanismo e o valor aprovado.",
+      "critical": true,
+      "slices": [
+        "pt_br",
+        "salic",
+        "rouanet",
+        "mono_table",
+        "top_n",
+        "semantic_metric",
+        "dashboard"
+      ],
+      "seed_relevance": {
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral": 3,
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.projeto_nome": 2,
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.proponente_nome": 2,
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.mecanismo": 2,
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.valor_aprovado": 3,
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.pronac": 2,
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos": 3,
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos.projeto_nome": 2,
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos.proponente_nome": 2,
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos.mecanismo": 2,
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos.valor_aprovado": 3,
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos.pronac": 2
+      },
+      "gold_subgraphs": [
+        {
+          "id": "relacao-projetos-geral-grao-pronac",
+          "nodes": [
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral",
+              "type": "Table"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.projeto_nome",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.proponente_nome",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.mecanismo",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.valor_aprovado",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.pronac",
+              "type": "Column"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "7765f867e8d0b210cd1b9a170aba8df56bbf1c00786b4bafbbb51f3f20a67bca",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral",
+              "target": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.projeto_nome",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "156d06b9ae8cb49f2d17e1c8c5a00b57626515c683d40e0a225a224f184420a1",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral",
+              "target": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.proponente_nome",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "f41fe47325a1408028cb0474505a8025b475a5fe53b7ec3d29cd3ee9034adc60",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral",
+              "target": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.mecanismo",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "d828b22e03e623a07f21a7d404ae0b273aaf0b2bc03b4b7c96da0ac9c3aec36a",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral",
+              "target": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.valor_aprovado",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "b40aca79279140b8f1ef351f2c507e81868e7d55b06b67c9aa662d2c81a6eaaf",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral",
+              "target": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.pronac",
+              "direction": "forward",
+              "sql_join_eligible": false
+            }
+          ],
+          "paths": []
+        },
+        {
+          "id": "relacao-projetos-irma-grao-pronac",
+          "nodes": [
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos",
+              "type": "Table"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos.projeto_nome",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos.proponente_nome",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos.mecanismo",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos.valor_aprovado",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos.pronac",
+              "type": "Column"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "fdc441578ae578300c07017c9984f83f2a8d42f413b97bb43748d893d8aca096",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_relacao_projetos",
+              "target": "MinC.dbanalytics.salic.sac__dba_relacao_projetos.projeto_nome",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "abeb1b562a23e97c86bfe3a20caac77f88e99bdd41c47966ead603e7980d296c",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_relacao_projetos",
+              "target": "MinC.dbanalytics.salic.sac__dba_relacao_projetos.proponente_nome",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "f81050abc4412f6078a5184a94db0f3959132321c82340f4a595122c7c912e72",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_relacao_projetos",
+              "target": "MinC.dbanalytics.salic.sac__dba_relacao_projetos.mecanismo",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "3f02558e2fff6d59806d994695aecffac88cd2d6ee7e27350009ad8dea151374",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_relacao_projetos",
+              "target": "MinC.dbanalytics.salic.sac__dba_relacao_projetos.valor_aprovado",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "25fdd8353797af1cb2794bf34f8df3ffa7e4089c76a63c05cc0717f5b0ef0526",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_relacao_projetos",
+              "target": "MinC.dbanalytics.salic.sac__dba_relacao_projetos.pronac",
+              "direction": "forward",
+              "sql_join_eligible": false
+            }
+          ],
+          "paths": []
+        }
+      ],
+      "metadata": {
+        "annotation_status": "draft",
+        "reviewer": null,
+        "evidence": "Duas visões irmãs respondem igual: sac__dba_relacao_projetos_geral (276.846 pronacs) e sac__dba_relacao_projetos (275.799), esta última superconjunto da primeira (as mesmas 17 colunas + cidade_execucao). Ambas com grão 1:1 por pronac, medido por contagem exata via Trino.",
+        "review_notes": "Confirmar se o valor de referência é valor_aprovado ou valor_apoiado — a tabela tem os dois. As duas irmãs entram como alternativas de propósito: exigir uma delas seria arbitrário, e a diferença de 1.047 pronacs precisa de revisão de domínio.",
+        "contains_row_values": false
+      }
+    },
+    {
+      "id": "rouanet-captacao-por-uf-001",
+      "question": "Quanto foi captado na Lei Rouanet por UF em 2023?",
+      "critical": true,
+      "slices": [
+        "pt_br",
+        "salic",
+        "rouanet",
+        "mono_table",
+        "aggregate",
+        "geographic",
+        "filter",
+        "dashboard"
+      ],
+      "seed_relevance": {
+        "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf": 3,
+        "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf.uf": 3,
+        "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf.ano": 3,
+        "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf.valor": 3,
+        "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio": 2,
+        "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio.uf": 3,
+        "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio.ano_captacao": 3,
+        "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio.valor_captado": 3
+      },
+      "gold_subgraphs": [
+        {
+          "id": "vw-captacao-ano-uf-preagregada",
+          "nodes": [
+            {
+              "id": "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf",
+              "type": "Table"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf.uf",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf.ano",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf.valor",
+              "type": "Column"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "12556ef3cdd9a2be3ba4d377490a68c0ec94de81860e2a43f6765ce87133dae2",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf",
+              "target": "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf.uf",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "b96202d2f5eaf701a375ce83ed7047d6104d39dfe02ab5db187aab84157d6b6a",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf",
+              "target": "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf.ano",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "2c4e6490c25291aea77b3d386758c548623afd04ca270d8e875146cf5502fc9c",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf",
+              "target": "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf.valor",
+              "direction": "forward",
+              "sql_join_eligible": false
+            }
+          ],
+          "paths": []
+        },
+        {
+          "id": "captacao-ano-uf-municipio",
+          "nodes": [
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio",
+              "type": "Table"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio.uf",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio.ano_captacao",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio.valor_captado",
+              "type": "Column"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "28c1f660b7d20e756f1deb084d5c8752db16c7df21f2489f901ee83d25273e52",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio",
+              "target": "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio.uf",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "d90ddb1589ad37df1a2d57971d4f6513140dae9d7269c80184883c1136854079",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio",
+              "target": "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio.ano_captacao",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "609c6d1a0bec415329054240fbf5ede4c7a63fc43cbccd06f85809d50bbf4e83",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio",
+              "target": "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio.valor_captado",
+              "direction": "forward",
+              "sql_join_eligible": false
+            }
+          ],
+          "paths": []
+        }
+      ],
+      "metadata": {
+        "annotation_status": "draft",
+        "reviewer": null,
+        "evidence": "sac__vw_captacao_ano_uf é a visão pré-agregada por ano e UF (colunas ano, uf, valor, quantidade) e responde direto. sac__dba_captacaoanoufmunicipio responde também, mas no grão pronac x municipio, exigindo agregação.",
+        "review_notes": "A primeira versão deste gold listava só sac__dba_captacaoanoufmunicipio; a view pré-agregada foi encontrada pelo próprio sistema e é a resposta melhor — o gold é que estava estreito. As duas ficam como alternativas, com a view pré-agregada em primeiro. ARMADILHA DE GRÃO na segunda: cada pronac aparece 7,0x.",
+        "contains_row_values": false
+      }
+    },
+    {
+      "id": "rouanet-projetos-por-segmento-001",
+      "question": "Quantos projetos existem por segmento cultural?",
+      "critical": false,
+      "slices": [
+        "pt_br",
+        "salic",
+        "rouanet",
+        "mono_table",
+        "aggregate",
+        "count"
+      ],
+      "seed_relevance": {
+        "MinC.dbanalytics.salic.sac__projetos": 3,
+        "MinC.dbanalytics.salic.sac__projetos.segmento": 3,
+        "MinC.dbanalytics.salic.sac__projetos.idpronac": 2,
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral": 3,
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.segmento": 3,
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.pronac": 2,
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos": 3,
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos.segmento": 3,
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos.pronac": 2
+      },
+      "gold_subgraphs": [
+        {
+          "id": "projetos-nucleo-segmento",
+          "nodes": [
+            {
+              "id": "MinC.dbanalytics.salic.sac__projetos",
+              "type": "Table"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__projetos.segmento",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__projetos.idpronac",
+              "type": "Column"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "8671392b616cea8354842b57b5f9e450f8c9f4f644fefb09ed65342f5175e16b",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__projetos",
+              "target": "MinC.dbanalytics.salic.sac__projetos.segmento",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "5f1516791aa6d7bc661f821a2a93bb03798b37ce42119ff78a15915b7a85727c",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__projetos",
+              "target": "MinC.dbanalytics.salic.sac__projetos.idpronac",
+              "direction": "forward",
+              "sql_join_eligible": false
+            }
+          ],
+          "paths": []
+        },
+        {
+          "id": "segmento-contagem",
+          "nodes": [
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral",
+              "type": "Table"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.segmento",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.pronac",
+              "type": "Column"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "b283b152fef0ad31efbf6aeac0739a0c3c6425cd5aa21f909a74c9558d8b034b",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral",
+              "target": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.segmento",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "b40aca79279140b8f1ef351f2c507e81868e7d55b06b67c9aa662d2c81a6eaaf",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral",
+              "target": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.pronac",
+              "direction": "forward",
+              "sql_join_eligible": false
+            }
+          ],
+          "paths": []
+        },
+        {
+          "id": "segmento-contagem-irma",
+          "nodes": [
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos",
+              "type": "Table"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos.segmento",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos.pronac",
+              "type": "Column"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "5827ef22875e0646ed42ddfcb2c27a41d4cd9129316f6e3700baf1569945d6ec",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_relacao_projetos",
+              "target": "MinC.dbanalytics.salic.sac__dba_relacao_projetos.segmento",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "25fdd8353797af1cb2794bf34f8df3ffa7e4089c76a63c05cc0717f5b0ef0526",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_relacao_projetos",
+              "target": "MinC.dbanalytics.salic.sac__dba_relacao_projetos.pronac",
+              "direction": "forward",
+              "sql_join_eligible": false
+            }
+          ],
+          "paths": []
+        }
+      ],
+      "metadata": {
+        "annotation_status": "draft",
+        "reviewer": null,
+        "evidence": "sac__projetos é a tabela-núcleo do domínio SAC (a própria descrição diz isso): 277.187 projetos, grão 1:1 por anoprojeto+sequencial, com segmento direto. As duas visões dba_relacao_projetos respondem igual.",
+        "review_notes": "sac__projetos não existia no catálogo de 408 tabelas; entrou na publicação de 09/09. Existem ainda sac__vpropapreaproexec e sac__vwalterarprojeto, 1:1 no mesmo universo (~276,8 mil) e com segmento — não entraram porque não entendi o recorte delas; a revisão de domínio deve decidir. Sem filtro de situação a contagem inclui projeto em qualquer estágio.",
+        "contains_row_values": false
+      }
+    },
+    {
+      "id": "rouanet-serie-anual-aprovado-001",
+      "question": "Como evoluiu o valor aprovado da Lei Rouanet por ano de apresentação?",
+      "critical": false,
+      "slices": [
+        "pt_br",
+        "salic",
+        "rouanet",
+        "mono_table",
+        "aggregate",
+        "time_series",
+        "dashboard"
+      ],
+      "seed_relevance": {
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral": 3,
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.ano_apresentacao": 3,
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.valor_aprovado": 3,
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos": 3,
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos.ano_apresentacao": 3,
+        "MinC.dbanalytics.salic.sac__dba_relacao_projetos.valor_aprovado": 3
+      },
+      "gold_subgraphs": [
+        {
+          "id": "serie-ano-apresentacao",
+          "nodes": [
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral",
+              "type": "Table"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.ano_apresentacao",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.valor_aprovado",
+              "type": "Column"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "b1e2074a60588fdec8e2e82b8d19a78df6fd999db62de26894cd25c5d9791593",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral",
+              "target": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.ano_apresentacao",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "d828b22e03e623a07f21a7d404ae0b273aaf0b2bc03b4b7c96da0ac9c3aec36a",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral",
+              "target": "MinC.dbanalytics.salic.sac__dba_relacao_projetos_geral.valor_aprovado",
+              "direction": "forward",
+              "sql_join_eligible": false
+            }
+          ],
+          "paths": []
+        },
+        {
+          "id": "serie-ano-apresentacao-irma",
+          "nodes": [
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos",
+              "type": "Table"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos.ano_apresentacao",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_relacao_projetos.valor_aprovado",
+              "type": "Column"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "f858f3613a6f94ebf4bc0e2145f1307906c6ffc88298f0b9628381088cfdf590",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_relacao_projetos",
+              "target": "MinC.dbanalytics.salic.sac__dba_relacao_projetos.ano_apresentacao",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "3f02558e2fff6d59806d994695aecffac88cd2d6ee7e27350009ad8dea151374",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_relacao_projetos",
+              "target": "MinC.dbanalytics.salic.sac__dba_relacao_projetos.valor_aprovado",
+              "direction": "forward",
+              "sql_join_eligible": false
+            }
+          ],
+          "paths": []
+        }
+      ],
+      "metadata": {
+        "annotation_status": "draft",
+        "reviewer": null,
+        "evidence": "ano_apresentacao e valor_aprovado estão na mesma visão, grão 1:1 por pronac — soma por ano não inflaciona.",
+        "review_notes": null,
+        "contains_row_values": false
+      }
+    },
+    {
+      "id": "rouanet-investidores-por-ano-001",
+      "question": "Qual foi o total investido na Lei Rouanet por ano?",
+      "critical": true,
+      "slices": [
+        "pt_br",
+        "salic",
+        "rouanet",
+        "mono_table",
+        "aggregate",
+        "time_series",
+        "grain_trap"
+      ],
+      "seed_relevance": {
+        "MinC.dbanalytics.salic.sac__dba_total_investido_investidor_ano": 3,
+        "MinC.dbanalytics.salic.sac__dba_total_investido_investidor_ano.ano_investimento": 3,
+        "MinC.dbanalytics.salic.sac__dba_total_investido_investidor_ano.valor_investido_total": 3
+      },
+      "gold_subgraphs": [
+        {
+          "id": "total-investido-investidor-ano",
+          "nodes": [
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_total_investido_investidor_ano",
+              "type": "Table"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_total_investido_investidor_ano.ano_investimento",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_total_investido_investidor_ano.valor_investido_total",
+              "type": "Column"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "bbeff6fc6e6300691a3f486c893749b813bda406173a32b75af231733ad4bda8",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_total_investido_investidor_ano",
+              "target": "MinC.dbanalytics.salic.sac__dba_total_investido_investidor_ano.ano_investimento",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "f14d705f7bec414401f1aeef67df3746c0163c54f9f5cc06f53869665e4ffc99",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_total_investido_investidor_ano",
+              "target": "MinC.dbanalytics.salic.sac__dba_total_investido_investidor_ano.valor_investido_total",
+              "direction": "forward",
+              "sql_join_eligible": false
+            }
+          ],
+          "paths": []
+        }
+      ],
+      "metadata": {
+        "annotation_status": "draft",
+        "reviewer": null,
+        "evidence": "sac__dba_total_investido_investidor_ano guarda o total por investidor e ano.",
+        "review_notes": "ARMADILHA DE GRÃO: a tabela é mais fina que CPF/CNPJ (cada cnpj_cpf aparece ~3x). Para o total por ano basta somar; qualquer JOIN por cnpj_cpf antes de agregar duplica valores.",
+        "contains_row_values": false
+      }
+    },
+    {
+      "id": "rouanet-captacao-uf-incentivador-001",
+      "question": "Qual o total captado na Lei Rouanet por UF do incentivador?",
+      "critical": true,
+      "slices": [
+        "pt_br",
+        "salic",
+        "rouanet",
+        "multi_table",
+        "join",
+        "aggregate",
+        "geographic",
+        "semantic_join"
+      ],
+      "seed_relevance": {
+        "MinC.dbanalytics.salic.sac__tbapiincentivos": 3,
+        "MinC.dbanalytics.salic.sac__tbapiincentivos.sgufincentivador": 3,
+        "MinC.dbanalytics.salic.sac__tbapiincentivos.vlcaptado": 3,
+        "MinC.dbanalytics.salic.sac__captacao": 2,
+        "MinC.dbanalytics.salic.sac__captacao.cgccpfmecena": 3,
+        "MinC.dbanalytics.salic.sac__captacao.captacaoreal": 3,
+        "MinC.dbanalytics.salic.sac__interessado": 2,
+        "MinC.dbanalytics.salic.sac__interessado.cgccpf": 3,
+        "MinC.dbanalytics.salic.sac__interessado.uf": 3
+      },
+      "gold_subgraphs": [
+        {
+          "id": "incentivos-uf-direto",
+          "nodes": [
+            {
+              "id": "MinC.dbanalytics.salic.sac__tbapiincentivos",
+              "type": "Table"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__tbapiincentivos.sgufincentivador",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__tbapiincentivos.vlcaptado",
+              "type": "Column"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "d6d5d090ee6cd1e37fbd3d15b75deb5c4e84b19854e9d341f0a9e6e57d106a6d",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__tbapiincentivos",
+              "target": "MinC.dbanalytics.salic.sac__tbapiincentivos.sgufincentivador",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "58b945cc54fee8e18cb0974df1cc2bd936faa8e88f145a80e65124e3f3d64100",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__tbapiincentivos",
+              "target": "MinC.dbanalytics.salic.sac__tbapiincentivos.vlcaptado",
+              "direction": "forward",
+              "sql_join_eligible": false
+            }
+          ],
+          "paths": []
+        },
+        {
+          "id": "captacao-join-interessado",
+          "nodes": [
+            {
+              "id": "MinC.dbanalytics.salic.sac__captacao",
+              "type": "Table"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__captacao.cgccpfmecena",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__captacao.captacaoreal",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__interessado",
+              "type": "Table"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__interessado.cgccpf",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__interessado.uf",
+              "type": "Column"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "c61874c65a5da8da222907249a2a7977d53311e734f93de0420277afe9f30c61",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__captacao",
+              "target": "MinC.dbanalytics.salic.sac__captacao.cgccpfmecena",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "cc4f0b79c7825d36078e57b197e99415a158bc92c5eef435477fb401154bd61d",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__captacao",
+              "target": "MinC.dbanalytics.salic.sac__captacao.captacaoreal",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "55a5536ae10c8a43efb0a7415e893eaed41079827789ae5aa507622fa8c9da2f",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__interessado",
+              "target": "MinC.dbanalytics.salic.sac__interessado.cgccpf",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "caf9193275a60037ba987df2829f3cb182518064d9fc61332bd3d5fb7e1d2be6",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__interessado",
+              "target": "MinC.dbanalytics.salic.sac__interessado.uf",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "683fd714ef7bf55c9b416265c40f6c91f2698eee8476dce4c1fc34fef61ffe66",
+              "type": "SEMANTIC_JOIN",
+              "source": "MinC.dbanalytics.salic.sac__captacao.cgccpfmecena",
+              "target": "MinC.dbanalytics.salic.sac__interessado.cgccpf",
+              "direction": "forward",
+              "sql_join_eligible": true
+            }
+          ],
+          "paths": []
+        }
+      ],
+      "metadata": {
+        "annotation_status": "draft",
+        "reviewer": null,
+        "evidence": "sac__tbapiincentivos tem sgufincentivador e vlcaptado na MESMA tabela (uma linha por aporte de incentivo) e responde sem JOIN. O caminho por JOIN também responde, via SEMANTIC_JOIN validado por teste dbt entre sac__captacao.cgccpfmecena e sac__interessado.cgccpf.",
+        "review_notes": "É o único par de JOIN com leitura analítica clara no catálogo. sac__captacao é mais fina que CPF/CNPJ (5,9x), mas o JOIN é many_to_one contra sac__interessado (1:1), então a soma de captacaoreal não infla.",
+        "contains_row_values": false
+      }
+    },
+    {
+      "id": "fomento-agentes-distintos-001",
+      "question": "Quantos agentes culturais distintos já receberam recurso de fomento federal?",
+      "critical": true,
+      "slices": [
+        "pt_br",
+        "meta5",
+        "fomento",
+        "mono_table",
+        "aggregate",
+        "count_distinct",
+        "grain_trap"
+      ],
+      "seed_relevance": {
+        "MinC.dbanalytics.agentes.eventos_fomento": 3,
+        "MinC.dbanalytics.agentes.eventos_fomento.beneficiario_documento": 3
+      },
+      "gold_subgraphs": [
+        {
+          "id": "eventos-fomento-agentes-distintos",
+          "nodes": [
+            {
+              "id": "MinC.dbanalytics.agentes.eventos_fomento",
+              "type": "Table"
+            },
+            {
+              "id": "MinC.dbanalytics.agentes.eventos_fomento.beneficiario_documento",
+              "type": "Column"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "c84aa509de82b78d4c160f1f76ba00304df36181d771a0ab80afa5ec81e52c38",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.agentes.eventos_fomento",
+              "target": "MinC.dbanalytics.agentes.eventos_fomento.beneficiario_documento",
+              "direction": "forward",
+              "sql_join_eligible": false
+            }
+          ],
+          "paths": []
+        }
+      ],
+      "metadata": {
+        "annotation_status": "draft",
+        "reviewer": null,
+        "evidence": "agentes.eventos_fomento é a espinha unificada de eventos de fomento (Rouanet, BB Ágil e Ancine no mesmo formato).",
+        "review_notes": "ARMADILHA DE GRÃO, o caso mais importante do dataset: a tabela tem 1.175.960 linhas para 310.918 documentos distintos (cada agente aparece 3,8x). Contar linhas responde 1,17 milhão em vez de 311 mil — quase 4x errado. Exige COUNT(DISTINCT beneficiario_documento).",
+        "contains_row_values": false
+      }
+    },
+    {
+      "id": "fomento-valor-por-programa-001",
+      "question": "Qual o valor total repassado por programa de fomento?",
+      "critical": true,
+      "slices": [
+        "pt_br",
+        "meta5",
+        "fomento",
+        "mono_table",
+        "aggregate",
+        "semantic_metric",
+        "dashboard"
+      ],
+      "seed_relevance": {
+        "MinC.dbanalytics.agentes.eventos_fomento": 3,
+        "MinC.dbanalytics.agentes.eventos_fomento.programa_fomento": 3,
+        "MinC.dbanalytics.agentes.eventos_fomento.valor": 3
+      },
+      "gold_subgraphs": [
+        {
+          "id": "eventos-fomento-valor-programa",
+          "nodes": [
+            {
+              "id": "MinC.dbanalytics.agentes.eventos_fomento",
+              "type": "Table"
+            },
+            {
+              "id": "MinC.dbanalytics.agentes.eventos_fomento.programa_fomento",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.agentes.eventos_fomento.valor",
+              "type": "Column"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "1a1893a3ee262af06edaf6d862a49e1c703f7ae911a6716ae39b165334d4e465",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.agentes.eventos_fomento",
+              "target": "MinC.dbanalytics.agentes.eventos_fomento.programa_fomento",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "6701be37b6fa148cffeaf89e2d80476b9cb7817d627328c0573c65b0636404d1",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.agentes.eventos_fomento",
+              "target": "MinC.dbanalytics.agentes.eventos_fomento.valor",
+              "direction": "forward",
+              "sql_join_eligible": false
+            }
+          ],
+          "paths": []
+        }
+      ],
+      "metadata": {
+        "annotation_status": "draft",
+        "reviewer": null,
+        "evidence": "valor e programa_fomento são colunas diretas de eventos_fomento; cada linha é um evento de repasse.",
+        "review_notes": "Aqui somar linhas é CORRETO (a unidade é o evento, não o agente) — é o contraponto do caso de contagem distinta e serve para detectar dedup excessiva.",
+        "contains_row_values": false
+      }
+    },
+    {
+      "id": "fomento-novos-entrantes-ano-001",
+      "question": "Quantos agentes entraram pela primeira vez no fomento federal em cada ano?",
+      "critical": true,
+      "slices": [
+        "pt_br",
+        "meta5",
+        "fomento",
+        "mono_table",
+        "aggregate",
+        "time_series",
+        "filter",
+        "grain_trap"
+      ],
+      "seed_relevance": {
+        "MinC.dbanalytics.agentes.primeiro_acesso_agentes": 3,
+        "MinC.dbanalytics.agentes.primeiro_acesso_agentes.ano_primeiro_acesso_geral": 3,
+        "MinC.dbanalytics.agentes.primeiro_acesso_agentes.eh_porta_de_entrada": 3,
+        "MinC.dbanalytics.agentes.primeiro_acesso_agentes.beneficiario_documento": 3
+      },
+      "gold_subgraphs": [
+        {
+          "id": "primeiro-acesso-porta-de-entrada",
+          "nodes": [
+            {
+              "id": "MinC.dbanalytics.agentes.primeiro_acesso_agentes",
+              "type": "Table"
+            },
+            {
+              "id": "MinC.dbanalytics.agentes.primeiro_acesso_agentes.ano_primeiro_acesso_geral",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.agentes.primeiro_acesso_agentes.eh_porta_de_entrada",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.agentes.primeiro_acesso_agentes.beneficiario_documento",
+              "type": "Column"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "a4c25b9b9e775ac62f27dd5b1d2710e20a2b59b4c2073bba688d1f16466c3b49",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.agentes.primeiro_acesso_agentes",
+              "target": "MinC.dbanalytics.agentes.primeiro_acesso_agentes.ano_primeiro_acesso_geral",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "a2c5063ded62a714ab1317ccca6749abb8e45b311ef53da3030ba3bc79f41114",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.agentes.primeiro_acesso_agentes",
+              "target": "MinC.dbanalytics.agentes.primeiro_acesso_agentes.eh_porta_de_entrada",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "16622fa406330c82ad7eafba1c94e00ba22b16d95bc35b3a114f099a3f40004b",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.agentes.primeiro_acesso_agentes",
+              "target": "MinC.dbanalytics.agentes.primeiro_acesso_agentes.beneficiario_documento",
+              "direction": "forward",
+              "sql_join_eligible": false
+            }
+          ],
+          "paths": []
+        }
+      ],
+      "metadata": {
+        "annotation_status": "draft",
+        "reviewer": null,
+        "evidence": "primeiro_acesso_agentes tem uma linha por (agente x mecanismo) e marca com eh_porta_de_entrada a entrada que foi a porta de entrada do agente.",
+        "review_notes": "ARMADILHA DUPLA: a tabela é mais fina que o agente (1,2x) E exige o filtro eh_porta_de_entrada = true, que é o que garante que ninguém conte duas vezes. Sem o filtro, o mesmo agente entra em vários anos.",
+        "contains_row_values": false
+      }
+    },
+    {
+      "id": "fomento-bbagil-por-programa-001",
+      "question": "Quanto o BB Ágil pagou por programa de fomento?",
+      "critical": false,
+      "slices": [
+        "pt_br",
+        "meta5",
+        "fomento",
+        "bbagil",
+        "mono_table",
+        "aggregate"
+      ],
+      "seed_relevance": {
+        "MinC.dbanalytics.agentes.pagamentos_bbagil_beneficiarios": 3,
+        "MinC.dbanalytics.agentes.pagamentos_bbagil_beneficiarios.programa_fomento": 3,
+        "MinC.dbanalytics.agentes.pagamentos_bbagil_beneficiarios.valor": 3
+      },
+      "gold_subgraphs": [
+        {
+          "id": "pagamentos-bbagil-programa",
+          "nodes": [
+            {
+              "id": "MinC.dbanalytics.agentes.pagamentos_bbagil_beneficiarios",
+              "type": "Table"
+            },
+            {
+              "id": "MinC.dbanalytics.agentes.pagamentos_bbagil_beneficiarios.programa_fomento",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.agentes.pagamentos_bbagil_beneficiarios.valor",
+              "type": "Column"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "b35d3271a9f735476621d9a226cce8369249b421ed490caaca0dc01632cf5a47",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.agentes.pagamentos_bbagil_beneficiarios",
+              "target": "MinC.dbanalytics.agentes.pagamentos_bbagil_beneficiarios.programa_fomento",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "f966377f89f98fb14c0387e1f1161480782e0b0d2af81e37fca155576af0e38b",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.agentes.pagamentos_bbagil_beneficiarios",
+              "target": "MinC.dbanalytics.agentes.pagamentos_bbagil_beneficiarios.valor",
+              "direction": "forward",
+              "sql_join_eligible": false
+            }
+          ],
+          "paths": []
+        }
+      ],
+      "metadata": {
+        "annotation_status": "draft",
+        "reviewer": null,
+        "evidence": "pagamentos_bbagil_beneficiarios tem uma linha por pagamento real a um beneficiário, com programa_fomento derivado.",
+        "review_notes": "Distinguir de eventos_fomento: aqui é só o BB Ágil (LPG/PNAB/LAB); eventos_fomento inclui Rouanet e Ancine.",
+        "contains_row_values": false
+      }
+    },
+    {
+      "id": "fomento-tipo-pessoa-001",
+      "question": "Qual a divisão do fomento entre pessoa física e pessoa jurídica?",
+      "critical": false,
+      "slices": [
+        "pt_br",
+        "meta5",
+        "fomento",
+        "mono_table",
+        "aggregate",
+        "categorical"
+      ],
+      "seed_relevance": {
+        "MinC.dbanalytics.agentes.eventos_fomento": 3,
+        "MinC.dbanalytics.agentes.eventos_fomento.tipo_pessoa": 3,
+        "MinC.dbanalytics.agentes.eventos_fomento.valor": 3,
+        "MinC.dbanalytics.agentes.eventos_fomento.beneficiario_documento": 2
+      },
+      "gold_subgraphs": [
+        {
+          "id": "eventos-fomento-tipo-pessoa",
+          "nodes": [
+            {
+              "id": "MinC.dbanalytics.agentes.eventos_fomento",
+              "type": "Table"
+            },
+            {
+              "id": "MinC.dbanalytics.agentes.eventos_fomento.tipo_pessoa",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.agentes.eventos_fomento.valor",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.agentes.eventos_fomento.beneficiario_documento",
+              "type": "Column"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "79a547f5452f3c2fa3c2c307cdb61fbe28071d8aa308e5ca50a66b465ed10b33",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.agentes.eventos_fomento",
+              "target": "MinC.dbanalytics.agentes.eventos_fomento.tipo_pessoa",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "6701be37b6fa148cffeaf89e2d80476b9cb7817d627328c0573c65b0636404d1",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.agentes.eventos_fomento",
+              "target": "MinC.dbanalytics.agentes.eventos_fomento.valor",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "c84aa509de82b78d4c160f1f76ba00304df36181d771a0ab80afa5ec81e52c38",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.agentes.eventos_fomento",
+              "target": "MinC.dbanalytics.agentes.eventos_fomento.beneficiario_documento",
+              "direction": "forward",
+              "sql_join_eligible": false
+            }
+          ],
+          "paths": []
+        }
+      ],
+      "metadata": {
+        "annotation_status": "draft",
+        "reviewer": null,
+        "evidence": "tipo_pessoa é coluna direta de eventos_fomento.",
+        "review_notes": "A leitura pode ser por valor somado ou por agentes distintos — o gold aceita as duas colunas; a revisão de domínio precisa fixar a métrica.",
+        "contains_row_values": false
+      }
+    },
+    {
+      "id": "fomento-valor-programa-curto-001",
+      "question": "valor total repassado por programa de fomento",
+      "critical": false,
+      "slices": [
+        "pt_br",
+        "meta5",
+        "fomento",
+        "mono_table",
+        "aggregate",
+        "registro_curto"
+      ],
+      "seed_relevance": {
+        "MinC.dbanalytics.agentes.eventos_fomento": 3,
+        "MinC.dbanalytics.agentes.eventos_fomento.programa_fomento": 3,
+        "MinC.dbanalytics.agentes.eventos_fomento.valor": 3
+      },
+      "gold_subgraphs": [
+        {
+          "id": "eventos-fomento-valor-programa-curto",
+          "nodes": [
+            {
+              "id": "MinC.dbanalytics.agentes.eventos_fomento",
+              "type": "Table"
+            },
+            {
+              "id": "MinC.dbanalytics.agentes.eventos_fomento.programa_fomento",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.agentes.eventos_fomento.valor",
+              "type": "Column"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "1a1893a3ee262af06edaf6d862a49e1c703f7ae911a6716ae39b165334d4e465",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.agentes.eventos_fomento",
+              "target": "MinC.dbanalytics.agentes.eventos_fomento.programa_fomento",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "6701be37b6fa148cffeaf89e2d80476b9cb7817d627328c0573c65b0636404d1",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.agentes.eventos_fomento",
+              "target": "MinC.dbanalytics.agentes.eventos_fomento.valor",
+              "direction": "forward",
+              "sql_join_eligible": false
+            }
+          ],
+          "paths": []
+        }
+      ],
+      "metadata": {
+        "annotation_status": "draft",
+        "reviewer": null,
+        "evidence": "Mesma resposta de fomento-valor-por-programa-001; muda só a forma da pergunta.",
+        "review_notes": "PAR DE REGISTRO MÍNIMO: as palavras de conteúdo são idênticas às do caso formal ('valor total repassado por programa de fomento'); cai só a moldura interrogativa. Qualquer diferença de recuperação entre os dois é efeito de registro, não de sentido. A primeira versão deste caso dizia 'quanto foi pago', que trocava o verbo e puxava a tabela de pagamentos do BB Ágil — media sentido, não registro.",
+        "contains_row_values": false
+      }
+    },
+    {
+      "id": "rouanet-projetos-uf-curto-001",
+      "question": "projetos rouanet por uf",
+      "critical": false,
+      "slices": [
+        "pt_br",
+        "salic",
+        "rouanet",
+        "mono_table",
+        "aggregate",
+        "geographic",
+        "registro_curto",
+        "vague"
+      ],
+      "seed_relevance": {
+        "MinC.dbanalytics.salic.sac__projetos": 3,
+        "MinC.dbanalytics.salic.sac__projetos.ufprojeto": 3,
+        "MinC.dbanalytics.salic.sac__projetos.idpronac": 3,
+        "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf": 2,
+        "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf.uf": 3,
+        "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf.quantidade": 3,
+        "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio": 2,
+        "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio.uf": 3,
+        "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio.pronac": 2
+      },
+      "gold_subgraphs": [
+        {
+          "id": "projetos-nucleo-por-uf",
+          "nodes": [
+            {
+              "id": "MinC.dbanalytics.salic.sac__projetos",
+              "type": "Table"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__projetos.ufprojeto",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__projetos.idpronac",
+              "type": "Column"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "1550acdd13c5bca36f79cf75fe4b090b16e80bbcce4e4ae487c3f119a2fcf3db",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__projetos",
+              "target": "MinC.dbanalytics.salic.sac__projetos.ufprojeto",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "5f1516791aa6d7bc661f821a2a93bb03798b37ce42119ff78a15915b7a85727c",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__projetos",
+              "target": "MinC.dbanalytics.salic.sac__projetos.idpronac",
+              "direction": "forward",
+              "sql_join_eligible": false
+            }
+          ],
+          "paths": []
+        },
+        {
+          "id": "vw-captacao-quantidade-por-uf",
+          "nodes": [
+            {
+              "id": "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf",
+              "type": "Table"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf.uf",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf.quantidade",
+              "type": "Column"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "12556ef3cdd9a2be3ba4d377490a68c0ec94de81860e2a43f6765ce87133dae2",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf",
+              "target": "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf.uf",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "5401cc4dc0a573bb8fea0f2e9937faf1fa1d2164a890b2364afb40ba737c037f",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf",
+              "target": "MinC.dbanalytics.salic.sac__vw_captacao_ano_uf.quantidade",
+              "direction": "forward",
+              "sql_join_eligible": false
+            }
+          ],
+          "paths": []
+        },
+        {
+          "id": "captacao-uf-como-recorte-geografico",
+          "nodes": [
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio",
+              "type": "Table"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio.uf",
+              "type": "Column"
+            },
+            {
+              "id": "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio.pronac",
+              "type": "Column"
+            }
+          ],
+          "relationships": [
+            {
+              "id": "28c1f660b7d20e756f1deb084d5c8752db16c7df21f2489f901ee83d25273e52",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio",
+              "target": "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio.uf",
+              "direction": "forward",
+              "sql_join_eligible": false
+            },
+            {
+              "id": "2071250da7eb2d2d54a97851846078b138e76512f73b157bd1c56d90977c1bf3",
+              "type": "HAS_COLUMN",
+              "source": "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio",
+              "target": "MinC.dbanalytics.salic.sac__dba_captacaoanoufmunicipio.pronac",
+              "direction": "forward",
+              "sql_join_eligible": false
+            }
+          ],
+          "paths": []
+        }
+      ],
+      "metadata": {
+        "annotation_status": "draft",
+        "reviewer": null,
+        "evidence": "sac__projetos tem ufprojeto e grão 1:1 por projeto — é a resposta direta para contar projetos por UF. As visões de captação respondem o recorte geográfico por outro caminho.",
+        "review_notes": "PERGUNTA VAGA DE PROPÓSITO: não diz se quer contagem ou valor, e o recorte por UF exige uma tabela diferente da de projetos. Serve para medir se o sistema encontra a tabela que tem UF em vez de forçar a de projetos.",
+        "contains_row_values": false
+      }
+    }
+  ]
+}
