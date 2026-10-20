@@ -71,7 +71,7 @@ services:
     image: graphrag-tais/hayhooks:latest
     container_name: hayhooks
     ports:
-      - "8000:8000"
+      - "${HAYHOOKS_PORT:-8000}:8000"
     volumes:
       - ./src:/app/src:rw
       # Catálogo de colunas sensíveis (ADR-0018). Read-only e FORA da imagem:
@@ -106,7 +106,7 @@ services:
       - minio
       # Ordem de subida, não requisito: o McpSqlExecutor conecta preguiçosamente
       # e a resposta degrada para só-texto se o executor estiver fora.
-      - trino-mcp
+      - postgres-mcp
     healthcheck:
       test: ["CMD", "bash", "-lc", "curl -fsS http://localhost:8000/docs || exit 1"]
       interval: 10s
@@ -117,20 +117,76 @@ services:
     networks:
       - default
 
-  # Executor do SQL (ADR-0017). É ELE que segura a credencial do banco — o RAG
-  # não conhece senha de banco nenhum, só fala MCP (ADR-0004).
-  #
-  # Read-only: `TRINO_ALLOW_WRITE_QUERIES=false` faz o servidor aceitar apenas
-  # SELECT/SHOW/DESCRIBE/EXPLAIN e recusar qualquer DML/DDL. **Não ligue** isso
-  # — é o guardrail que substitui o modo RESTRICTED do postgres-mcp.
-  #
-  # ⚠️ Transporte: `MCP_TRANSPORT=http` publica DOIS caminhos, `/mcp` e `/sse`,
-  # e os dois falam **Streamable HTTP** (o `/sse` é só compatibilidade de rota,
-  # não é o SSE clássico). Use `/mcp` em `SQL_MCP_URL` e
-  # `SQL_MCP_TRANSPORT=streamable_http`.
+  # Túnel até o PostgreSQL analítico. A chave continua no host: o Compose
+  # resolve PRIVATE_KEY_PATH (inclusive ~/...) e a monta read-only no caminho
+  # fixo /run/secrets/tunnel_key. known_hosts persiste separado da chave.
+  postgres-tunnel:
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres-tunnel
+    image: graphrag-tais/postgres-tunnel:latest
+    container_name: postgres-tunnel
+    command:
+      - -N
+      - -o
+      - BatchMode=yes
+      - -o
+      - ExitOnForwardFailure=yes
+      - -o
+      - ServerAliveInterval=30
+      - -o
+      - ServerAliveCountMax=3
+      - -o
+      - StrictHostKeyChecking=accept-new
+      - -o
+      - UserKnownHostsFile=/root/.ssh/known_hosts
+      - -L
+      - 0.0.0.0:${TUNNEL_LOCAL_PORT:-5432}:${ANALYTICS_DB_HOST}:${ANALYTICS_DB_PORT:-5432}
+      - -i
+      - /run/secrets/tunnel_key
+      - -p
+      - ${TUNNEL_PORT:-22}
+      - ${TUNNEL_USER}@${TUNNEL_HOST}
+    volumes:
+      - type: bind
+        source: ${PRIVATE_KEY_PATH:?defina PRIVATE_KEY_PATH no .env}
+        target: /run/secrets/tunnel_key
+        read_only: true
+      - ssh_known_hosts:/root/.ssh
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 ${TUNNEL_LOCAL_PORT:-5432}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+    networks:
+      - default
+
+  # Executor SQL padrão. Somente ele recebe a credencial do PostgreSQL; o RAG
+  # fala MCP. `restricted` recusa DDL/DML no servidor (ADR-0013/0019).
+  postgres-mcp:
+    image: crystaldba/postgres-mcp
+    container_name: postgres-mcp
+    environment:
+      DATABASE_URI: "postgresql://${ANALYTICS_DB_USER}:${ANALYTICS_DB_PASSWORD}@postgres-tunnel:${TUNNEL_LOCAL_PORT:-5432}/${ANALYTICS_DB_NAME}"
+    command:
+      - "--access-mode=restricted"
+      - "--transport=sse"
+    ports:
+      - "127.0.0.1:${POSTGRES_MCP_PORT:-8001}:8000"
+    depends_on:
+      postgres-tunnel:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - default
+
+  # Backend alternativo, desligado por padrão. Para uma comparação explícita:
+  # docker compose --profile trino up -d trino-mcp
   trino-mcp:
     image: ghcr.io/tuannvm/mcp-trino:${TRINO_MCP_TAG:-latest}
     container_name: trino-mcp
+    profiles: ["trino"]
     environment:
       TRINO_HOST: ${TRINO_HOST}
       TRINO_PORT: ${TRINO_PORT:-443}
@@ -181,30 +237,6 @@ services:
       # faz esse nome resolver no IP real. Com certificado que cubra o IP (ou
       # com DNS de verdade), deixe `TRINO_ADDR` vazio e isto vira inofensivo.
       - "${TRINO_TLS_HOSTNAME:-trino.invalid}:${TRINO_ADDR:-127.0.0.1}"
-    networks:
-      - default
-
-  # LEGADO (ADR-0013), mantido para quem quiser voltar ao Postgres direto.
-  # Fica atrás do profile `postgres` para NÃO subir por engano: sem as
-  # `ANALYTICS_DB_*` preenchidas ele entra em loop de restart.
-  #   docker compose --profile postgres up -d postgres-mcp
-  # e aponte `SQL_MCP_URL=http://postgres-mcp:8000/sse`,
-  # `SQL_MCP_TRANSPORT=sse`, `SQL_MCP_TOOL=execute_sql`, `SQL_MCP_TOOL_ARG=sql`,
-  # `SQL_DIALECT=postgres` (+ reverter o dialeto escrito em `query_system.md`).
-  postgres-mcp:
-    image: crystaldba/postgres-mcp
-    container_name: postgres-mcp
-    profiles: ["postgres"]
-    environment:
-      DATABASE_URI: "postgresql://${ANALYTICS_DB_USER}:${ANALYTICS_DB_PASSWORD}@${ANALYTICS_DB_HOST}:${ANALYTICS_DB_PORT:-5432}/${ANALYTICS_DB_NAME}"
-    command:
-      - "--access-mode=restricted"
-      - "--transport=sse"
-    ports:
-      - "127.0.0.1:${POSTGRES_MCP_PORT:-8001}:8000"
-    restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     networks:
       - default
 
@@ -274,6 +306,8 @@ volumes:
   minio_data:
     driver: local
   open-webui:
+    driver: local
+  ssh_known_hosts:
     driver: local
 
 networks:
