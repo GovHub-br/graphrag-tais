@@ -99,6 +99,7 @@ class MetadataRecordBuilder:
                 markdown_property=settings.OM_SEMANTIC_RELATIONSHIPS_PROPERTY,
                 related_tables_property=settings.OM_RELATED_TABLES_PROPERTY,
                 eligible_join_rules=settings.OM_SQL_ELIGIBLE_JOIN_RULES,
+                catalog_id=settings.OM_SEMANTIC_CATALOG_ID,
             )
         )
 

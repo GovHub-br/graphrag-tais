@@ -374,26 +374,41 @@ class MCDMarkdownRelationshipAdapter:
         return [extracted[key] for key in sorted(extracted)], stats
 
 
+_CONVENCAO = re.compile(r"^([a-z0-9]+)_markdown_v\d+$")
+
+
+def _catalog_id_por_convencao(nome: str) -> str:
+    """`<escopo>_markdown_v1` -> `<escopo>-semantic-relationships`.
+
+    Evita registro hardcoded de escopo no código: escopo novo entra só por
+    `.env`. `OM_SEMANTIC_CATALOG_ID` sobrepõe, para catálogo que não siga a
+    convenção.
+    """
+    m = _CONVENCAO.match(nome)
+    return f"{m.group(1)}-semantic-relationships" if m else ""
+
+
 def build_relationship_adapter(
     name: str,
     *,
     markdown_property: str,
     related_tables_property: str,
     eligible_join_rules: str = "exact",
+    catalog_id: str = "",
 ) -> RelationshipSourceAdapter | None:
     normalized = (name or "").strip().lower()
     if normalized in {"", "none", "disabled"}:
         return None
-    catalogs = {
-        "mcid_markdown_v1": "mcid-semantic-relationships",
-        "minc_markdown_v1": "minc-semantic-relationships",
-    }
-    if normalized in catalogs:
-        return MCDMarkdownRelationshipAdapter(
-            markdown_property=markdown_property,
-            related_tables_property=related_tables_property,
-            catalog_id=catalogs[normalized],
-            eligible_join_rules=eligible_join_rules,
-            source_kind=normalized,
+    resolvido = (catalog_id or "").strip() or _catalog_id_por_convencao(normalized)
+    if not resolvido:
+        raise ValueError(
+            f"OM_RELATIONSHIP_ADAPTER desconhecido: {name!r}. Use "
+            "`<escopo>_markdown_v1` ou declare OM_SEMANTIC_CATALOG_ID."
         )
-    raise ValueError(f"OM_RELATIONSHIP_ADAPTER desconhecido: {name!r}")
+    return MCDMarkdownRelationshipAdapter(
+        markdown_property=markdown_property,
+        related_tables_property=related_tables_property,
+        catalog_id=resolvido,
+        eligible_join_rules=eligible_join_rules,
+        source_kind=normalized,
+    )

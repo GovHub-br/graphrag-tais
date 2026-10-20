@@ -431,6 +431,15 @@ class Settings(BaseSettings):
         "mcid_markdown_v1",
         description="Adapter configurável para relações semânticas",
     )
+    OM_SEMANTIC_CATALOG_ID: str = Field(
+        "",
+        description=(
+            "Identificador do catálogo no cabeçalho do Markdown de relações. "
+            "Vazio = derivado de OM_RELATIONSHIP_ADAPTER pela convenção "
+            "`<escopo>_markdown_v1` -> `<escopo>-semantic-relationships`. "
+            "Declare só se o catálogo não seguir a convenção."
+        ),
+    )
     OM_SQL_ELIGIBLE_JOIN_RULES: str = Field(
         "exact",
         description=(

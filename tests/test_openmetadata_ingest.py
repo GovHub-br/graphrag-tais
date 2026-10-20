@@ -428,3 +428,43 @@ class TextoDoOpenMetadataTest(unittest.TestCase):
 
     def test_ausente_vira_string_vazia(self):
         self.assertEqual(_texto(None), "")
+
+
+class AdapterDesacopladoDeEscopoTest(unittest.TestCase):
+    """O código não deve conhecer escopo: escopo novo entra por `.env`."""
+
+    def _build(self, nome, catalog_id=""):
+        from rag.components.sources.relationship_adapters import (
+            build_relationship_adapter,
+        )
+        return build_relationship_adapter(
+            nome, markdown_property="x", related_tables_property="y",
+            catalog_id=catalog_id,
+        )
+
+    def test_escopos_existentes_seguem_funcionando(self):
+        self.assertEqual(self._build("mcid_markdown_v1").catalog_id,
+                         "mcid-semantic-relationships")
+        self.assertEqual(self._build("minc_markdown_v1").catalog_id,
+                         "minc-semantic-relationships")
+
+    def test_escopo_novo_nao_pede_mudanca_de_codigo(self):
+        """Era isto que o registro hardcoded impedia."""
+        self.assertEqual(self._build("ipea_markdown_v1").catalog_id,
+                         "ipea-semantic-relationships")
+
+    def test_env_sobrepoe_a_convencao(self):
+        a = self._build("qualquer_coisa", catalog_id="catalogo-fora-do-padrao")
+        self.assertEqual(a.catalog_id, "catalogo-fora-do-padrao")
+
+    def test_source_kind_acompanha_o_adapter(self):
+        self.assertEqual(self._build("ipea_markdown_v1").source_kind,
+                         "ipea_markdown_v1")
+
+    def test_desligado_devolve_none(self):
+        for v in ("", "none", "disabled"):
+            self.assertIsNone(self._build(v))
+
+    def test_nome_fora_da_convencao_sem_env_falha(self):
+        with self.assertRaises(ValueError):
+            self._build("formato-estranho")
