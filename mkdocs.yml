@@ -1,0 +1,9 @@
+# Site estático do mapa de arquitetura (docs/arquitetura/index.html).
+# O index.html já é a página inteira: o MkDocs só o copia para site/, byte a byte,
+# sem tema por cima. Por isso não há nav nem páginas Markdown aqui.
+site_name: graphrag-tais · arquitetura
+docs_dir: docs/arquitetura
+site_dir: site
+use_directory_urls: false
+# Sem busca: não há Markdown para indexar.
+plugins: []

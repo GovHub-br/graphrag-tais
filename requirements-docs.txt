@@ -1,0 +1,3 @@
+# Só para gerar o site do mapa de arquitetura (mkdocs.yml). Fora do requirements.txt
+# para não entrar na imagem do RAG.
+mkdocs==1.6.1

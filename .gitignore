@@ -81,3 +81,9 @@ eval/reports/*
 
 # Certificado do Trino: material de ambiente, como o .env (ver certs/README.md)
 certs/*.crt
+
+# ------------------------------------
+# Site gerado pelo MkDocs (make docs-build) e o virtualenv dele
+# ------------------------------------
+site/
+.venv-docs/

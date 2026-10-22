@@ -120,6 +120,17 @@ curl -X POST http://localhost:8000/query/run \
   -d '{"query": "faturamento total por mês no último ano"}'
 ```
 
+## Mapa de arquitetura (site estático)
+
+O mapa navegável fica em `docs/arquitetura/index.html` (abre direto no navegador).
+Para publicar atrás de um domínio:
+
+```bash
+make docs-build      # gera site/ (o index.html sai idêntico; instala o MkDocs em .venv-docs/ no 1º uso)
+make docs-serve      # http://localhost:8001
+make docs-image      # imagem nginx: docker run --rm -p 8080:80 graphrag-tais/arquitetura
+```
+
 ## Notas / próximos passos
 
 - **Haystack 3.0** é recém-lançado — rode um smoke-test (`docker compose build`)

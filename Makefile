@@ -9,7 +9,7 @@ EXPLORE_MARKDOWN ?= eval/reports/explore-report.md
 EXPLORE_POLICY ?= eval/config/explore-policy-v0.1.0.json
 
 .PHONY: up eval-quick eval-collect eval-live eval-score eval-full eval-answer \
-	explore-quick eval-explore explore-score explore-gate
+	explore-quick eval-explore explore-score explore-gate docs-build docs-serve docs-image
 up:
 	docker compose up -d --build --no-deps $(RAG_SERVICES)
 
@@ -95,3 +95,23 @@ eval-full:
 		TRACE="$(or $(EVAL_TRACE),eval/reports/current-run.json)" \
 		DATASET="$(or $(EVAL_DATASET),eval/datasets/retrieval/mcid-v0.1.0.json)" \
 		BASELINE="$(or $(EVAL_BASELINE),eval/baselines/mcid-retrieval-v1.json)"
+
+# Mapa de arquitetura (docs/arquitetura/index.html) como site estático.
+# docs-build gera site/; docs-image empacota em nginx para subir atrás do domínio.
+# O MkDocs vive num virtualenv próprio, criado no primeiro uso.
+DOCS_VENV := .venv-docs
+MKDOCS := $(DOCS_VENV)/bin/mkdocs
+
+$(MKDOCS): requirements-docs.txt
+	$(PYTHON) -m venv $(DOCS_VENV)
+	$(DOCS_VENV)/bin/pip install -q -r requirements-docs.txt
+	@touch $(MKDOCS)
+
+docs-build: $(MKDOCS)
+	$(MKDOCS) build --strict
+
+docs-serve: $(MKDOCS)
+	$(MKDOCS) serve -a localhost:8001
+
+docs-image:
+	docker build -f Dockerfile.docs -t graphrag-tais/arquitetura .

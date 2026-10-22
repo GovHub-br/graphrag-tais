@@ -1,0 +1,15 @@
+# Mapa de arquitetura como site estático servido por nginx na porta 80.
+#   docker build -f Dockerfile.docs -t graphrag-tais/arquitetura .
+#   docker run --rm -p 8080:80 graphrag-tais/arquitetura
+# Atrás de um proxy reverso basta apontar o domínio para a porta 80 do container.
+FROM python:3.11-slim AS build
+WORKDIR /src
+COPY requirements-docs.txt .
+RUN pip install --no-cache-dir -r requirements-docs.txt
+COPY mkdocs.yml .
+COPY docs/arquitetura docs/arquitetura
+RUN mkdocs build --strict
+
+FROM nginx:1.27-alpine
+COPY --from=build /src/site /usr/share/nginx/html
+EXPOSE 80
