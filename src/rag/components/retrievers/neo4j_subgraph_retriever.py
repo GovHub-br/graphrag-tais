@@ -17,7 +17,7 @@ extraído das Custom Properties do OpenMetadata. Por isso a travessia é por
 grafo não expandir nada antes.
 """
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from loguru import logger
 from haystack import Document, component
@@ -44,6 +44,29 @@ MATCH (t:Table {node_id: tid})-[:HAS_COLUMN]->(:Column)
       -[r:SEMANTIC_JOIN]-(:Column)<-[:HAS_COLUMN]-(nbr:Table)
 WHERE nbr.node_id <> tid
 RETURN DISTINCT nbr.node_id AS neighbor_id, r.sql_join_eligible AS eligible
+"""
+
+# Modos `ppr`/`prize` (expansion.py): arestas tabela↔tabela da bola de 2 hops
+# em volta das sementes. O PageRank com α≥0,2 quase não leva massa além disso.
+_BALL_EDGES_CYPHER = """
+UNWIND $tids AS tid
+MATCH (t:Table {node_id: tid})
+OPTIONAL MATCH (t)-[:HAS_COLUMN]->(:Column)-[r1:SEMANTIC_JOIN]-(:Column)<-[:HAS_COLUMN]-(n:Table)
+WHERE n <> t AND ($all OR r1.sql_join_eligible)
+WITH collect(DISTINCT t) + collect(DISTINCT n) AS ball
+UNWIND ball AS a
+MATCH (a)-[:HAS_COLUMN]->(:Column)-[r:SEMANTIC_JOIN]-(:Column)<-[:HAS_COLUMN]-(b:Table)
+WHERE a <> b AND ($all OR r.sql_join_eligible)
+RETURN DISTINCT a.node_id AS u, b.node_id AS v
+"""
+
+# Grau GLOBAL (tabelas distintas ligadas) e produto de dados de cada tabela.
+_TABLE_STATS_CYPHER = """
+UNWIND $ids AS id
+MATCH (t:Table {node_id: id})
+OPTIONAL MATCH (t)-[:HAS_COLUMN]->(:Column)-[r:SEMANTIC_JOIN]-(:Column)<-[:HAS_COLUMN]-(o:Table)
+WHERE o <> t AND ($all OR r.sql_join_eligible)
+RETURN id, t.data_product AS product, count(DISTINCT o) AS degree
 """
 
 # Colunas (nome, tipo, PK, descrição) das tabelas relevantes, em ordem ordinal.
@@ -146,6 +169,58 @@ def _schema_short(schema_fqn: str | None, table_fqn: str) -> str:
     return parts[-2] if len(parts) >= 2 else ""
 
 
+def _table_of(doc: Document) -> str:
+    """Tabela de um card: o próprio node_id, ou o pai se for card de coluna."""
+    meta = doc.meta or {}
+    nid = meta.get("node_id") or ""
+    if meta.get("card_type") == "table":
+        return nid
+    return nid.rsplit(".", 1)[0]
+
+
+def _select_columns_strict(
+    all_cols: list,
+    *,
+    table_fqn: str,
+    max_cols: int,
+    seed_column_fqns: set,
+    join_key_names: set,
+    query_tokens: set,
+) -> list:
+    """Poda com teto ESTRITO (`PRUNE_MODE=strict`, experimental): o teto vale
+    para o card inteiro, e a relevância é a da Persona 1 (radical + IDF local,
+    sem o ruído de catálogo) em vez da substring crua. Prioridade: PK → chave
+    de JOIN → coluna-semente → relevantes → ordinal.
+
+    No modo `legacy`, "essencial" entra sem teto e `_col_matches` casa
+    "valor"/"empreendimento" com quase toda coluna — é daí que vêm cards de
+    tabela com 60+ colunas."""
+    # Import tardio: o módulo da P1 importa deste aqui.
+    from rag.components.retrievers.neo4j_catalog_retriever import (
+        _pontua_colunas, _radical, _sem_acento, _RUIDO_CATALOGO,
+    )
+
+    termos = {
+        _radical(_sem_acento(t)) for t in query_tokens
+        if _sem_acento(t) not in _RUIDO_CATALOGO
+    }
+    pontos = _pontua_colunas(all_cols, termos)
+    relevantes = [n for n, p in sorted(pontos.items(), key=lambda kv: (-kv[1], kv[0])) if p > 0]
+    pks = [c["name"] for c in all_cols if c.get("is_pk")]
+    chaves = [c["name"] for c in all_cols if c["name"] in join_key_names]
+    sementes = [c["name"] for c in all_cols if f"{table_fqn}.{c['name']}" in seed_column_fqns]
+
+    keep: List[str] = []
+    for grupo in (pks, chaves, sementes, relevantes, [c["name"] for c in all_cols]):
+        for nome in grupo:
+            if len(keep) >= max_cols:
+                break
+            if nome not in keep:
+                keep.append(nome)
+    escolhidas = set(keep)
+    return [c for c in all_cols if c["name"] in escolhidas]
+
+
 @component
 class Neo4jSubgraphRetriever:
     def __init__(self, graph_store: Neo4jGraphStore, max_seeds: int = 10):
@@ -153,7 +228,14 @@ class Neo4jSubgraphRetriever:
         self.max_seeds = max_seeds
 
     @component.output_types(documents=List[Document], joins=List[Dict[str, Any]])
-    def run(self, documents: List[Document], query: str = "") -> dict:
+    def run(
+        self,
+        documents: List[Document],
+        query: str = "",
+        pool: Optional[List[Document]] = None,
+    ) -> dict:
+        """`pool` (opcional) é o pool inteiro da busca híbrida; só o modo
+        `prize` o usa, como evidência de relevância dos vizinhos."""
         seed_ids: List[str] = []
         seed_column_fqns: set = set()
         seed_table_fqns: set = set()
@@ -182,7 +264,9 @@ class Neo4jSubgraphRetriever:
             r["tid"] for r in self.store.execute_read(_SEED_TABLES_CYPHER, {"ids": seed_ids})
         ]
         relevant_ids = set(seed_table_ids)
-        if seed_table_ids:
+        if seed_table_ids and settings.EXPANSION_MODE in ("ppr", "prize"):
+            relevant_ids.update(self._ranked_expansion(seed_table_ids, documents, pool))
+        elif seed_table_ids:
             nbr_rows = self.store.execute_read(_NEIGHBORS_CYPHER, {"tids": seed_table_ids})
             seed_set = set(seed_table_ids)
             for nr in nbr_rows:
@@ -255,6 +339,55 @@ class Neo4jSubgraphRetriever:
         )
         return {"documents": out, "joins": joins}
 
+    def _ranked_expansion(
+        self,
+        seed_table_ids: List[str],
+        documents: List[Document],
+        pool: Optional[List[Document]],
+    ) -> List[str]:
+        """Vizinhos escolhidos por PageRank personalizado (+ prêmio da busca no
+        modo `prize`), até `EXPANSION_BUDGET`. Ver `expansion.py`."""
+        from rag.settings.configs import settings
+        from rag.components.retrievers.expansion import pool_relevance, select_expansion
+
+        every = not settings.EXPANSION_ELIGIBLE_ONLY
+        edges = self.store.execute_read(_BALL_EDGES_CYPHER, {"tids": seed_table_ids, "all": every})
+        ball = sorted({e["u"] for e in edges} | {e["v"] for e in edges} | set(seed_table_ids))
+        stats = self.store.execute_read(_TABLE_STATS_CYPHER, {"ids": ball, "all": every})
+        degree = {r["id"]: int(r["degree"] or 0) for r in stats}
+        product = {r["id"]: r.get("product") or "" for r in stats}
+
+        # Massa inicial de cada tabela-semente = melhor score dos cards dela.
+        seed_set = set(seed_table_ids)
+        weights: Dict[str, float] = {}
+        for rank, doc in enumerate(documents or [], start=1):
+            table = _table_of(doc)
+            if table in seed_set:
+                score = doc.score if doc.score is not None else 1.0 / rank
+                weights[table] = max(weights.get(table, 0.0), float(score))
+        for tid in seed_table_ids:
+            weights.setdefault(tid, min(weights.values(), default=1.0))
+
+        relevance = None
+        prize_floor = None
+        if settings.EXPANSION_MODE == "prize":
+            relevance = pool_relevance((_table_of(d), d.score) for d in (pool or documents or []))
+            prize_floor = settings.EXPANSION_PRIZE_FLOOR
+
+        chosen = select_expansion(
+            weights, edges,
+            degree=degree, product=product, relevance=relevance,
+            alpha=settings.EXPANSION_PPR_ALPHA,
+            degree_beta=settings.EXPANSION_DEGREE_BETA,
+            cross_product=settings.EXPANSION_CROSS_PRODUCT,
+            budget=settings.EXPANSION_BUDGET,
+            min_ratio=settings.EXPANSION_MIN_RATIO,
+            prize_floor=prize_floor,
+        )
+        logger.info("Expansão {}: {} arestas na bola, {} vizinhos escolhidos",
+                    settings.EXPANSION_MODE, len(edges), len(chosen))
+        return chosen
+
     def _select_columns(
         self,
         all_cols: list,
@@ -274,6 +407,12 @@ class Neo4jSubgraphRetriever:
             settings.PRUNE_SEED_TABLE_MAX_COLS if is_seed_table
             else settings.PRUNE_EXPANSION_TABLE_MAX_COLS
         )
+        if settings.PRUNE_MODE == "strict":
+            return _select_columns_strict(
+                all_cols, table_fqn=table_fqn, max_cols=max_cols,
+                seed_column_fqns=seed_column_fqns, join_key_names=join_key_names,
+                query_tokens=query_tokens,
+            )
         keep_names: set = set()
         for col in all_cols:
             name = col["name"]

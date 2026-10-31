@@ -1,0 +1,391 @@
+{
+ "schema_version": "1",
+ "name": "mcid-medalhao-explore",
+ "version": "0.1.0",
+ "status": "draft",
+ "metadata": {
+  "scope_id": "mcid",
+  "language": "pt-BR",
+  "review_status": "pending_domain_review",
+  "persona": "1 — pessoa que não conhece as bases e quer explorar",
+  "description": "Perguntas EXPLORATÓRIAS: quem pergunta não sabe o que existe e quer o mapa do território. O gabarito é um CONJUNTO graduado de tabelas (3 = central, 2 = útil, 1 = tangencial), não a tabela única de um indicador. Provisório: escrito a partir do catálogo MCid ingerido, sem revisão de domínio — não promover automaticamente.",
+  "relevance_scale": {
+   "3": "central — a pessoa sairia perdida sem essa tabela",
+   "2": "útil — complementa ou dá outro recorte do mesmo assunto",
+   "1": "tangencial — vale mencionar, não vale destacar"
+  },
+  "known_limitations": [
+   "Escrito por quem implementou o modo, não por quem usa o dado — vale como bootstrap diagnóstico, não como gabarito aceito.",
+   "Cobre os 4 schemas ingeridos (74 tabelas); as 20 tabelas citadas são as confirmadas pelos golds de retrieval existentes.",
+   "expected_gaps depende de SCOPE_GAPS estar configurado no .env; sem isso a métrica mede só o que o LLM declarar por conta.",
+   "Domínio agora é a CAMADA (prata/ouro), não o produto: domain_recall fica quase trivial até o domínio passar a vir do Data Product do OpenMetadata."
+  ],
+  "derivado_de": "mcid-explore-v0.1.0 (layout por produto, até set/2026)",
+  "escopo_ingestao": [
+   "Cidades.cidades.prata",
+   "Cidades.cidades.ouro"
+  ]
+ },
+ "cases": [
+  {
+   "id": "catalogo-panorama-001",
+   "question": "Quais bases de dados vocês têm disponíveis? Quero entender o que dá para analisar aqui.",
+   "critical": true,
+   "slices": [
+    "pt_br",
+    "catalogo_puro",
+    "sem_tema"
+   ],
+   "table_relevance": {},
+   "expected_domains": [
+    "prata",
+    "ouro"
+   ],
+   "notes": "Pergunta sem tema: a resposta certa é o panorama de domínios, que vem por Cypher agregado e não depende do retrieval semântico."
+  },
+  {
+   "id": "far-o-que-existe-001",
+   "question": "Estou começando a olhar o programa MCMV FAR. O que existe de dado sobre isso?",
+   "critical": true,
+   "slices": [
+    "pt_br",
+    "far",
+    "tema_amplo"
+   ],
+   "table_relevance": {
+    "prata.prata_far_empreendimento": 3,
+    "ouro.ouro_far_ficha_empreendimento": 3,
+    "ouro.ouro_far_panorama_estadual": 3,
+    "ouro.ouro_far_mapa_nacional": 2,
+    "ouro.ouro_far_execucao_fisica_financeira_chart": 2,
+    "ouro.ouro_far_evolucao_financeira_chart": 1,
+    "ouro.ouro_far_resumo_gerencial": 2
+   },
+   "expected_domains": [
+    "ouro",
+    "prata"
+   ],
+   "notes": "Remapeamento (out/2026) acrescentou tabelas que só existem no medalhão: ouro.ouro_far_evolucao_financeira_chart, ouro.ouro_far_resumo_gerencial."
+  },
+  {
+   "id": "far-empreendimento-individual-001",
+   "question": "Quero olhar um empreendimento específico do FAR e ver a situação dele. Que dado tem?",
+   "slices": [
+    "pt_br",
+    "far",
+    "tema_estreito",
+    "grao_individual"
+   ],
+   "table_relevance": {
+    "ouro.ouro_far_ficha_empreendimento": 3,
+    "prata.prata_far_empreendimento": 2,
+    "ouro.ouro_far_execucao_fisica_financeira_chart": 2
+   },
+   "expected_domains": [
+    "ouro",
+    "prata"
+   ],
+   "notes": "Distinguir a ficha (visão individual) das tabelas agregadas é o valor central da resposta."
+  },
+  {
+   "id": "far-visao-estadual-001",
+   "question": "O que vocês têm sobre o FAR que já venha agregado por estado?",
+   "slices": [
+    "pt_br",
+    "far",
+    "tema_estreito",
+    "grao_agregado"
+   ],
+   "table_relevance": {
+    "ouro.ouro_far_panorama_estadual": 3,
+    "ouro.ouro_far_mapa_nacional": 2,
+    "prata.prata_far_empreendimento": 1
+   },
+   "expected_domains": [
+    "ouro"
+   ]
+  },
+  {
+   "id": "far-comparacao-irmas-001",
+   "question": "Qual a diferença entre as tabelas de empreendimento do FAR? Quero entender qual devo usar.",
+   "critical": true,
+   "slices": [
+    "pt_br",
+    "far",
+    "tabelas_irmas",
+    "grao"
+   ],
+   "table_relevance": {
+    "prata.prata_far_empreendimento": 3,
+    "ouro.ouro_far_ficha_empreendimento": 3,
+    "ouro.ouro_far_panorama_estadual": 2,
+    "ouro.ouro_far_mapa_nacional": 2
+   },
+   "expected_domains": [
+    "ouro",
+    "prata"
+   ],
+   "notes": "É a pergunta que mais depende de o grão aparecer na resposta."
+  },
+  {
+   "id": "far-mapa-001",
+   "question": "Quero ver os empreendimentos no mapa, por município. Tem esse dado?",
+   "slices": [
+    "pt_br",
+    "far",
+    "geografia"
+   ],
+   "table_relevance": {
+    "ouro.ouro_far_mapa_nacional": 3,
+    "prata.prata_far_empreendimento": 2,
+    "ouro.ouro_far_ficha_empreendimento": 1
+   },
+   "expected_domains": [
+    "ouro",
+    "prata"
+   ]
+  },
+  {
+   "id": "fds-o-que-existe-001",
+   "question": "Nunca mexi com MCMV Entidades. O que tem disponível sobre isso?",
+   "critical": true,
+   "slices": [
+    "pt_br",
+    "fds",
+    "tema_amplo"
+   ],
+   "table_relevance": {
+    "ouro.ouro_fds_panorama_entidade": 3,
+    "ouro.ouro_fds_ficha_empreendimento": 3,
+    "prata.prata_fds_cadastro_pj": 3,
+    "prata.prata_fds_trabalho_social": 2,
+    "ouro.ouro_fds_evolucao_financeira_chart": 2
+   },
+   "expected_domains": [
+    "ouro",
+    "prata"
+   ]
+  },
+  {
+   "id": "fds-entidades-organizadoras-001",
+   "question": "Quero entender quem são as entidades organizadoras. Existe um cadastro delas?",
+   "slices": [
+    "pt_br",
+    "fds",
+    "tema_estreito",
+    "cadastro"
+   ],
+   "table_relevance": {
+    "prata.prata_fds_cadastro_pj": 3,
+    "ouro.ouro_fds_panorama_entidade": 2
+   },
+   "expected_domains": [
+    "ouro",
+    "prata"
+   ],
+   "notes": "fds_cadastro_pj é hub do grafo (grau 6) — deve aparecer no topo."
+  },
+  {
+   "id": "fds-trabalho-social-001",
+   "question": "Tem algum dado sobre o trabalho social nos empreendimentos?",
+   "slices": [
+    "pt_br",
+    "fds",
+    "tema_estreito",
+    "social"
+   ],
+   "table_relevance": {
+    "prata.prata_fds_trabalho_social": 3,
+    "ouro.ouro_fds_ficha_empreendimento": 1
+   },
+   "expected_domains": [
+    "prata"
+   ]
+  },
+  {
+   "id": "conjuntura-financiamento-001",
+   "question": "O que existe sobre financiamento habitacional?",
+   "critical": true,
+   "slices": [
+    "pt_br",
+    "conjuntura",
+    "credito",
+    "tema_amplo"
+   ],
+   "table_relevance": {
+    "ouro.ouro_conjuntura_financiamentos_habitacionais": 3,
+    "ouro.ouro_conjuntura_financiamentos_imobiliarios_pf_pj": 3,
+    "ouro.ouro_conjuntura_novos_financiamentos_banco": 2
+   },
+   "expected_domains": [
+    "ouro"
+   ],
+   "notes": "Três tabelas próximas: a resposta precisa dizer o que separa habitacional de imobiliário e o que a ABECIP acrescenta."
+  },
+  {
+   "id": "conjuntura-mercado-001",
+   "question": "Quero entender o mercado imobiliário — lançamentos, vendas. Tem alguma coisa?",
+   "slices": [
+    "pt_br",
+    "conjuntura",
+    "mercado",
+    "tema_amplo"
+   ],
+   "table_relevance": {
+    "ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic": 3,
+    "ouro.ouro_conjuntura_boletim_p1_vendas_por_regiao_cbic": 3,
+    "ouro.ouro_conjuntura_balancos_empresas": 2
+   },
+   "expected_domains": [
+    "ouro"
+   ]
+  },
+  {
+   "id": "conjuntura-emprego-001",
+   "question": "Tem dado de emprego na construção civil?",
+   "slices": [
+    "pt_br",
+    "conjuntura",
+    "emprego"
+   ],
+   "table_relevance": {
+    "ouro.ouro_conjuntura_pnad_ocupados": 3,
+    "prata.prata_conjuntura_ibge_pnad_construcao_ocupados": 2,
+    "ouro.ouro_conjuntura_pnad_rendimento": 1,
+    "ouro.ouro_conjuntura_empregos_caged": 3,
+    "prata.prata_conjuntura_novo_caged": 2
+   },
+   "expected_domains": [
+    "ouro",
+    "prata"
+   ],
+   "notes": "Caso que cruza camadas gold e silver — a resposta deve preferir gold e mencionar silver como detalhe. Remapeamento (out/2026) acrescentou tabelas que só existem no medalhão: ouro.ouro_conjuntura_empregos_caged, prata.prata_conjuntura_novo_caged."
+  },
+  {
+   "id": "conjuntura-renda-001",
+   "question": "Quero ver o rendimento de quem trabalha na construção. Existe?",
+   "slices": [
+    "pt_br",
+    "conjuntura",
+    "emprego",
+    "tema_estreito"
+   ],
+   "table_relevance": {
+    "ouro.ouro_conjuntura_pnad_rendimento": 3,
+    "ouro.ouro_conjuntura_pnad_ocupados": 2,
+    "prata.prata_conjuntura_ibge_pnad_construcao_rendimento": 2
+   },
+   "expected_domains": [
+    "ouro",
+    "prata"
+   ],
+   "notes": "Remapeamento (out/2026) acrescentou tabelas que só existem no medalhão: prata.prata_conjuntura_ibge_pnad_construcao_rendimento."
+  },
+  {
+   "id": "conjuntura-precos-001",
+   "question": "Existe algo sobre custo ou preço da construção?",
+   "slices": [
+    "pt_br",
+    "conjuntura",
+    "precos",
+    "tema_estreito"
+   ],
+   "table_relevance": {
+    "ouro.ouro_conjuntura_sinapi": 3,
+    "ouro.ouro_conjuntura_incc_m": 3,
+    "ouro.ouro_conjuntura_boletim_p6_sinapi_brasil_e_incc_m": 2
+   },
+   "expected_domains": [
+    "ouro"
+   ],
+   "notes": "Remapeamento (out/2026) acrescentou tabelas que só existem no medalhão: ouro.ouro_conjuntura_boletim_p6_sinapi_brasil_e_incc_m, ouro.ouro_conjuntura_incc_m."
+  },
+  {
+   "id": "tema-amplo-habitacao-001",
+   "question": "O que vocês têm sobre habitação, de forma geral? Quero ter uma visão do todo.",
+   "critical": true,
+   "slices": [
+    "pt_br",
+    "tema_amplo",
+    "multi_dominio"
+   ],
+   "table_relevance": {
+    "ouro.ouro_far_panorama_estadual": 2,
+    "prata.prata_far_empreendimento": 2,
+    "ouro.ouro_fds_panorama_entidade": 2,
+    "ouro.ouro_conjuntura_financiamentos_habitacionais": 2,
+    "ouro.ouro_far_ficha_empreendimento": 1,
+    "ouro.ouro_fds_ficha_empreendimento": 1
+   },
+   "expected_domains": [
+    "ouro",
+    "prata"
+   ],
+   "notes": "Nenhuma tabela é central sozinha: o acerto é atravessar os domínios, e é o caso onde listar demais é mais tentador."
+  },
+  {
+   "id": "serie-temporal-001",
+   "question": "Tem alguma base com série ao longo do tempo, para eu ver evolução?",
+   "slices": [
+    "pt_br",
+    "tema_amplo",
+    "temporal",
+    "multi_dominio"
+   ],
+   "table_relevance": {
+    "ouro.ouro_fds_evolucao_financeira_chart": 3,
+    "ouro.ouro_far_execucao_fisica_financeira_chart": 3,
+    "ouro.ouro_conjuntura_boletim_p1_vendas_por_regiao_cbic": 2,
+    "ouro.ouro_conjuntura_financiamentos_habitacionais": 2
+   },
+   "expected_domains": [
+    "ouro"
+   ]
+  },
+  {
+   "id": "lacuna-execucao-orcamentaria-001",
+   "question": "Quero ver a execução orçamentária do FAR — quanto foi efetivamente gasto, o valor executado.",
+   "critical": true,
+   "slices": [
+    "pt_br",
+    "far",
+    "lacuna",
+    "recusa_informativa"
+   ],
+   "table_relevance": {
+    "ouro.ouro_far_execucao_fisica_financeira_chart": 2,
+    "prata.prata_far_empreendimento": 1,
+    "ouro.ouro_conjuntura_ogu": 2,
+    "prata.prata_conjuntura_siafi_dotacao_execucao": 1
+   },
+   "expected_domains": [
+    "ouro"
+   ],
+   "expected_gaps": [],
+   "notes": "O conceito de gasto/valor executado está em __dados_brutos, fora da ingestão. O acerto é dizer o que existe no lugar (contratado, desembolsado), não recuar para 'refine a pergunta'. Remapeamento (out/2026) acrescentou tabelas que só existem no medalhão: ouro.ouro_conjuntura_ogu, prata.prata_conjuntura_siafi_dotacao_execucao. REVISAR: `ouro_conjuntura_ogu` traz dotação/empenho/pagamento por ação de governo. Se a ação do FAR estiver lá, a lacuna fechou; se não, devolver expected_gaps."
+  },
+  {
+   "id": "rural-o-que-existe-001",
+   "question": "Tem dado do MCMV rural?",
+   "slices": [
+    "pt_br",
+    "recusa_informativa",
+    "rural"
+   ],
+   "table_relevance": {
+    "ouro.ouro_rural_ficha_empreendimento": 3,
+    "ouro.ouro_rural_panorama_estadual": 3,
+    "prata.prata_rural_empreendimento": 2,
+    "ouro.ouro_rural_mapa_nacional": 2,
+    "ouro.ouro_rural_evolucao_financeira": 2,
+    "ouro.ouro_rural_resumo_gerencial": 2
+   },
+   "expected_domains": [
+    "ouro",
+    "prata"
+   ],
+   "expected_gaps": [],
+   "notes": "Era `lacuna-rural-001`: no layout antigo o Rural estava fora do escopo e a resposta certa era declarar a lacuna. No medalhão o Rural tem 36 tabelas em prata+ouro — o caso inverteu."
+  }
+ ]
+}

@@ -51,6 +51,8 @@ class PipelineWrapper(BasePipelineWrapper):
             "prompt_builder": {"query": query},
             "answer_builder": {"query": query},
         }
+        if "product_router" in self.pipeline.graph.nodes:
+            inputs["product_router"] = {"query": query, "top_k": top_k or settings.EXPLORE_TOP_K}
         return self.pipeline.run(inputs, include_outputs_from=_OUTPUTS)
 
     def run_api(self, query: str, top_k: int | None = None) -> dict:

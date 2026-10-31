@@ -104,12 +104,41 @@ class Settings(BaseSettings):
     # vizinho se ele também for semente OU o join for elegível (sql_join_eligible).
     # Default "evidence" (medido seguro no gold: 0 tabelas-gold perdidas,
     # over-expansion 27→16.6, prompt p95 acumulado −52%). "all" = fallback seguro.
-    EXPANSION_MODE: str = Field("evidence", description="Expansão do subgrafo: all | evidence")
+    EXPANSION_MODE: str = Field("evidence", description="Expansão do subgrafo: all | evidence | ppr | prize")
+    # Modos `ppr`/`prize` (EXPERIMENTAIS, `components/retrievers/expansion.py`):
+    # PageRank personalizado a partir das sementes, com desconto de hub
+    # (grau^-β) e de salto entre produtos (γ), cortado por orçamento. `prize`
+    # multiplica pela relevância que a busca deu ao vizinho (pool do híbrido).
+    EXPANSION_BUDGET: int = Field(3, description="Máximo de tabelas acrescentadas pela expansão (ppr/prize)")
+    EXPANSION_PPR_ALPHA: float = Field(0.3, description="Probabilidade de voltar às sementes a cada passo")
+    EXPANSION_DEGREE_BETA: float = Field(1.0, description="Expoente do desconto de hub: peso ∝ grau^-β")
+    EXPANSION_CROSS_PRODUCT: float = Field(0.2, description="Fator do peso de aresta entre produtos de dados diferentes")
+    EXPANSION_MIN_RATIO: float = Field(0.05, description="Massa mínima do vizinho, relativa à semente média")
+    EXPANSION_PRIZE_FLOOR: float = Field(0.1, description="Modo prize: peso do vizinho sem evidência na busca")
+    EXPANSION_ELIGIBLE_ONLY: bool = Field(True, description="Passeio só por join elegível (sql_join_eligible)")
     # Reranker cross-encoder sobre o pool do híbrido (item 3.1 do plano). O RRF
     # só conhece POSIÇÃO em cada canal; o cross-encoder lê pergunta e card juntos
     # e pontua relevância — é o que separa candidatos quase idênticos. Roda local
     # via fastembed (CPU/ONNX), sem sair da infra. Desligado por default.
     RERANK_ENABLED: bool = Field(False, description="Reordena o pool com cross-encoder")
+    # Roteamento de sementes por produto de dados (EXPERIMENTAL,
+    # `components/retrievers/product_router.py`): quando a pergunta cita um
+    # produto ("FAR", "Rural"…), os cards dele ganham ×(1+boost) no pool antes
+    # do corte. Lê `meta.data_product`/`data_product_label` (ingestão ≥ out/2026).
+    SEED_PRODUCT_ROUTING: bool = Field(False, description="Prioriza no pool os cards do produto citado na pergunta")
+    SEED_PRODUCT_BOOST: float = Field(1.0, description="Multiplicador extra do score dos cards do produto citado")
+    SEED_PRODUCT_ALIASES: str = Field(
+        "", description='JSON {"<data_product>": ["<outro nome>", ...]} além do rótulo do produto'
+    )
+    SEED_PRODUCT_LABEL_STOPWORDS: str = Field(
+        "",
+        description=(
+            "Palavras, separadas por vírgula, tiradas do INÍCIO do rótulo do "
+            "produto antes de procurá-lo na pergunta — as que se repetem em "
+            "vários rótulos e não identificam nenhum (ex.: 'empreendimento' em "
+            "'Empreendimento FAR'). Vazio = rótulo inteiro + siglas"
+        ),
+    )
     RERANK_MODEL: str = Field(
         "jinaai/jina-reranker-v2-base-multilingual",
         description="Modelo de rerank do fastembed (⚠️ jina-v2 é CC-BY-NC)",
@@ -120,6 +149,10 @@ class Settings(BaseSettings):
     # "resto" (colunas por ordinal). Tabela-semente recebe teto maior.
     PRUNE_SEED_TABLE_MAX_COLS: int = Field(25, description="Teto de colunas por tabela-semente")
     PRUNE_EXPANSION_TABLE_MAX_COLS: int = Field(6, description="Teto de colunas por tabela só de expansão")
+    # `legacy`: o teto só limita o preenchimento por ordinal; o essencial entra
+    # sem teto. `strict` (EXPERIMENTAL): o teto vale para tudo e a relevância é a
+    # da Persona 1 (radical + IDF local).
+    PRUNE_MODE: str = Field("legacy", description="Poda de colunas da P2: legacy | strict")
     # Prefixo de instrução no embedding da QUERY (modelos instruction-tuned).
     # Só o lado da query muda → NÃO exige reindexação. Default desligado: o
     # ganho depende do modelo (medido positivo no gte-qwen2 com tarefa em
@@ -140,6 +173,10 @@ class Settings(BaseSettings):
     # Knobs EXCLUSIVOS da pipeline `explore`. Nenhum deles é lido pelo caminho
     # da Persona 2: os dois modos querem coisas opostas do retrieval (cobertura
     # vs. precisão), e o baseline medido da Persona 2 vive nos defaults acima.
+    # Roteamento por produto também no Explorar (ver SEED_PRODUCT_ROUTING).
+    EXPLORE_PRODUCT_ROUTING: bool = Field(
+        False, description="Explorar: prioriza no pool os cards do produto citado na pergunta"
+    )
     EXPLORE_TOP_K: int = Field(
         15, description="Sementes do híbrido no modo Explorar (cobertura > precisão)"
     )
@@ -420,7 +457,7 @@ class Settings(BaseSettings):
     OM_API_PATH: str = Field("/api/v1", description="Prefixo da API do OpenMetadata")
     OM_JWT_TOKEN: Optional[str] = Field(None, description="OpenMetadata JWT (Bearer) token")
     OM_EXPECTED_VERSION: str = Field("1.12.1", description="Versão esperada da API OpenMetadata")
-    OM_SCOPE_ID: str = Field("mcid", description="Identificador estável do escopo de ingestão")
+    OM_SCOPE_ID: str = Field("", description="Identificador estável do escopo de ingestão (obrigatório na ingestão)")
     OM_SERVICE: Optional[str] = Field(None, description="FQN/nome do Database Service permitido")
     OM_DATABASE: Optional[str] = Field(None, description="FQN/nome do database permitido")
     OM_SCHEMAS: Optional[str] = Field(
@@ -428,8 +465,11 @@ class Settings(BaseSettings):
         description="Allowlist de FQNs de schemas, separada por vírgula",
     )
     OM_RELATIONSHIP_ADAPTER: str = Field(
-        "mcid_markdown_v1",
-        description="Adapter configurável para relações semânticas",
+        "",
+        description=(
+            "Adapter das relações semânticas, `<escopo>_markdown_v1` (ex.: "
+            "mcid_markdown_v1, minc_markdown_v1). Vazio/none = sem relações"
+        ),
     )
     OM_SEMANTIC_CATALOG_ID: str = Field(
         "",
@@ -440,16 +480,29 @@ class Settings(BaseSettings):
             "Declare só se o catálogo não seguir a convenção."
         ),
     )
+    OM_LINEAGE_ONLY_MARKERS: str = Field(
+        "",
+        description=(
+            "Marcadores de abertura, separados por vírgula, da prosa de "
+            "LINHAGEM que algum processo publica na propriedade de relações "
+            "(ex. no MCid: 'Lê de,É lido por,Granularidade temporal'). Texto "
+            "que abre com '**<marcador>:**' é contado e pulado, sem virar "
+            "aresta. Vazio = qualquer texto sem o cabeçalho do contrato aborta"
+        ),
+    )
     OM_SQL_ELIGIBLE_JOIN_RULES: str = Field(
         "exact",
         description=(
             "Lista de join_rule autorizadas para JOIN SQL direto, separada por "
-            "vírgula. O default preserva o comportamento do catálogo MCid."
+            "vírgula. Só igualdade exata vira JOIN autorizado por padrão."
         ),
     )
     OM_SEMANTIC_RELATIONSHIPS_PROPERTY: str = Field(
-        "mcidSemanticRelationships",
-        description="Custom Property com relações semânticas documentadas",
+        "",
+        description=(
+            "Custom Property com relações semânticas documentadas (ex.: "
+            "mcidSemanticRelationships). Obrigatória com adapter ligado"
+        ),
     )
     OM_TABLE_GRAIN_PROPERTY: str = Field(
         "",
@@ -459,14 +512,48 @@ class Settings(BaseSettings):
         ),
     )
     OM_RELATED_TABLES_PROPERTY: str = Field(
-        "mcidRelatedTables",
-        description="Custom Property com referências para tabelas relacionadas",
+        "",
+        description=(
+            "Custom Property com referências para tabelas relacionadas (ex.: "
+            "mcidRelatedTables). Obrigatória com adapter ligado"
+        ),
+    )
+    OM_EXTENSION_OVERRIDES_FILE: str = Field(
+        "",
+        description=(
+            "SÓ DESENVOLVIMENTO. JSON {fqn_da_tabela: {propriedade: valor}} "
+            "aplicado sobre a extension lida do OpenMetadata, antes do filtro "
+            "de documentação. Serve para medir um catálogo de relações gerado "
+            "localmente sem publicá-lo numa instância compartilhada. Lido na "
+            "construção da pipeline: trocou o arquivo, reinicie o hayhooks. "
+            "Vazio = o que o OpenMetadata publica, sem alteração."
+        ),
     )
     OM_REQUIRE_DOCUMENTED_TABLES: bool = Field(
-        True,
+        False,
         description=(
             "Aceita somente tabelas que tenham a Custom Property documental "
-            "configurada em OM_SEMANTIC_RELATIONSHIPS_PROPERTY"
+            "configurada em OM_SEMANTIC_RELATIONSHIPS_PROPERTY. Padrão false: "
+            "a propriedade é do escopo, então o filtro também (MinC: true)"
+        ),
+    )
+    OM_CARD_EMBED_RELATIONSHIPS: bool = Field(
+        True,
+        description=(
+            "Card v2: inclui a lista 'Relacionamentos:' no texto embedado. "
+            "Com o grafo denso (MCid medalhão, out/2026) a lista muda o texto "
+            "de dezenas de cards a cada aresta nova e desloca as sementes. O "
+            "relacionamento continua no grafo e no payload; só sai do embedding."
+        ),
+    )
+    OM_CARD_PRODUCT_LINE: str = Field(
+        "off",
+        description=(
+            "Card v2, linha 'Produto:' (Data Product do OM): off | label (só o "
+            "rótulo) | full (rótulo + descrição do produto no card de TABELA; "
+            "coluna leva só o rótulo). 'true'/'false' valem full/off. No "
+            "medalhão a linha 'Domínio:' é a camada e não distingue FAR de "
+            "Rural. Muda o texto embedado: exige reingestão e o gate do ADR-0012."
         ),
     )
     OM_CARD_SCHEMA_VERSION: str = Field(

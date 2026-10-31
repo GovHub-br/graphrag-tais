@@ -48,13 +48,19 @@ def build_explore_pipeline(collection: str | None = None, top_k: int | None = No
 
     qdrant_store = QdrantStoreFactory(index=collection or settings.QDRANT_COLLECTION).build()
     pipeline.add_component(
-        "hybrid_retriever", QdrantHybridRetrieverFactory(qdrant_store, top_k=top_k).build()
+        "hybrid_retriever", QdrantHybridRetrieverFactory(
+            qdrant_store, top_k=top_k, route_pool=settings.EXPLORE_PRODUCT_ROUTING).build()
     )
 
     graph_store = Neo4jGraphStoreFactory().build()
+    # Opcional: prioriza o produto citado (mesmo componente da P2, flag própria).
+    if settings.EXPLORE_PRODUCT_ROUTING:
+        from rag.components.retrievers.product_router import ProductSeedRouter
+        pipeline.add_component("product_router", ProductSeedRouter(top_k=top_k))
+
     pipeline.add_component("catalog_retriever", Neo4jCatalogRetriever(
         graph_store=graph_store,
-        scope_id=settings.OM_SCOPE_ID if settings.SCOPE_FILTER_ENABLED else None,
+        scope_id=(settings.OM_SCOPE_ID or None) if settings.SCOPE_FILTER_ENABLED else None,
         max_seeds=top_k,
         max_tables=settings.EXPLORE_MAX_TABLES,
         max_columns=settings.EXPLORE_MAX_COLUMNS,
@@ -79,7 +85,11 @@ def build_explore_pipeline(collection: str | None = None, top_k: int | None = No
 
     pipeline.connect("dense_text_embedder.embedding", "hybrid_retriever.query_embedding")
     pipeline.connect("sparse_text_embedder.sparse_embedding", "hybrid_retriever.query_sparse_embedding")
-    pipeline.connect("hybrid_retriever.documents", "catalog_retriever.documents")
+    if settings.EXPLORE_PRODUCT_ROUTING:
+        pipeline.connect("hybrid_retriever.documents", "product_router.documents")
+        pipeline.connect("product_router.documents", "catalog_retriever.documents")
+    else:
+        pipeline.connect("hybrid_retriever.documents", "catalog_retriever.documents")
     pipeline.connect("catalog_retriever.documents", "prompt_builder.documents")
     pipeline.connect("catalog_retriever.joins", "prompt_builder.joins")
     pipeline.connect("catalog_retriever.domains", "prompt_builder.domains")

@@ -49,7 +49,14 @@ def build_query_pipeline(collection: str | None = None, top_k: int = 5) -> Pipel
 
     # Passo 1: busca híbrida no Qdrant
     qdrant_store = QdrantStoreFactory(index=collection or settings.QDRANT_COLLECTION).build()
-    pipeline.add_component("hybrid_retriever", QdrantHybridRetrieverFactory(qdrant_store, top_k=top_k).build())
+    pipeline.add_component("hybrid_retriever", QdrantHybridRetrieverFactory(
+        qdrant_store, top_k=top_k, route_pool=settings.SEED_PRODUCT_ROUTING).build())
+
+    # Passo 1a (opcional): prioriza o produto que a pergunta cita.
+    if settings.SEED_PRODUCT_ROUTING:
+        from rag.components.retrievers.product_router import ProductSeedRouter
+        router_k = settings.RETRIEVAL_POOL_SIZE if settings.RERANK_ENABLED else top_k
+        pipeline.add_component("product_router", ProductSeedRouter(top_k=router_k))
 
     # Passo 1b (opcional): rerank cross-encoder do pool antes do corte.
     if settings.RERANK_ENABLED:
@@ -78,11 +85,15 @@ def build_query_pipeline(collection: str | None = None, top_k: int = 5) -> Pipel
     # Conexões
     pipeline.connect("dense_text_embedder.embedding", "hybrid_retriever.query_embedding")
     pipeline.connect("sparse_text_embedder.sparse_embedding", "hybrid_retriever.query_sparse_embedding")
+    seeds_out = "hybrid_retriever.documents"
+    if settings.SEED_PRODUCT_ROUTING:
+        pipeline.connect(seeds_out, "product_router.documents")
+        pipeline.connect("product_router.pool", "subgraph_retriever.pool")
+        seeds_out = "product_router.documents"
     if settings.RERANK_ENABLED:
-        pipeline.connect("hybrid_retriever.documents", "reranker.documents")
-        pipeline.connect("reranker.documents", "subgraph_retriever.documents")
-    else:
-        pipeline.connect("hybrid_retriever.documents", "subgraph_retriever.documents")
+        pipeline.connect(seeds_out, "reranker.documents")
+        seeds_out = "reranker.documents"
+    pipeline.connect(seeds_out, "subgraph_retriever.documents")
     pipeline.connect("subgraph_retriever.documents", "prompt_builder.documents")
     pipeline.connect("subgraph_retriever.joins", "prompt_builder.joins")
     pipeline.connect("prompt_builder.prompt", "llm.messages")

@@ -25,6 +25,7 @@ class GraphCardBuilder:
         self,
         card_schema_version: str | None = None,
         embedding_profile: str | None = None,
+        embed_relationships: bool | None = None,
     ) -> None:
         self.card_schema_version = (
             card_schema_version or settings.OM_CARD_SCHEMA_VERSION
@@ -36,6 +37,15 @@ class GraphCardBuilder:
             raise ValueError(
                 "OM_CARD_SCHEMA_VERSION e OM_EMBEDDING_PROFILE são obrigatórios"
             )
+        self.embed_relationships = (
+            embed_relationships
+            if embed_relationships is not None
+            else settings.OM_CARD_EMBED_RELATIONSHIPS
+        )
+        mode = str(settings.OM_CARD_PRODUCT_LINE or "off").strip().lower()
+        self.product_line = {"true": "full", "false": "off", "": "off"}.get(mode, mode)
+        if self.product_line not in {"off", "label", "full"}:
+            raise ValueError(f"OM_CARD_PRODUCT_LINE desconhecido: {mode}")
         if self.card_schema_version not in {"v1", "v2"}:
             raise ValueError(
                 f"OM_CARD_SCHEMA_VERSION desconhecida: {self.card_schema_version}"
@@ -246,6 +256,11 @@ class GraphCardBuilder:
         if table.get("description"):
             lines.append(str(table["description"]).strip())
         lines.append(f"Domínio: {self._domain(table.get('schema', ''))}")
+        if self.product_line != "off" and table.get("data_product_label"):
+            product = f"Produto: {table['data_product_label']}"
+            if self.product_line == "full" and table.get("data_product_description"):
+                product += f" — {table['data_product_description']}"
+            lines.append(product)
         # O grão NÃO entra no card. Medido em 2026-08-12: incluí-lo piora MRR
         # (0,875 -> 0,792) e infla o prompt, porque "um registro por apf" se
         # repete em dezenas de tabelas e não discrimina nada. O valor do grão é
@@ -258,7 +273,8 @@ class GraphCardBuilder:
         vocab = self._vocab_line(table["node_id"])
         if vocab:
             lines.append(vocab)
-        if table_relationships:
+        # Só v2: o v1 fica congelado para reprodutibilidade dos runs antigos.
+        if table_relationships and self.embed_relationships:
             lines.append("Relacionamentos:")
             lines.extend(
                 "- " + self._relationship_summary(rel, node_id=table["node_id"])
@@ -266,7 +282,7 @@ class GraphCardBuilder:
             )
         return "\n".join(lines)
 
-    def _column_content_v2(self, column, column_relationships) -> str:
+    def _column_content_v2(self, column, column_relationships, table=None) -> str:
         """Card de coluna denso em significado.
 
         O caminho completo saía DUAS vezes (`FQN:` e `Tabela:`) e sozinho valia
@@ -280,10 +296,14 @@ class GraphCardBuilder:
         lines = [head, f"Tabela: {table_name}"]
         schema_fqn = str(column["table_node_id"]).rsplit(".", 1)[0]
         lines.append(f"Domínio: {self._domain(schema_fqn)}")
+        # Só o rótulo: a descrição do produto repetida em milhares de cards de
+        # coluna diluiria o que é próprio de cada coluna.
+        if self.product_line != "off" and (table or {}).get("data_product_label"):
+            lines.append(f"Produto: {table['data_product_label']}")
         # Grão fora do card, pelo mesmo motivo do card de tabela — ver acima.
         if column.get("is_primary_key"):
             lines.append("Chave primária")
-        if column_relationships:
+        if column_relationships and self.embed_relationships:
             lines.append("Relacionamentos:")
             lines.extend(
                 "- " + self._relationship_summary(rel, node_id=column["node_id"])
@@ -367,6 +387,10 @@ class GraphCardBuilder:
                 content=content,
             )
             meta["om_id"] = table["om_id"]
+            # Produto no payload (não no texto): é o que o roteamento de
+            # sementes por produto lê, sem reingestão quando ele mudar.
+            meta["data_product"] = table.get("data_product") or ""
+            meta["data_product_label"] = table.get("data_product_label") or ""
             documents.append(
                 Document(
                     id=self._point_id(scope_id, card_id),
@@ -382,14 +406,16 @@ class GraphCardBuilder:
                 }
             )
 
+        table_by_fqn = {table["node_id"]: table for table in tables}
         for column in sorted(columns, key=lambda item: item["node_id"]):
             column_fqn = column["node_id"]
+            parent = table_by_fqn.get(column["table_node_id"]) or {}
             column_relationships = sorted(
                 relationships_by_column.get(column_fqn, []),
                 key=lambda item: item["relationship_id"],
             )
             content = (
-                self._column_content_v2(column, column_relationships)
+                self._column_content_v2(column, column_relationships, parent)
                 if self.card_schema_version == "v2"
                 else self._column_content_v1(column, column_relationships)
             )
@@ -408,6 +434,8 @@ class GraphCardBuilder:
             )
             meta["table_node_id"] = column["table_node_id"]
             meta["table_om_id"] = column["table_om_id"]
+            meta["data_product"] = parent.get("data_product") or ""
+            meta["data_product_label"] = parent.get("data_product_label") or ""
             documents.append(
                 Document(
                     id=self._point_id(scope_id, card_id),

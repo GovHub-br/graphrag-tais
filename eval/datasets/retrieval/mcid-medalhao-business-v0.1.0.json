@@ -1,0 +1,1129 @@
+{
+ "schema_version": "1",
+ "name": "mcid-medalhao-business-retrieval",
+ "version": "0.1.0",
+ "status": "draft",
+ "metadata": {
+  "scope_id": "mcid",
+  "language": "pt-BR",
+  "review_status": "pending_domain_review",
+  "escopo_ingestao": [
+   "Cidades.cidades.prata",
+   "Cidades.cidades.ouro"
+  ],
+  "derivado_de": "mcid-business-v0.1.0 (layout por produto, até set/2026)",
+  "description": "Os mesmos 8 casos do gold de negócio, remapeados para o layout medalhão (schemas prata/ouro compartilhados). Mapeamento por produto + coluna conferida no grafo ingerido em 2026-10-26. FAR/FDS mapeiam 1:1; conjuntura foi remodelada e ganhou alternativas. Diagnóstico, não gate, até revisão de domínio."
+ },
+ "cases": [
+  {
+   "id": "far-ranking-valor-001",
+   "question": "Quais são os 10 empreendimentos FAR com maior valor contratado? Mostre empreendimento, município, UF, situação atual, unidades habitacionais e valor contratado.",
+   "critical": true,
+   "slices": [
+    "pt_br",
+    "far",
+    "mono_table",
+    "top_n",
+    "semantic_metric",
+    "dashboard"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_far_ficha_empreendimento": 3,
+    "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.nome_empreendimento": 2,
+    "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.quantidade_uh": 2,
+    "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.municipio": 2,
+    "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.uf": 2,
+    "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.situacao_empreendimento": 2,
+    "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.valor_contratado": 3,
+    "Cidades.cidades.prata.prata_far_empreendimento": 3,
+    "Cidades.cidades.prata.prata_far_empreendimento.empreendimento_nome": 2,
+    "Cidades.cidades.prata.prata_far_empreendimento.quantidade_uh": 2,
+    "Cidades.cidades.prata.prata_far_empreendimento.municipio": 2,
+    "Cidades.cidades.prata.prata_far_empreendimento.uf": 2,
+    "Cidades.cidades.prata.prata_far_empreendimento.situacao_empreendimento": 2,
+    "Cidades.cidades.prata.prata_far_empreendimento.valor_contratado": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "ficha-empreendimento-grain-apf",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.nome_empreendimento",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.quantidade_uh",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.municipio",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.uf",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.situacao_empreendimento",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.valor_contratado",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "42316658d190ae8e0bf18309e302ece3716dffaf29a43fb9cf56b0e62619dcc3",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.nome_empreendimento",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "dc1a4db73a8542a312188dd02182ab21cf377f97310088dc5fab50cd12e754a8",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.quantidade_uh",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "d51aa09a62178b2a6dd4b53b55ac48a25c3c500f65ed4cf712bdaf23c457e7dd",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.municipio",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "d887e75ecf4bd535badc48a70a6d39cc3d29ea68ac1ebecb5b08ac2dc1c8f13e",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.uf",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "6372aef8d0836c6952460dfcaac8aa7ef0c9a72522640107fbd3c322c758e295",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.situacao_empreendimento",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "9bc1e8d16078d0083dd2043c3c6c7b8a83b79e1250264ff2c039088e458e03a4",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.valor_contratado",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    },
+    {
+     "id": "empreendimento-prata-unificada",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.prata.prata_far_empreendimento",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.prata.prata_far_empreendimento.empreendimento_nome",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.prata.prata_far_empreendimento.quantidade_uh",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.prata.prata_far_empreendimento.municipio",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.prata.prata_far_empreendimento.uf",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.prata.prata_far_empreendimento.situacao_empreendimento",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.prata.prata_far_empreendimento.valor_contratado",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "4a7ebed470ea47c027a4e72e17a2cab89f6987f2249d8359353c3d2ab0625713",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.prata.prata_far_empreendimento",
+       "target": "Cidades.cidades.prata.prata_far_empreendimento.empreendimento_nome",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "ab4d05cb13257c17f34fb37015f07e97a7c56ad3f5f130397889b19e291b5c75",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.prata.prata_far_empreendimento",
+       "target": "Cidades.cidades.prata.prata_far_empreendimento.quantidade_uh",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "61a42b968113f4282692b15bc232c4bb53f2edda063888280bd0bcbc7cebfb17",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.prata.prata_far_empreendimento",
+       "target": "Cidades.cidades.prata.prata_far_empreendimento.municipio",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "bc1f97037f524cbadbfbaa92760f277908f3e816dded36d91ad5570b65b7b996",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.prata.prata_far_empreendimento",
+       "target": "Cidades.cidades.prata.prata_far_empreendimento.uf",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "2b451c0a67a7169810edf51ad94655809544eb49a14a22b8b8e2e9853ed4e72c",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.prata.prata_far_empreendimento",
+       "target": "Cidades.cidades.prata.prata_far_empreendimento.situacao_empreendimento",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "453b202f80d5cb5f6c64931f422e6cfc43ec95929f4d0c0eccfadde0785bd0ef",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.prata.prata_far_empreendimento",
+       "target": "Cidades.cidades.prata.prata_far_empreendimento.valor_contratado",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "evidence": "OpenMetadata/Neo4j documentam ficha_empreendimento e empreendimento como visões capazes de responder aos campos solicitados.",
+    "review_notes": "Snapshot físico de 2026-07-30: ambas as visões têm 1.646 linhas para 823 APFs, exatamente duas por APF. A escolha da tabela não resolve o grain; a execução precisa deduplicar ou a carga upstream deve ser corrigida.",
+    "contains_row_values": false,
+    "remapeado_de": [
+     "empreendimento_far.empreendimento",
+     "empreendimento_far.ficha_empreendimento"
+    ]
+   }
+  },
+  {
+   "id": "far-ufs-uh-001",
+   "question": "Quais são as 10 UFs com mais unidades habitacionais em empreendimentos FAR? Mostre também o valor contratado em cada UF.",
+   "critical": true,
+   "slices": [
+    "pt_br",
+    "far",
+    "mono_table",
+    "aggregate",
+    "filter",
+    "top_n",
+    "geographic",
+    "dashboard"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_far_mapa_nacional": 3,
+    "Cidades.cidades.ouro.ouro_far_mapa_nacional.uf": 2,
+    "Cidades.cidades.ouro.ouro_far_mapa_nacional.nivel": 2,
+    "Cidades.cidades.ouro.ouro_far_mapa_nacional.total_uhs": 3,
+    "Cidades.cidades.ouro.ouro_far_mapa_nacional.total_valor_contratado": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "mapa-nacional-nivel-uf",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_mapa_nacional",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_mapa_nacional.uf",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_mapa_nacional.nivel",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_mapa_nacional.total_uhs",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_mapa_nacional.total_valor_contratado",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "9621d64755be382bb66d024ec4430146b3a24dd2f6fe7ed404b9eda535505792",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_mapa_nacional",
+       "target": "Cidades.cidades.ouro.ouro_far_mapa_nacional.uf",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "9f2f30e8bd78e7cccc790073fda6b777d93d367acb064e0c7243ccfa116b8b91",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_mapa_nacional",
+       "target": "Cidades.cidades.ouro.ouro_far_mapa_nacional.nivel",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "aa55c14f38a39386814981ac12289ce76eae67c516e8509b3df3808db72399d0",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_mapa_nacional",
+       "target": "Cidades.cidades.ouro.ouro_far_mapa_nacional.total_uhs",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "f5f61748881262c82834ac3b56760688ca323dcf0d565c6416bdc63b0087ec55",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_mapa_nacional",
+       "target": "Cidades.cidades.ouro.ouro_far_mapa_nacional.total_valor_contratado",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "evidence": "OpenMetadata/Neo4j; mapa_nacional é uma visão agregada pronta para exibição.",
+    "review_notes": "Validar a preferência pela visão mapa_nacional em vez de agregar ficha_empreendimento e confirmar o literal nivel='uf'.",
+    "contains_row_values": false,
+    "remapeado_de": [
+     "empreendimento_far.mapa_nacional"
+    ]
+   }
+  },
+  {
+   "id": "fds-eo-risco-001",
+   "question": "Quais são as 10 Entidades Organizadoras classificadas como alto risco com mais obras paralisadas? Mostre nome, CNPJ, obras paralisadas e valor total contratado.",
+   "critical": true,
+   "slices": [
+    "pt_br",
+    "fds",
+    "mono_table",
+    "acronym",
+    "filter",
+    "ranking",
+    "risk",
+    "dashboard"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_fds_panorama_entidade": 3,
+    "Cidades.cidades.ouro.ouro_fds_panorama_entidade.cnpj_eo": 2,
+    "Cidades.cidades.ouro.ouro_fds_panorama_entidade.nome_eo": 2,
+    "Cidades.cidades.ouro.ouro_fds_panorama_entidade.classificacao_risco": 3,
+    "Cidades.cidades.ouro.ouro_fds_panorama_entidade.qtd_obras_paralisadas": 3,
+    "Cidades.cidades.ouro.ouro_fds_panorama_entidade.valor_total_contratado": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "panorama-entidade-risco",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_panorama_entidade",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_panorama_entidade.cnpj_eo",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_panorama_entidade.nome_eo",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_panorama_entidade.classificacao_risco",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_panorama_entidade.qtd_obras_paralisadas",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_panorama_entidade.valor_total_contratado",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "65edee6e9b76c657524c9ad3f2ecdfd57b92580fe3afa79ad685d855136d3cfd",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fds_panorama_entidade",
+       "target": "Cidades.cidades.ouro.ouro_fds_panorama_entidade.cnpj_eo",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "43c281d9c9d33589b4736d3cb4fe70b31f225dc06a0a45726b26a06aa50651ff",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fds_panorama_entidade",
+       "target": "Cidades.cidades.ouro.ouro_fds_panorama_entidade.nome_eo",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "1a37c53ccae326fe90d6ef32e882d47e161b65e18be01017e852a2f7a4135741",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fds_panorama_entidade",
+       "target": "Cidades.cidades.ouro.ouro_fds_panorama_entidade.classificacao_risco",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "d17c2a3cc78c2d1235748f83a5a76da43071bca24cb5d717b371858a62518525",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fds_panorama_entidade",
+       "target": "Cidades.cidades.ouro.ouro_fds_panorama_entidade.qtd_obras_paralisadas",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "7fb8f82800d04dc8ecbabd14a28e94bcf51c2f1ee8a9ce57aba8a458b4f47246",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fds_panorama_entidade",
+       "target": "Cidades.cidades.ouro.ouro_fds_panorama_entidade.valor_total_contratado",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "evidence": "OpenMetadata/Neo4j; panorama consolidado por Entidade Organizadora.",
+    "review_notes": "Confirmar o literal e a capitalização de classificacao_risco na camada de execução.",
+    "contains_row_values": false,
+    "remapeado_de": [
+     "entidades_fds.fds_panorama_entidade"
+    ]
+   }
+  },
+  {
+   "id": "fds-entrega-ts-001",
+   "question": "Quais empreendimentos do MCMV Entidades têm alguma unidade entregue, mas execução do trabalho social abaixo de 100%? Mostre APF, empreendimento, município, UF e os dois percentuais.",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "fds",
+    "mono_table",
+    "multi_filter",
+    "semantic",
+    "operational_dashboard"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento": 3,
+    "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.apf": 2,
+    "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.nome_empreendimento": 2,
+    "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.municipio": 2,
+    "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.uf": 2,
+    "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.pct_entrega": 3,
+    "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.pct_execucao_ts": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "fds-ficha-entrega-trabalho-social",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.apf",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.nome_empreendimento",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.municipio",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.uf",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.pct_entrega",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.pct_execucao_ts",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "021cac5eb89cf876f210a964457ba2f296b8db9b9924d512a6da0902ff6bca66",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.apf",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "e408029e23790b71f39e72cc918c4e30a0a2f3c75697795aac21953b6d211739",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.nome_empreendimento",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "f7e937de0e39c918c8e48113813a8862c63e420800a0f9dd30842fd8b5e0833a",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.municipio",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "c291aa632306aef7f2f8d7b1d28d9803e2dbfa32888fa4022d79a31d09ddf3a6",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.uf",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "2912f61c8828dc9c571b65396bf85d826acef4d02460f85582eb245adc26a392",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.pct_entrega",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "9dff5275761de39dc2b9f0765d52d15ebae1f9d10b5069c5b2e4aea9a4e8e22b",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.pct_execucao_ts",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "evidence": "OpenMetadata/Neo4j; ficha FDS consolida execução e entrega no mesmo grain.",
+    "review_notes": "Definir tratamento de NULL e confirmar se alguma unidade entregue equivale a pct_entrega > 0.",
+    "contains_row_values": false,
+    "remapeado_de": [
+     "entidades_fds.fds_ficha_empreendimento"
+    ]
+   }
+  },
+  {
+   "id": "fds-evolucao-ritmo-001",
+   "question": "Como evoluiu, mês a mês, o valor liberado dos empreendimentos FDS atualmente classificados como Desembolso Adiantado? Mostre APF, empreendimento, UF, valor mensal e desembolso acumulado.",
+   "critical": true,
+   "slices": [
+    "pt_br",
+    "fds",
+    "multi_table",
+    "time_series",
+    "filter",
+    "semantic_join_exact",
+    "one_hop",
+    "dashboard"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_fds_evolucao_financeira_chart": 3,
+    "Cidades.cidades.ouro.ouro_fds_evolucao_financeira_chart.apf": 2,
+    "Cidades.cidades.ouro.ouro_fds_evolucao_financeira_chart.mes": 2,
+    "Cidades.cidades.ouro.ouro_fds_evolucao_financeira_chart.valor_liberado_mensal": 3,
+    "Cidades.cidades.ouro.ouro_fds_evolucao_financeira_chart.valor_desembolsado_acumulado": 3,
+    "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento": 3,
+    "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.apf": 2,
+    "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.nome_empreendimento": 2,
+    "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.uf": 2,
+    "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.status_ritmo_obra": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "evolucao-chart-ficha-apf",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_evolucao_financeira_chart",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_evolucao_financeira_chart.apf",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_evolucao_financeira_chart.mes",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_evolucao_financeira_chart.valor_liberado_mensal",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_evolucao_financeira_chart.valor_desembolsado_acumulado",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.apf",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.nome_empreendimento",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.uf",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.status_ritmo_obra",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "e87521291fbef36686ac2913075f1312f6c4aa31682c5e38a84ba64c2323745c",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fds_evolucao_financeira_chart",
+       "target": "Cidades.cidades.ouro.ouro_fds_evolucao_financeira_chart.apf",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "3f95cea70eaa8778c9698803fdd45bc323a6585ed0a01290aaa4ce7cf5df5669",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fds_evolucao_financeira_chart",
+       "target": "Cidades.cidades.ouro.ouro_fds_evolucao_financeira_chart.mes",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "6a7a4dd1ea63fc71984165d863d86288a09b459b04279a23bcc6753aa082ce88",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fds_evolucao_financeira_chart",
+       "target": "Cidades.cidades.ouro.ouro_fds_evolucao_financeira_chart.valor_liberado_mensal",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "62a2a43a6fbc87b1ea95b3d0d530d132e923853736928869ac30576303a7368c",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fds_evolucao_financeira_chart",
+       "target": "Cidades.cidades.ouro.ouro_fds_evolucao_financeira_chart.valor_desembolsado_acumulado",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "021cac5eb89cf876f210a964457ba2f296b8db9b9924d512a6da0902ff6bca66",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.apf",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "e408029e23790b71f39e72cc918c4e30a0a2f3c75697795aac21953b6d211739",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.nome_empreendimento",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "c291aa632306aef7f2f8d7b1d28d9803e2dbfa32888fa4022d79a31d09ddf3a6",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.uf",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "d2113f5d4efba280962fa4a205d31050b28e650dc3189afe60460f2d7c1177be",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.status_ritmo_obra",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "evidence": "OpenMetadata mcidSemanticRelationships; join exact APF validado na documentação.",
+    "review_notes": "A classificação de ritmo é atual e não representa necessariamente o estado histórico de cada mês.",
+    "contains_row_values": false,
+    "remapeado_de": [
+     "entidades_fds.fds_evolucao_financeira_chart",
+     "entidades_fds.fds_ficha_empreendimento"
+    ],
+    "nota_remapeamento": "O gold antigo exigia SEMANTIC_JOIN evolucao_chart.apf -> ficha.apf. No catálogo de out/2026 essa aresta NÃO existe (a ouro de FAR/FDS tem 0 relações); o subgrafo exige só as duas tabelas. Quando a skill publicar a relação, acrescentar o JOIN aqui."
+   }
+  },
+  {
+   "id": "conjuntura-pnad-ocupacao-renda-001",
+   "question": "Nos 12 meses mais recentes disponíveis, como evoluíram o número de pessoas ocupadas e o rendimento na construção? Mostre por mês os dois valores e suas variações em 12 meses.",
+   "critical": true,
+   "slices": [
+    "pt_br",
+    "conjuntura",
+    "multi_table",
+    "semantic",
+    "trend",
+    "dynamic_date",
+    "semantic_join_exact",
+    "one_hop",
+    "dashboard"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_conjuntura_pnad_ocupados": 3,
+    "Cidades.cidades.ouro.ouro_conjuntura_pnad_ocupados.periodo": 2,
+    "Cidades.cidades.ouro.ouro_conjuntura_pnad_ocupados.data_referencia": 2,
+    "Cidades.cidades.ouro.ouro_conjuntura_pnad_ocupados.ocupados_construcao_mil": 3,
+    "Cidades.cidades.ouro.ouro_conjuntura_pnad_rendimento": 3,
+    "Cidades.cidades.ouro.ouro_conjuntura_pnad_rendimento.periodo": 2,
+    "Cidades.cidades.ouro.ouro_conjuntura_pnad_rendimento.rendimento_construcao_rs": 3,
+    "Cidades.cidades.ouro.ouro_conjuntura_boletim_p3_pnad_ocupados_rendimento": 3,
+    "Cidades.cidades.ouro.ouro_conjuntura_boletim_p3_pnad_ocupados_rendimento.periodo": 2,
+    "Cidades.cidades.ouro.ouro_conjuntura_boletim_p3_pnad_ocupados_rendimento.Ocupados Construção (mil)": 3,
+    "Cidades.cidades.ouro.ouro_conjuntura_boletim_p3_pnad_ocupados_rendimento.Rendimento Construção (R$)": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "pnad-ouro-series",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_pnad_ocupados",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_pnad_ocupados.periodo",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_pnad_ocupados.data_referencia",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_pnad_ocupados.ocupados_construcao_mil",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_pnad_rendimento",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_pnad_rendimento.periodo",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_pnad_rendimento.rendimento_construcao_rs",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "230cc40637f22e6cac3069034826afc7bc0e301c7c30fea90d76d84c09c0bfda",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_conjuntura_pnad_ocupados",
+       "target": "Cidades.cidades.ouro.ouro_conjuntura_pnad_ocupados.periodo",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "b2b7cf3139a52143b31f32edc74761bb4838140e8bd3d1028b0de2cb932612fe",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_conjuntura_pnad_ocupados",
+       "target": "Cidades.cidades.ouro.ouro_conjuntura_pnad_ocupados.data_referencia",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "c0d3d85c0b8d40cd177020df1eb1cad2ba9a5a04f024a0b49ad433f074670339",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_conjuntura_pnad_ocupados",
+       "target": "Cidades.cidades.ouro.ouro_conjuntura_pnad_ocupados.ocupados_construcao_mil",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "f29296bac99d51abf85e2084400ea78c87d286bc28b46483be558f23dbb82dd9",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_conjuntura_pnad_rendimento",
+       "target": "Cidades.cidades.ouro.ouro_conjuntura_pnad_rendimento.periodo",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "143e82caaf9b919a5a8a060a1a272fbf9ee44f2eedf5e833e85a8526ec8bae95",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_conjuntura_pnad_rendimento",
+       "target": "Cidades.cidades.ouro.ouro_conjuntura_pnad_rendimento.rendimento_construcao_rs",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    },
+    {
+     "id": "pnad-boletim-p3",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p3_pnad_ocupados_rendimento",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p3_pnad_ocupados_rendimento.periodo",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p3_pnad_ocupados_rendimento.Ocupados Construção (mil)",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p3_pnad_ocupados_rendimento.Rendimento Construção (R$)",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "05b1eacbc7fc8c664e6a3f1cd56486bd6340fdca7ff07c8a482c8add2aa60e73",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p3_pnad_ocupados_rendimento",
+       "target": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p3_pnad_ocupados_rendimento.periodo",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "df32ade6478339957948381afc07fdb58744d96f4741f908b60ff5948e6fe1c8",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p3_pnad_ocupados_rendimento",
+       "target": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p3_pnad_ocupados_rendimento.Ocupados Construção (mil)",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "7e71ce3cd0a4c42a329bd545ac10816d51ea4130e8edb74dfd940dbda8452c29",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p3_pnad_ocupados_rendimento",
+       "target": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p3_pnad_ocupados_rendimento.Rendimento Construção (R$)",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "evidence": "OpenMetadata mcidSemanticRelationships; join exact por período.",
+    "review_notes": "Validar se data_referencia é necessária ou se periodo sozinho é suficiente para a série.",
+    "contains_row_values": false,
+    "remapeado_de": [
+     "conjuntura_silver.silver_ibge_pnadc_ocupados_construcao",
+     "conjuntura_silver.silver_ibge_pnadc_rendimento_construcao"
+    ],
+    "nota_remapeamento": "A conjuntura foi remodelada: as tabelas novas não trazem a variação em 12 meses pronta (o gold antigo tinha var_ano). Duas alternativas: as séries da ouro ou o quadro do boletim."
+   }
+  },
+  {
+   "id": "conjuntura-custos-001",
+   "question": "Em dezembro de 2025, qual indicador teve maior variação em 12 meses: o custo SINAPI ou o INCC-M? Compare os dois também com dezembro de 2024.",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "conjuntura",
+    "mono_table",
+    "semantic_compare",
+    "acronym",
+    "wide_gold",
+    "dashboard"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_conjuntura_sinapi": 3,
+    "Cidades.cidades.ouro.ouro_conjuntura_sinapi.data_referencia": 2,
+    "Cidades.cidades.ouro.ouro_conjuntura_sinapi.var_12_meses": 3,
+    "Cidades.cidades.ouro.ouro_conjuntura_incc_m": 3,
+    "Cidades.cidades.ouro.ouro_conjuntura_incc_m.mes": 2,
+    "Cidades.cidades.ouro.ouro_conjuntura_incc_m.var_12_meses": 3,
+    "Cidades.cidades.ouro.ouro_conjuntura_boletim_p6_sinapi_brasil_e_incc_m": 3,
+    "Cidades.cidades.ouro.ouro_conjuntura_boletim_p6_sinapi_brasil_e_incc_m.edicao": 2,
+    "Cidades.cidades.ouro.ouro_conjuntura_boletim_p6_sinapi_brasil_e_incc_m.indicador": 2,
+    "Cidades.cidades.ouro.ouro_conjuntura_boletim_p6_sinapi_brasil_e_incc_m.SINAPI": 3,
+    "Cidades.cidades.ouro.ouro_conjuntura_boletim_p6_sinapi_brasil_e_incc_m.INCC-M": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "sinapi-e-incc-series",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_sinapi",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_sinapi.data_referencia",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_sinapi.var_12_meses",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_incc_m",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_incc_m.mes",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_incc_m.var_12_meses",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "56689d412ed159ffee6c7502aaef84762b1139deca03b9ea7f2c96527b1928b2",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_conjuntura_sinapi",
+       "target": "Cidades.cidades.ouro.ouro_conjuntura_sinapi.data_referencia",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "41aa31985f7af12e9e2b7ba70fc86c78b6d8d90718cf984abc917d2f4a75210b",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_conjuntura_sinapi",
+       "target": "Cidades.cidades.ouro.ouro_conjuntura_sinapi.var_12_meses",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "fb2b50c1aa2df4eddc813a0803f9525ad6f0a6c85b689fad6c98309c1cee9cfc",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_conjuntura_incc_m",
+       "target": "Cidades.cidades.ouro.ouro_conjuntura_incc_m.mes",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "2f74891782946c03d7ac04d9936ebc760a6e16d1f577fa75d3b141ba2716a5b6",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_conjuntura_incc_m",
+       "target": "Cidades.cidades.ouro.ouro_conjuntura_incc_m.var_12_meses",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    },
+    {
+     "id": "boletim-p6-sinapi-incc",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p6_sinapi_brasil_e_incc_m",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p6_sinapi_brasil_e_incc_m.edicao",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p6_sinapi_brasil_e_incc_m.indicador",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p6_sinapi_brasil_e_incc_m.SINAPI",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p6_sinapi_brasil_e_incc_m.INCC-M",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "606c0be2bfaec8a6c524206880c1b1e18ced1ff3981f1b84d2cb38d36b2ccdef",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p6_sinapi_brasil_e_incc_m",
+       "target": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p6_sinapi_brasil_e_incc_m.edicao",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "3fa2c6441ec264a310309f1655aa97264e2ce76c2c6a31df8fc7f3f2c51d5c82",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p6_sinapi_brasil_e_incc_m",
+       "target": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p6_sinapi_brasil_e_incc_m.indicador",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "9b83c065a99b98614037b22c941ba393acc2e9b7510ae63b132b5bae43db62a7",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p6_sinapi_brasil_e_incc_m",
+       "target": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p6_sinapi_brasil_e_incc_m.SINAPI",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "9b6ecf7be839b7f327d22418781f63c278a205d79dff37d52bcad44a0e83f782",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p6_sinapi_brasil_e_incc_m",
+       "target": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p6_sinapi_brasil_e_incc_m.INCC-M",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "evidence": "OpenMetadata/Neo4j; visão Gold wide documenta os indicadores e períodos na coluna.",
+    "review_notes": "Comparar as variações é válido; não inferir equivalência metodológica ou causalidade entre SINAPI e INCC-M.",
+    "contains_row_values": false,
+    "remapeado_de": [
+     "conjuntura_gold.gold_precos_construcao"
+    ],
+    "nota_remapeamento": "gold_precos_construcao (tabela larga com colunas por mês) deixou de existir."
+   }
+  },
+  {
+   "id": "conjuntura-cbic-mcmv-001",
+   "question": "Em qual região o MCMV teve a maior participação nos lançamentos imobiliários no quarto trimestre de 2025, e como ela mudou frente ao terceiro trimestre de 2025 e ao quarto trimestre de 2024?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "conjuntura",
+    "mono_table",
+    "lexical",
+    "acronym",
+    "ranking",
+    "period_compare",
+    "dashboard"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic": 3,
+    "Cidades.cidades.ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic.edicao": 2,
+    "Cidades.cidades.ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic.regiao": 2,
+    "Cidades.cidades.ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic.% MCMV": 3,
+    "Cidades.cidades.ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic.MCMV": 2,
+    "Cidades.cidades.ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic.TOTAL": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "boletim-p1-lancamentos-regiao",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic.edicao",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic.regiao",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic.% MCMV",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic.MCMV",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic.TOTAL",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "9269af6fd4bc03a30173013e0aed6bdae5233b78e4d8438e9310d9a9483cc403",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic",
+       "target": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic.edicao",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "fdd648c50730913fc97523d706b42f27b22911268a7b955220da1616a3a7e054",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic",
+       "target": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic.regiao",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "1acbd2dbb090fd9b328fede37e63e3f92289bd6f097515c34df5ab8b48438d3f",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic",
+       "target": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic.% MCMV",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "97de129a9a7d3806be71cc824e1a5a18cffb5a54b3448e9c43426640664c66f6",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic",
+       "target": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic.MCMV",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "47ca1d2c50d5693e32be31e093fa949a58b93c4b277c43527c3adef0867f2eed",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic",
+       "target": "Cidades.cidades.ouro.ouro_conjuntura_boletim_p1_lancamentos_por_regiao_cbic.TOTAL",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "evidence": "OpenMetadata/Neo4j; visão Gold de lançamentos por região.",
+    "review_notes": "O caso deve penalizar confusão com gold_cbic_vendas_regiao.",
+    "contains_row_values": false,
+    "remapeado_de": [
+     "conjuntura_gold.gold_cbic_lancamentos_regiao"
+    ],
+    "nota_remapeamento": "gold_cbic_lancamentos_regiao tinha uma coluna por trimestre; o quadro novo usa `edicao`."
+   }
+  }
+ ]
+}

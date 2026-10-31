@@ -62,6 +62,24 @@ def _table_grain(raw_table: Mapping[str, Any]) -> str:
     return _texto(value).strip()
 
 
+def _data_product(raw_table: Mapping[str, Any]) -> dict[str, str]:
+    """Primeiro Data Product da tabela no OpenMetadata (nome, rótulo, descrição).
+
+    No layout medalhão o schema é a CAMADA (prata/ouro), compartilhada por
+    todos os produtos — o produto de dados é o que separa FAR de Rural. O
+    sync de governança do repositório da fonte publica um por tabela; tabela
+    sem produto fica com campos vazios (não é evidência de nada).
+    """
+    for item in raw_table.get("dataProducts") or []:
+        if isinstance(item, Mapping) and item.get("name"):
+            return {
+                "data_product": str(item["name"]).strip(),
+                "data_product_label": str(item.get("displayName") or item["name"]).strip(),
+                "data_product_description": _texto(item.get("description")).strip(),
+            }
+    return {"data_product": "", "data_product_label": "", "data_product_description": ""}
+
+
 def _reference_fqn(reference: Any) -> str:
     if not isinstance(reference, Mapping):
         return ""
@@ -100,6 +118,7 @@ class MetadataRecordBuilder:
                 related_tables_property=settings.OM_RELATED_TABLES_PROPERTY,
                 eligible_join_rules=settings.OM_SQL_ELIGIBLE_JOIN_RULES,
                 catalog_id=settings.OM_SEMANTIC_CATALOG_ID,
+                lineage_only_markers=settings.OM_LINEAGE_ONLY_MARKERS,
             )
         )
 
@@ -182,6 +201,7 @@ class MetadataRecordBuilder:
                 # No MCid a property não existe e o campo fica vazio — o grão
                 # segue vindo de OM_GRAIN_KEYS.
                 "grain": _table_grain(raw_table),
+                **_data_product(raw_table),
                 "tags": _tag_fqns(raw_table.get("tags")),
                 "source_updated_at": raw_table.get("updatedAt")
                 or raw_table.get("updated"),

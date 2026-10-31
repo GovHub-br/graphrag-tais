@@ -7,6 +7,7 @@ schemas são lidos antes de o snapshot ser liberado para os writers.
 
 from __future__ import annotations
 
+import json
 import random
 import time
 from collections.abc import Mapping
@@ -28,7 +29,7 @@ class OpenMetadataContractError(RuntimeError):
 class OpenMetadataSource:
     """Produz um snapshot completo do escopo configurado no OpenMetadata."""
 
-    _TABLE_FIELDS = "columns,tableConstraints,tags,extension"
+    _TABLE_FIELDS = "columns,tableConstraints,tags,extension,dataProducts"
 
     def __init__(
         self,
@@ -45,6 +46,7 @@ class OpenMetadataSource:
         max_retries: int | None = None,
         require_documented_tables: bool | None = None,
         documentation_property: str | None = None,
+        extension_overrides_file: str | None = None,
     ) -> None:
         self.base = (host or settings.OM_HOST).rstrip("/") + (
             api_path or settings.OM_API_PATH
@@ -72,8 +74,34 @@ class OpenMetadataSource:
         self.documentation_property = (
             documentation_property or settings.OM_SEMANTIC_RELATIONSHIPS_PROPERTY
         ).strip()
+        self.extension_overrides = self._load_extension_overrides(
+            extension_overrides_file
+            if extension_overrides_file is not None
+            else settings.OM_EXTENSION_OVERRIDES_FILE
+        )
 
         self._validate_config()
+
+    @staticmethod
+    def _load_extension_overrides(path: str) -> dict[str, dict[str, Any]]:
+        if not (path or "").strip():
+            return {}
+        with open(path, encoding="utf-8") as handle:
+            overrides = json.load(handle)
+        if not isinstance(overrides, Mapping) or not all(
+            isinstance(value, Mapping) for value in overrides.values()
+        ):
+            raise OpenMetadataContractError(
+                f"OM_EXTENSION_OVERRIDES_FILE inválido: {path}"
+            )
+        # Alto de propósito: o snapshot deixa de ser o que o OpenMetadata
+        # publica, e isso não pode passar despercebido num log de produção.
+        logger.warning(
+            "OM_EXTENSION_OVERRIDES_FILE ativo ({} tabelas): a extension lida do "
+            "OpenMetadata será SOBREPOSTA. Uso só para desenvolvimento.",
+            len(overrides),
+        )
+        return {str(fqn): dict(value) for fqn, value in overrides.items()}
 
     @staticmethod
     def _parse_schemas(
@@ -285,6 +313,7 @@ class OpenMetadataSource:
         rejected_by_reason: dict[str, int] = {}
         pages_by_schema: dict[str, int] = {}
         read_by_schema: dict[str, int] = {}
+        overrides_applied = 0
 
         with httpx.Client(timeout=self.timeout) as client:
             source_version = self._read_version(client)
@@ -293,6 +322,16 @@ class OpenMetadataSource:
                 pages_by_schema[schema_fqn] = pages
                 read_by_schema[schema_fqn] = len(raw_tables)
                 for table in raw_tables:
+                    override = self.extension_overrides.get(
+                        str(table.get("fullyQualifiedName") or "").strip()
+                    )
+                    if override:
+                        table = dict(table)
+                        table["extension"] = {
+                            **dict(table.get("extension") or {}),
+                            **override,
+                        }
+                        overrides_applied += 1
                     is_accepted, reason = self._accept_table(table, schema_fqn)
                     if not is_accepted:
                         rejected_by_reason[reason or "unknown"] = (
@@ -326,6 +365,7 @@ class OpenMetadataSource:
                 "tables_accepted": len(accepted),
                 "tables_rejected": sum(rejected_by_reason.values()),
                 "tables_rejected_by_reason": rejected_by_reason,
+                "extension_overrides_applied": overrides_applied,
             },
         }
         logger.info(

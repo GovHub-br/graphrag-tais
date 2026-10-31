@@ -39,8 +39,12 @@ class DeterministicHybridRetriever:
         document_store: QdrantDocumentStore,
         top_k: int = 5,
         pool_size: int | None = None,
+        route_pool: bool = False,
     ):
         self.top_k = top_k
+        # True quando um roteador (por produto) reordena o pool depois daqui.
+        # Parâmetro, não setting global: a P1 e a P2 dividem este componente.
+        self.route_pool = route_pool
         self.pool_size = pool_size or settings.RETRIEVAL_POOL_SIZE
         self._inner = QdrantHybridRetriever(
             document_store=document_store,
@@ -58,7 +62,9 @@ class DeterministicHybridRetriever:
         # Com rerank ligado o corte deixa de ser aqui: o pool inteiro segue para
         # o cross-encoder, que é quem sabe comparar pergunta e card. Cortar antes
         # jogaria fora justamente os candidatos que o rerank existe para resgatar.
-        k = self.pool_size if settings.RERANK_ENABLED else (top_k or self.top_k)
+        # Idem com o roteamento por produto: ele reordena o pool inteiro.
+        widen = settings.RERANK_ENABLED or self.route_pool
+        k = self.pool_size if widen else (top_k or self.top_k)
         pool = max(self.pool_size, k)
         docs = self._inner.run(
             query_embedding=query_embedding,
@@ -81,12 +87,15 @@ class QdrantHybridRetrieverFactory(ComponentFactory):
       - query_sparse_embedding (esparso, do FastembedSparseTextEmbedder)
     """
 
-    def __init__(self, document_store: QdrantDocumentStore, top_k: int = 5):
+    def __init__(self, document_store: QdrantDocumentStore, top_k: int = 5,
+                 route_pool: bool = False):
         self.document_store = document_store
         self.top_k = top_k
+        self.route_pool = route_pool
 
     def build(self) -> DeterministicHybridRetriever:
         return DeterministicHybridRetriever(
             document_store=self.document_store,
             top_k=self.top_k,
+            route_pool=self.route_pool,
         )

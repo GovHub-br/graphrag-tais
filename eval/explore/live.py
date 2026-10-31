@@ -31,6 +31,7 @@ def _config_snapshot() -> dict:
 
     return {
         "explore_top_k": settings.EXPLORE_TOP_K,
+        "explore_product_routing": settings.EXPLORE_PRODUCT_ROUTING,
         "explore_max_tables": settings.EXPLORE_MAX_TABLES,
         "explore_max_columns": settings.EXPLORE_MAX_COLUMNS,
         "explore_expand_neighbors": settings.EXPLORE_EXPAND_NEIGHBORS,
