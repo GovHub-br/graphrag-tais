@@ -1,6 +1,9 @@
-# Site estático do mapa de arquitetura (docs/arquitetura/index.html).
-# O index.html já é a página inteira: o MkDocs só o copia para site/, byte a byte,
-# sem tema por cima. Por isso não há nav nem páginas Markdown aqui.
+# Site estático do mapa de arquitetura (docs/arquitetura/).
+#   /          portal: escolhe o ministério (pt-BR, com troca para inglês)
+#   /minc/     arquitetura no contexto do Ministério da Cultura (pt-BR)
+#   /cidades/  arquitetura no contexto do Ministério das Cidades (inglês)
+# Cada index.html já é a página inteira: o MkDocs só os copia para site/, byte a
+# byte, sem tema por cima. Por isso não há nav nem páginas Markdown aqui.
 site_name: graphrag-tais · arquitetura
 docs_dir: docs/arquitetura
 site_dir: site

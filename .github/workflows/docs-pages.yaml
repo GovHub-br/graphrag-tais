@@ -1,0 +1,63 @@
+# Publica o mapa de arquitetura (docs/arquitetura/) no GitHub Pages.
+#
+# O site é estático: o MkDocs só copia os HTML para site/, byte a byte. O portal
+# fica na raiz, e cada ministério numa pasta: /minc e /cidades.
+#
+# PRÉ-REQUISITOS, uma vez:
+# - Settings → Pages → Source: "GitHub Actions".
+# - O Pages precisa estar disponível para o repositório. Num repositório
+#   privado, isso exige plano pago da organização (GitHub Team ou Enterprise).
+name: Mapa de arquitetura
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/arquitetura/**"
+      - "mkdocs.yml"
+      - "requirements-docs.txt"
+      - ".github/workflows/docs-pages.yaml"
+  workflow_dispatch:
+
+concurrency:
+  group: docs-pages-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Instalar o MkDocs
+        run: pip install -r requirements-docs.txt
+
+      - name: Construir
+        run: mkdocs build --strict
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    name: Publicar
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

@@ -122,12 +122,21 @@ curl -X POST http://localhost:8000/query/run \
 
 ## Mapa de arquitetura (site estático)
 
-O mapa navegável fica em `docs/arquitetura/index.html` (abre direto no navegador).
-Para publicar atrás de um domínio:
+O mapa navegável fica em `docs/arquitetura/` e abre direto no navegador:
+
+| rota | página |
+|---|---|
+| `/` | portal: escolhe o ministério (pt-BR, com troca para inglês) |
+| `/minc/` | arquitetura no contexto do Ministério da Cultura (pt-BR) |
+| `/cidades/` | arquitetura no contexto do Ministério das Cidades (inglês) |
+
+O workflow `.github/workflows/docs-pages.yaml` publica o site no GitHub Pages a
+cada push na `main` que mexa em `docs/arquitetura/`. Para publicar atrás de um
+domínio próprio:
 
 ```bash
-make docs-build      # gera site/ (o index.html sai idêntico; instala o MkDocs em .venv-docs/ no 1º uso)
-make docs-serve      # http://localhost:8001
+make docs-build      # gera site/ (os HTML saem idênticos; instala o MkDocs em .venv-docs/ no 1º uso)
+make docs-serve      # http://localhost:8010
 make docs-image      # imagem nginx: docker run --rm -p 8080:80 graphrag-tais/arquitetura
 ```
 

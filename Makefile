@@ -111,7 +111,7 @@ docs-build: $(MKDOCS)
 	$(MKDOCS) build --strict
 
 docs-serve: $(MKDOCS)
-	$(MKDOCS) serve -a localhost:8001
+	$(MKDOCS) serve -a localhost:8010
 
 docs-image:
 	docker build -f Dockerfile.docs -t graphrag-tais/arquitetura .
