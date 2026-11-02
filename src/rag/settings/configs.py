@@ -130,6 +130,25 @@ class Settings(BaseSettings):
     SEED_PRODUCT_ALIASES: str = Field(
         "", description='JSON {"<data_product>": ["<outro nome>", ...]} além do rótulo do produto'
     )
+    HYBRID_DENSE_WEIGHT: Optional[float] = Field(
+        None,
+        description=(
+            "Peso do canal denso numa RRF ponderada (0–1; o esparso leva 1−w). "
+            "Vazio = RRF do Qdrant com peso igual. EXPERIMENTAL"
+        ),
+    )
+    SEED_SCHEMA_BOOST: str = Field(
+        "",
+        description=(
+            'JSON {"<schema>": boost}: cards do schema ganham ×(1+boost) no pool, '
+            "com ou sem produto na pergunta (ex. camada de consumo de um medalhão). "
+            "Vazio = sem preferência. Só age com o roteador ligado"
+        ),
+    )
+    SEED_DISTINCT_TABLES: bool = Field(
+        False,
+        description="Sementes = melhor card de cada tabela (k tabelas distintas). Só com o roteador ligado",
+    )
     SEED_PRODUCT_LABEL_STOPWORDS: str = Field(
         "",
         description=(

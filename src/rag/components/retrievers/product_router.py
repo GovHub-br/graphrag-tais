@@ -40,6 +40,18 @@ def _norm(texto: str) -> str:
     )
 
 
+def _schema_boost(raw: str) -> Dict[str, float]:
+    raw = (raw or "").strip()
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        logger.warning("SEED_SCHEMA_BOOST não é JSON válido; ignorado")
+        return {}
+    return {str(k): float(v) for k, v in data.items()}
+
+
 def _stopwords(raw: str) -> tuple[str, ...]:
     return tuple(w for w in (_norm(p).strip() for p in (raw or "").split(",")) if w)
 
@@ -87,6 +99,24 @@ def _extra_aliases(raw: str) -> Dict[str, Set[str]]:
     return {str(k): {_norm(a) for a in v} for k, v in data.items() if isinstance(v, list)}
 
 
+def _schema_of(doc: Document) -> str:
+    parts = ((doc.meta or {}).get("node_id") or "").split(".")
+    return parts[2] if len(parts) >= 4 else ""
+
+
+def one_per_table(documents: Iterable[Document]) -> List[Document]:
+    """Só o melhor card de cada tabela, na ordem recebida: as k sementes viram
+    k tabelas distintas em vez de várias colunas da mesma tabela."""
+    seen, out = set(), []
+    for doc in documents:
+        meta = doc.meta or {}
+        table = meta.get("table_node_id") or meta.get("node_id") or doc.id
+        if table not in seen:
+            seen.add(table)
+            out.append(doc)
+    return out
+
+
 def route(
     documents: Iterable[Document],
     question: str,
@@ -94,8 +124,10 @@ def route(
     boost: float,
     extra_aliases: Optional[Dict[str, Set[str]]] = None,
     stopwords: Iterable[str] = (),
+    schema_boost: Optional[Dict[str, float]] = None,
 ) -> tuple[List[Document], Set[str]]:
-    """Reordena o pool dando ``×(1+boost)`` aos cards do produto citado."""
+    """Reordena o pool dando ``×(1+boost)`` aos cards do produto citado e
+    ``×(1+schema_boost[schema])`` aos cards dos schemas preferidos."""
     docs = list(documents or [])
     aliases: Dict[str, Set[str]] = {}
     for doc in docs:
@@ -111,6 +143,12 @@ def route(
         for doc in docs:
             if (doc.meta or {}).get("data_product") in found:
                 doc.score = (doc.score or 0.0) * (1.0 + boost)
+    if schema_boost:
+        for doc in docs:
+            extra = schema_boost.get(_schema_of(doc))
+            if extra:
+                doc.score = (doc.score or 0.0) * (1.0 + extra)
+    if found or schema_boost:
         docs.sort(key=lambda d: (-(d.score if d.score is not None else 0.0),
                                  (d.meta or {}).get("node_id", d.id or "")))
     return docs, found
@@ -125,11 +163,15 @@ class ProductSeedRouter:
         self.boost = settings.SEED_PRODUCT_BOOST if boost is None else boost
         self.extra = _extra_aliases(settings.SEED_PRODUCT_ALIASES)
         self.stopwords = _stopwords(settings.SEED_PRODUCT_LABEL_STOPWORDS)
+        self.schema_boost = _schema_boost(settings.SEED_SCHEMA_BOOST)
+        self.distinct_tables = settings.SEED_DISTINCT_TABLES
 
     @component.output_types(documents=List[Document], pool=List[Document])
     def run(self, documents: List[Document], query: str, top_k: Optional[int] = None) -> dict:
         docs, found = route(documents, query, boost=self.boost,
-                            extra_aliases=self.extra, stopwords=self.stopwords)
+                            extra_aliases=self.extra, stopwords=self.stopwords,
+                            schema_boost=self.schema_boost)
         if found:
             logger.info("Roteamento por produto: {} na pergunta", sorted(found))
-        return {"documents": docs[: (top_k or self.top_k)], "pool": docs}
+        seeds = one_per_table(docs) if self.distinct_tables else docs
+        return {"documents": seeds[: (top_k or self.top_k)], "pool": docs}

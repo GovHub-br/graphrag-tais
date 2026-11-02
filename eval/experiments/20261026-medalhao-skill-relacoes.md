@@ -1,6 +1,6 @@
 # MCid medalhão (prata+ouro): relações da skill e ajustes de consumo no retrieval
 
-Iniciado em 2026-10-26 · última medição em 2026-10-30 (rodada 7) · **atualizado em 2026-10-31**
+Iniciado em 2026-10-26 · última medição em 2026-11-02 (rodada 9) · **atualizado em 2026-11-02**
 
 **Pergunta.** O catálogo de relações gerado pela skill `mapear-joins-semanticos`
 (porte do gerador do MinC para PostgreSQL, rodado no banco do MCid) melhora o
@@ -14,6 +14,14 @@ sementes por produto, expansão por PageRank com orçamento 1 e poda estrita
 25/15. O resultado se manteve na rodada 7, com o código já sem nada específico
 do MCid e sobre um catálogo que cresceu de 253 para 325 tabelas. No Explorar o
 efeito é neutro. A linha "Produto:" no card **não** deve ser ligada.
+
+**Atualização (rodadas 8 e 9).** Um gold de 59 casos derivado do Superset
+mostrou que o gargalo é a **busca**: em metade das perguntas nenhuma tabela
+certa entra nas sementes. Dois ajustes na busca — fusão RRF com peso 0,7 para
+o canal denso e peso para a camada `ouro` — levam o gold de negócio a **7 de
+8** (era 5 de 8 na baseline de 30/10) e o do Superset de 34 para **37 de 59**,
+com MRR +0,08 e sem crescer o prompt. Linhagem e reranker foram medidos e não
+compensam agora.
 
 Golds em `draft` (sem revisão de domínio, 8 casos na P2 e 18 no Explorar):
 números são **diagnóstico, não gate**. Na P2 cada caso vale 0,125 de
@@ -115,6 +123,10 @@ citam produto. O Explorar não ganha nem perde com os ajustes.
 | poda estrita 25/15 | `PRUNE_MODE=strict`, `PRUNE_EXPANSION_TABLE_MAX_COLS=15` | sim |
 | roteamento no Explorar | `EXPLORE_PRODUCT_ROUTING` | indiferente (neutro) |
 | linha "Produto:" no card | `OM_CARD_PRODUCT_LINE` | **não** (`off`) |
+| fusão ponderada denso/BM25 | `HYBRID_DENSE_WEIGHT=0.7` | **sim** (rodada 9) |
+| peso para a camada de consumo | `SEED_SCHEMA_BOOST={"ouro":1.0}` (valor do MCid, no `.env`) | **sim** (rodada 9) |
+| uma semente por tabela | `SEED_DISTINCT_TABLES` | não (neutro) |
+| reranker cross-encoder | `RERANK_ENABLED` | não nesta infraestrutura (memória; MRR caiu) |
 
 Tudo isto passa pelo gate do ADR-0012, e o gate pede o gold revisado.
 
@@ -498,7 +510,129 @@ vale dentro desta rodada.
 | roteamento por produto no Explorar | neutro (ruído do LLM) |
 | linha "Produto:" `label` | **não ligar**: só economiza prompt e perde MRR nas duas personas |
 
-## Próximos passos (atualizado em 2026-10-31)
+## Rodada 8 — gold derivado do Superset e teste da linhagem (2026-11-02)
+
+### O gold
+
+Os 436 charts do Superset de produção (`govhub.mcid.lablivre.rocks`) foram lidos
+pelo MCP, **só leitura**, e classificados:
+
+| tier | charts | critério |
+|---|--:|---|
+| A | 143 | tabela do catálogo prata/ouro, agregação simples, filtros simples |
+| B | 105 | regra de negócio no Superset: métrica, filtro ou dimensão em SQL livre, métrica salva composta, gráfico combinado |
+| fora | 188 | 98 listas de linhas, 48 templates de texto, 42 charts sem dataset |
+
+- Os 108 datasets são tabelas físicas, sem SQL no Superset: não há regra
+  escondida em dataset virtual.
+- Todo SQL do tier A parseia em PostgreSQL e só cita colunas que existem no
+  OpenMetadata.
+- **Nenhum chart faz JOIN**: o gold testa semente, colunas e agregação, não o
+  grafo. Complementa o gold de negócio, não o substitui.
+
+`eval/datasets/retrieval/mcid-medalhao-superset-v0.1.0.json`: **59 casos**, no
+máximo 2 por tabela (um número único e um agrupado), 8 programas. A pergunta
+foi escrita a partir do SQL e da descrição do chart, não do título (o título
+engana: "Evolução Financeira por EO" calcula a média por mês). O SQL de
+referência fica em `metadata.reference_sql`, para a execution accuracy. 13
+casos têm o slice `needs_review`: outros charts da mesma tabela filtram por
+uma coluna que o caso não filtra (ex.: `portaria = 'Todas as portarias'` em
+`ouro_far_mapa_nacional`, sinal de linha de total). O filtro pode vir do
+dashboard, que o chart não guarda, e a ferramenta de dashboard do MCP falha em
+4 de 5 dashboards (erro de validação no servidor), então não deu para conferir.
+
+### Retrieval no gold do Superset
+
+| grafo · configuração | suf | hit@5 | MRR@10 | recall de coluna | tabelas | p50 | p95 |
+|---|--:|--:|--:|--:|--:|--:|--:|
+| OM · atual | 0,576 | 0,492 | 0,389 | 0,627 | 4,6 | 14.399 | 21.122 |
+| OM · final | 0,593 | 0,508 | 0,411 | 0,644 | 4,3 | 13.381 | 22.730 |
+| skill · atual | 0,627 | 0,492 | 0,384 | 0,661 | 8,8 | 21.649 | 32.761 |
+| skill · final | 0,593 | 0,525 | 0,406 | 0,644 | 5,0 | 16.359 | 23.547 |
+
+- **A busca é o gargalo**: em metade das perguntas nenhuma tabela certa entra
+  nas 5 sementes. O gold de negócio, com 8 casos, mostrava 0,625.
+- A configuração final ganha pouco aqui (+1 caso, MRR +0,02): sem JOIN, o que
+  ela tem de melhor (expansão e poda) quase não entra em jogo.
+- A skill na configuração atual resolve 2 casos a mais que a final, mas com
+  8,8 tabelas no prompt: a expansão larga acerta tabelas irmãs por acaso.
+- Por programa: FAR com MRR 0,10–0,17 e Trabalho Social 0 de 3 são os piores;
+  FNHIS (4/4) e Pró-Moradia (4/5) os melhores.
+- **As 24 falhas têm o mesmo formato**: a semente cai no programa certo, mas
+  numa tabela vizinha (muitas vezes a versão `prata` em vez da `ouro`). Parte
+  disso pode ser gold incompleto: só a tabela do chart conta como certa, e uma
+  irmã pode responder a mesma pergunta. A revisão de domínio deve olhar.
+
+### Linhagem: não vale implementar agora
+
+Teste direto: para cada falha, os vizinhos de linhagem a 1 salto das sementes
+(OpenMetadata, só leitura), ordenados pela semelhança densa com a pergunta.
+
+| conjunto | falhas | tabela certa a 1 salto | entre as 3 primeiras dos vizinhos |
+|---|--:|--:|--:|
+| gold de negócio (rodada 7, configuração final) | 3 | 2 (`far-ufs`, `pnad`) | 1 (`far-ufs`, em 3º) |
+| gold do Superset (OM, configuração final) | 24 | 6 | 2 |
+
+São de 4 a 21 vizinhos por pergunta (mediana 10). A expansão por linhagem
+recuperaria ~2 casos em 59 e pagaria isso em prompt em todas as perguntas.
+Arestas de "mesma chave" ficam de fora pelo mesmo motivo e pelos hubs (`uf`,
+`ano`). **O problema que sobra é escolher a tabela certa dentro do programa**,
+que é card (descrição), ranking (reranker) e gold (alternativas válidas), não
+grafo.
+
+## Rodada 9 — hipóteses de semente nos dois golds (2026-11-02)
+
+Alvo: "programa certo, tabela errada" (rodada 8). Grafo do OM (coleção
+`documents_mcid_po_gen_om`), referência = configuração final (roteamento +
+`ppr` 1 + `strict` 25/15). Golds: Superset (59) e negócio (8). Código novo,
+tudo atrás de flag e com padrão inalterado: `SEED_SCHEMA_BOOST` (peso por
+schema no roteador), `SEED_DISTINCT_TABLES` (uma semente por tabela) e
+`HYBRID_DENSE_WEIGHT` (RRF ponderada entre denso e BM25). O coletor do eval
+passou a montar busca → roteador → reranker na ordem da produção e aceita
+`RETRIEVAL_SELECTED_TOP_K` (só experimento).
+
+| hipótese | Superset suf / hit@5 / MRR | negócio suf / MRR | prompt p95 (S / N) |
+|---|---|---|---|
+| atual (sem roteamento etc.) | 0,576 / 0,492 / 0,389 | 0,625 / 0,521 | 21,1k / 23,4k |
+| só denso (sem roteamento) | 0,627 / 0,559 / 0,412 | 0,500 / 0,542 | 19,6k / 30,7k |
+| só BM25 (sem roteamento) | 0,271 / 0,271 / 0,212 | 0,375 / 0,375 | 24,4k / 18,0k |
+| **final (referência)** | 0,593 / 0,508 / 0,411 | 0,625 / 0,583 | 22,7k / 24,4k |
+| + 8 sementes | 0,644 / 0,508 / 0,411 | 0,750 / 0,583 | 28,1k / 30,4k |
+| + uma semente por tabela (+ ouro) | 0,627 / 0,542 / 0,449 | 0,750 / 0,594 | 22,9k / 20,9k |
+| + peso `ouro` 0,5 | 0,593 / 0,508 / 0,447 | 0,750 / 0,588 | 21,4k / 24,7k |
+| + peso `ouro` 1,0 | 0,627 / 0,542 / 0,454 | 0,750 / 0,594 | 21,0k / 20,9k |
+| + fusão 0,5 (controle) | 0,593 / 0,508 / 0,405 | 0,625 / 0,580 | 22,7k / 23,8k |
+| + fusão 0,7 | 0,627 / 0,559 / 0,419 | 0,750 / 0,569 | 22,8k / 28,8k |
+| + fusão 0,85 | 0,610 / 0,542 / 0,415 | 0,625 / 0,563 | 21,9k / 28,9k |
+| **+ peso `ouro` 1,0 + fusão 0,7** | **0,627 / 0,576 / 0,494** | **0,875 / 0,619** | **21,4k / 23,4k** |
+| + reranker Jina v2 | não coube na memória | 0,750 / 0,427 | — / 30,3k |
+| + reranker bge-v2-m3 int8 | não coube na memória | não terminou | — |
+
+- **Vence a combinação peso `ouro` + fusão 0,7**: +2 casos no Superset
+  (`far-560`, `reforma-466`), +2 no negócio (`fds-eo-risco`, `fds-evolucao`),
+  nenhum caso perdido, MRR +0,08 no Superset, prompt igual ou menor.
+- **O BM25 é o canal fraco** (27% sozinho no Superset). Na RRF de peso igual
+  ele empurra cards errados para o top-5; 0,7 para o denso corrige, 0,85 já
+  passa do ponto. O controle 0,5 reproduz a referência (implementação certa).
+- **Peso por camada**: a `ouro` é feita para consumo e é onde estão as tabelas
+  que os dashboards e as perguntas usam. Mecanismo genérico (`{"schema":
+  peso}` no `.env`); o valor `ouro` é do escopo MCid.
+- **8 sementes** resolvem casos, mas o prompt cresce 25–40%. **Uma semente por
+  tabela** não acrescenta nada.
+- **Reranker**: na CPU desta máquina (22 GB) os dois cross-encoders
+  multilíngues passaram de 9 GiB no gold de 59 casos e o eval foi encerrado
+  pela proteção de memória. No único resultado completo (Jina, negócio) o MRR
+  caiu de 0,583 para 0,427. Além disso, o Jina v2 é CC-BY-NC. Fica fora até
+  haver GPU ou serviço dedicado.
+
+**No grafo da skill** (coleção `documents_mcid_po_gen_skill_off`), a mesma
+combinação dá o mesmo resultado: Superset 0,627 / MRR 0,485, negócio 0,875 /
+MRR 0,556. Com sementes melhores, as relações da skill deixam de somar nesses
+golds: `fds-evolucao` passa porque a tabela de evolução entra direto como
+semente. Os dois golds quase não têm pergunta com JOIN, então o valor das
+relações para perguntas que cruzam tabelas **não está medido**.
+
+## Próximos passos (atualizado em 2026-11-02)
 
 1. ✅ Ingestão grava o Data Product (rodada 5).
 2. ✅ Roteamento por produto como componente das duas personas
@@ -516,5 +650,16 @@ vale dentro desta rodada.
    sobre a combinação final do resumo.
 8. Promover o `pcr` (recall de coluna pós-poda) para o eval oficial: hoje a
    poda é invisível para as métricas.
-9. Reranker: medir (na rodada 3 o modelo não baixou e o coletor recusa
-   sementes fora do top-10).
+9. ✅ Hipóteses de semente medidas (rodada 9): **fusão 0,7 + peso `ouro`**
+   vence. Reranker fora por memória e MRR.
+10. ✅ Gold derivado do Superset (rodada 8). Pendente: revisão de domínio,
+    sobretudo dos 13 `needs_review` e das alternativas válidas nas falhas.
+11. Execution accuracy: rodar `metadata.reference_sql` contra o banco e
+    comparar com o SQL gerado (precisa do túnel; só agregados).
+12. ✗ Linhagem e "mesma chave" como arestas de recuperação: medido, não vale
+    agora (rodada 8).
+13. Gold com perguntas de JOIN (cruzar programas ou tabelas): é o único jeito de
+    medir se as relações da skill ainda valem depois das sementes melhores.
+14. Melhorar as descrições das tabelas e colunas da ouro no catálogo (FAR e
+    Trabalho Social são os piores no gold do Superset): é o que sobra para a
+    busca depois da rodada 9.

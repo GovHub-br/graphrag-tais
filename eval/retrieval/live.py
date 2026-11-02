@@ -40,7 +40,9 @@ from .models import (
 )
 
 
-SELECTED_TOP_K = 5
+# Sementes da produção. Sobreponível por env só para experimento (a produção
+# usa o `top_k` do wrapper); o diagnóstico continua em 10.
+SELECTED_TOP_K = int(os.environ.get("RETRIEVAL_SELECTED_TOP_K", "5"))
 DIAGNOSTIC_TOP_K = 10
 TRACE_SCHEMA_VERSION = "1"
 FINGERPRINT_SCHEMA_VERSION = "live-retrieval-v1"
@@ -298,17 +300,20 @@ def _hybrid_kwargs(runtime: LiveRetrievalRuntime, question: str) -> dict[str, An
 
 
 class RoutedHybridRetriever:
-    """Híbrido de produção + roteamento por produto, na ordem da pipeline.
+    """Híbrido de produção + roteamento por produto + reranker, na ordem da
+    pipeline (cada etapa opcional).
 
     Existe para o coletor medir o que a produção roda com
-    `SEED_PRODUCT_ROUTING=true`: sem ele, o eval chamaria o híbrido cru e
-    mediria outra coisa."""
+    `SEED_PRODUCT_ROUTING` / `RERANK_ENABLED`: sem ele, o eval chamaria o
+    híbrido cru e mediria outra coisa. Sementes e diagnóstico saem da MESMA
+    cadeia, então o top-5 é sempre prefixo do top-10."""
 
     accepts_question = True
 
-    def __init__(self, inner: Any, router: Any) -> None:
+    def __init__(self, inner: Any, router: Any = None, reranker: Any = None) -> None:
         self.inner = inner
         self.router = router
+        self.reranker = reranker
 
     def run(
         self,
@@ -322,10 +327,14 @@ class RoutedHybridRetriever:
             query_sparse_embedding=query_sparse_embedding,
             top_k=top_k,
         )["documents"]
-        routed = self.router.run(
-            documents=pool, query=question, top_k=top_k or self.inner.top_k
-        )
-        return {"documents": routed["documents"], "pool": routed["pool"]}
+        k = top_k or self.inner.top_k
+        documents = pool[:k]
+        if self.router is not None:
+            routed = self.router.run(documents=pool, query=question, top_k=k)
+            pool, documents = routed["pool"], routed["documents"]
+        if self.reranker is not None:
+            documents = self.reranker.run(documents=list(pool), query=question, top_k=k)["documents"]
+        return {"documents": documents, "pool": pool}
 
 
 def _run_retriever(
@@ -449,12 +458,17 @@ def build_default_runtime(
         top_k=DIAGNOSTIC_TOP_K,
         route_pool=settings.SEED_PRODUCT_ROUTING,
     ).build()
-    if settings.SEED_PRODUCT_ROUTING:
-        from rag.components.retrievers.product_router import ProductSeedRouter
+    if settings.SEED_PRODUCT_ROUTING or settings.RERANK_ENABLED:
+        router = reranker = None
+        if settings.SEED_PRODUCT_ROUTING:
+            from rag.components.retrievers.product_router import ProductSeedRouter
 
-        hybrid_retriever = RoutedHybridRetriever(
-            hybrid_retriever, ProductSeedRouter(top_k=DIAGNOSTIC_TOP_K)
-        )
+            router = ProductSeedRouter(top_k=DIAGNOSTIC_TOP_K)
+        if settings.RERANK_ENABLED:
+            from rag.components.retrievers.reranker import FastembedReranker
+
+            reranker = FastembedReranker(top_k=DIAGNOSTIC_TOP_K)
+        hybrid_retriever = RoutedHybridRetriever(hybrid_retriever, router, reranker)
 
     return LiveRetrievalRuntime(
         dense_embedder=OllamaTextEmbedderFactory().build(),
@@ -482,6 +496,12 @@ def build_default_runtime(
             "qdrant_grpc": settings.QDRANT_GRPC,
             "seed_product_routing": settings.SEED_PRODUCT_ROUTING,
             "seed_product_boost": settings.SEED_PRODUCT_BOOST,
+            "seed_schema_boost": settings.SEED_SCHEMA_BOOST,
+            "seed_distinct_tables": settings.SEED_DISTINCT_TABLES,
+            "hybrid_dense_weight": settings.HYBRID_DENSE_WEIGHT,
+            "rerank_enabled": settings.RERANK_ENABLED,
+            "rerank_model": settings.RERANK_MODEL if settings.RERANK_ENABLED else None,
+            "selected_top_k": SELECTED_TOP_K,
             "expansion_mode": settings.EXPANSION_MODE,
             "expansion_budget": settings.EXPANSION_BUDGET,
             "prune_mode": settings.PRUNE_MODE,

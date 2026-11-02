@@ -5,6 +5,7 @@ from haystack import Document
 
 from rag.components.retrievers.product_router import (
     ProductSeedRouter,
+    one_per_table,
     aliases_from_label,
     products_in_question,
     route,
@@ -81,6 +82,24 @@ class RouteTest(unittest.TestCase):
                             stopwords=["empreendimento"])
         self.assertEqual(found, {"rural"})
         self.assertEqual(docs[0].meta["node_id"], "b")
+
+    def test_schema_boost_prefers_schema_without_product(self):
+        pool = [_doc("Cidades.cidades.prata.prata_x", 0.9, "x", "Outro"),
+                _doc("Cidades.cidades.ouro.ouro_x", 0.6, "x", "Outro")]
+        docs, found = route(pool, "quantos contratos?", boost=1.0)
+        self.assertEqual(docs[0].meta["node_id"], "Cidades.cidades.prata.prata_x")
+        docs, found = route(pool, "quantos contratos?", boost=1.0,
+                            schema_boost={"ouro": 0.6})
+        self.assertEqual(found, set())
+        self.assertEqual(docs[0].meta["node_id"], "Cidades.cidades.ouro.ouro_x")
+
+    def test_one_per_table_keeps_best_card_of_each_table(self):
+        docs = [
+            Document(id="1", content="", meta={"node_id": "s.d.ouro.t1.a", "table_node_id": "s.d.ouro.t1"}),
+            Document(id="2", content="", meta={"node_id": "s.d.ouro.t1.b", "table_node_id": "s.d.ouro.t1"}),
+            Document(id="3", content="", meta={"node_id": "s.d.ouro.t2", "card_type": "table"}),
+        ]
+        self.assertEqual([d.id for d in one_per_table(docs)], ["1", "3"])
 
     def test_extra_aliases(self):
         pool = [_doc("a", 0.9, "x", "Outro"),
