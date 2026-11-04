@@ -16,6 +16,8 @@ carrega com `prompts.load("<nome>")` (cru) ou `prompts.render("<nome>", **vars)`
 | `sql_executor_user.md` | `components/executors/mcp_sql_executor.py` | `str.format`: pergunta + schema + SQL a executar |
 | `explore_system.md` | `pipelines/explore` (P1) | guia do catálogo: panorama, tabelas, perguntas, lacunas |
 | `explore_user.md` | `pipelines/explore` (P1) | **template Jinja**: domínios + tabelas recuperadas + JOINs + pergunta |
+| `jornada_frase_system.md` | `pipelines/jornada` (ADR-0020) | frase da População geral + legenda do número, em JSON. Recebe o número **já formatado**; o serviço descarta a frase que não o contém e a legenda com dígito |
+| `jornada_frase_user.md` | `pipelines/jornada` (ADR-0020) | `str.format`: pergunta + número + nome técnico da métrica + resumo compacto |
 
 **Guardrails (ADR-0016).** `query_system`, `explore_system` e
 `result_summary_system` carregam um bloco de **RECUSAS**: não gerar SQL que

@@ -286,6 +286,10 @@ services:
       # (mesma pegadinha do DEFAULT_PROMPT_SUGGESTIONS abaixo), e quem aplica e
       # o scripts/setup_webui_models.sh.
       - ENABLE_EVALUATION_ARENA_MODELS=false
+      # Modelo padrão = a jornada do usuário (ADR-0020). Mesma pegadinha:
+      # PersistentConfig, vale só em instalação nova — em banco existente quem
+      # aplica é o scripts/setup_webui_models.sh.
+      - DEFAULT_MODELS=jornada
       - 'DEFAULT_PROMPT_SUGGESTIONS=[{"title": ["Explorar o catálogo", "o que existe sobre habitação?"], "content": "O que vocês têm sobre financiamento habitacional?"}, {"title": ["Ver as bases disponíveis", "panorama por domínio"], "content": "Quais bases de dados vocês têm?"}, {"title": ["Medir um indicador", "contratado x desembolsado"], "content": "Qual o total contratado por unidade da federação?"}, {"title": ["Acompanhar no tempo", "série mensal"], "content": "Como evoluiu o número de empreendimentos por mês no último ano?"}]'
     depends_on:
       - hayhooks

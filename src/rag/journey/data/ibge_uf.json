@@ -1,0 +1,226 @@
+{
+ "fonte": {
+  "populacao": "IBGE, Censo Demográfico 2022 — tabela SIDRA 4709 (população residente), API servicodados.ibge.gov.br/api/v3/agregados/4709",
+  "localidades": "IBGE, API de localidades — servicodados.ibge.gov.br/api/v1/localidades/estados",
+  "baixado_em": "2026-11-01"
+ },
+ "populacao_brasil_2022": 203080756,
+ "ufs": [
+  {
+   "codigo": 11,
+   "sigla": "RO",
+   "nome": "Rondônia",
+   "regiao": "Norte",
+   "regiao_sigla": "N",
+   "populacao_2022": 1581196
+  },
+  {
+   "codigo": 12,
+   "sigla": "AC",
+   "nome": "Acre",
+   "regiao": "Norte",
+   "regiao_sigla": "N",
+   "populacao_2022": 830018
+  },
+  {
+   "codigo": 13,
+   "sigla": "AM",
+   "nome": "Amazonas",
+   "regiao": "Norte",
+   "regiao_sigla": "N",
+   "populacao_2022": 3941613
+  },
+  {
+   "codigo": 14,
+   "sigla": "RR",
+   "nome": "Roraima",
+   "regiao": "Norte",
+   "regiao_sigla": "N",
+   "populacao_2022": 636707
+  },
+  {
+   "codigo": 15,
+   "sigla": "PA",
+   "nome": "Pará",
+   "regiao": "Norte",
+   "regiao_sigla": "N",
+   "populacao_2022": 8120131
+  },
+  {
+   "codigo": 16,
+   "sigla": "AP",
+   "nome": "Amapá",
+   "regiao": "Norte",
+   "regiao_sigla": "N",
+   "populacao_2022": 733759
+  },
+  {
+   "codigo": 17,
+   "sigla": "TO",
+   "nome": "Tocantins",
+   "regiao": "Norte",
+   "regiao_sigla": "N",
+   "populacao_2022": 1511460
+  },
+  {
+   "codigo": 21,
+   "sigla": "MA",
+   "nome": "Maranhão",
+   "regiao": "Nordeste",
+   "regiao_sigla": "NE",
+   "populacao_2022": 6776699
+  },
+  {
+   "codigo": 22,
+   "sigla": "PI",
+   "nome": "Piauí",
+   "regiao": "Nordeste",
+   "regiao_sigla": "NE",
+   "populacao_2022": 3271199
+  },
+  {
+   "codigo": 23,
+   "sigla": "CE",
+   "nome": "Ceará",
+   "regiao": "Nordeste",
+   "regiao_sigla": "NE",
+   "populacao_2022": 8794957
+  },
+  {
+   "codigo": 24,
+   "sigla": "RN",
+   "nome": "Rio Grande do Norte",
+   "regiao": "Nordeste",
+   "regiao_sigla": "NE",
+   "populacao_2022": 3302729
+  },
+  {
+   "codigo": 25,
+   "sigla": "PB",
+   "nome": "Paraíba",
+   "regiao": "Nordeste",
+   "regiao_sigla": "NE",
+   "populacao_2022": 3974687
+  },
+  {
+   "codigo": 26,
+   "sigla": "PE",
+   "nome": "Pernambuco",
+   "regiao": "Nordeste",
+   "regiao_sigla": "NE",
+   "populacao_2022": 9058931
+  },
+  {
+   "codigo": 27,
+   "sigla": "AL",
+   "nome": "Alagoas",
+   "regiao": "Nordeste",
+   "regiao_sigla": "NE",
+   "populacao_2022": 3127683
+  },
+  {
+   "codigo": 28,
+   "sigla": "SE",
+   "nome": "Sergipe",
+   "regiao": "Nordeste",
+   "regiao_sigla": "NE",
+   "populacao_2022": 2210004
+  },
+  {
+   "codigo": 29,
+   "sigla": "BA",
+   "nome": "Bahia",
+   "regiao": "Nordeste",
+   "regiao_sigla": "NE",
+   "populacao_2022": 14141626
+  },
+  {
+   "codigo": 31,
+   "sigla": "MG",
+   "nome": "Minas Gerais",
+   "regiao": "Sudeste",
+   "regiao_sigla": "SE",
+   "populacao_2022": 20539989
+  },
+  {
+   "codigo": 32,
+   "sigla": "ES",
+   "nome": "Espírito Santo",
+   "regiao": "Sudeste",
+   "regiao_sigla": "SE",
+   "populacao_2022": 3833712
+  },
+  {
+   "codigo": 33,
+   "sigla": "RJ",
+   "nome": "Rio de Janeiro",
+   "regiao": "Sudeste",
+   "regiao_sigla": "SE",
+   "populacao_2022": 16055174
+  },
+  {
+   "codigo": 35,
+   "sigla": "SP",
+   "nome": "São Paulo",
+   "regiao": "Sudeste",
+   "regiao_sigla": "SE",
+   "populacao_2022": 44411238
+  },
+  {
+   "codigo": 41,
+   "sigla": "PR",
+   "nome": "Paraná",
+   "regiao": "Sul",
+   "regiao_sigla": "S",
+   "populacao_2022": 11444380
+  },
+  {
+   "codigo": 42,
+   "sigla": "SC",
+   "nome": "Santa Catarina",
+   "regiao": "Sul",
+   "regiao_sigla": "S",
+   "populacao_2022": 7610361
+  },
+  {
+   "codigo": 43,
+   "sigla": "RS",
+   "nome": "Rio Grande do Sul",
+   "regiao": "Sul",
+   "regiao_sigla": "S",
+   "populacao_2022": 10882965
+  },
+  {
+   "codigo": 50,
+   "sigla": "MS",
+   "nome": "Mato Grosso do Sul",
+   "regiao": "Centro-Oeste",
+   "regiao_sigla": "CO",
+   "populacao_2022": 2757013
+  },
+  {
+   "codigo": 51,
+   "sigla": "MT",
+   "nome": "Mato Grosso",
+   "regiao": "Centro-Oeste",
+   "regiao_sigla": "CO",
+   "populacao_2022": 3658649
+  },
+  {
+   "codigo": 52,
+   "sigla": "GO",
+   "nome": "Goiás",
+   "regiao": "Centro-Oeste",
+   "regiao_sigla": "CO",
+   "populacao_2022": 7056495
+  },
+  {
+   "codigo": 53,
+   "sigla": "DF",
+   "nome": "Distrito Federal",
+   "regiao": "Centro-Oeste",
+   "regiao_sigla": "CO",
+   "populacao_2022": 2817381
+  }
+ ]
+}

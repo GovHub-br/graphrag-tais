@@ -1,0 +1,27 @@
+# Referências fixas do "número em escala humana" (ADR-0020).
+#
+# A jornada traduz o número da resposta para algo que se imagina: "dá R$ 48 por
+# habitante", "equivale a 3 Maracanãs lotados". A regra do board da jornada é que
+# a comparação vem de uma TABELA FIXA e o LLM nunca a inventa. Esta é a tabela.
+#
+# A população vem do IBGE (Censo 2022) e mora com o código, em
+# src/rag/journey/data/ibge_uf.json — é dado oficial e não muda. O que fica aqui
+# é o que gente de domínio pode querer acrescentar ou trocar sem deploy de código.
+#
+# Campos:
+#   id        identificador estável
+#   singular  "1 <singular>"          plural  "N <plural>"
+#   valor     quanto vale UMA unidade da referência
+#   aplica_a  contagem | dinheiro     — que tipo de número pode usar a referência
+#   min/max   faixa da razão (número / valor) em que a frase fica legível;
+#             fora dela a referência não é usada ("0,02 Maracanã" não ajuda ninguém)
+#   fonte     de onde veio o valor (aparece na trilha técnica)
+referencias:
+  - id: maracana
+    singular: Maracanã lotado
+    plural: Maracanãs lotados
+    valor: 78838
+    aplica_a: contagem
+    min: 1
+    max: 2000
+    fonte: Capacidade oficial do Estádio do Maracanã (78.838 lugares)

@@ -58,8 +58,37 @@ Menus flutuantes são renderizados **fora** do `#sidebar` (portal), então escap
 | **Tela inicial** | lockup "Gov Hub" acima do nome da persona + símbolo gigante a 2,8% de opacidade como marca-d'água. Logo abaixo do nome vem a **mensagem de boas-vindas** — que não é arquivo daqui, é a `description` do modelo (ver "Camada de conteúdo") |
 | **Carregando** | o ponto que pulsava virou o símbolo GovHub — as respostas do Indicador levam de 30 s a 1 min, é onde a pessoa mais olha. ⚠️ Dois detalhes: o componente tem três tamanhos (a resposta usa o `md`), então a regra **não** pode se prender a uma classe de tamanho; e o ponto é um `<span>` dentro de outro `<span>` `flex` — redimensionar só o de dentro deixa a marca achatada, porque como item flex ele é espremido de volta. Precisa dos dois + `flex: none` |
 | **Aba / favicon / PWA** | símbolo GovHub — ⚠️ inclui o **`favicon.ico`**, não só o `.png`/`.svg`: o `index.html` declara `rel="shortcut icon"` apontando para o `.ico`, e é ele que o navegador costuma usar na aba. Sem trocar o `.ico`, a aba continua com o ícone do Open WebUI mesmo com os outros três substituídos. Os ícones são gerados **quadrados** (o símbolo é 176×202): sem isso ele sai achatado nas caixas `rounded-full` |
-| **Avatar das personas** | ícones do kit (`charts`, `database`, `open-folder`) |
+| **Avatar das personas** | ícones do kit (`charts`, `database`, `open-folder`) e o balão do **Assistente** (`govhub-icon-assistente.png`, no mesmo traço roxo + laranja) |
 | **Gráfico** | roxo `#7c3aed` + Inter, no chat e no `.docx` |
+
+## Botões da jornada (ADR-0020)
+
+No modelo **Assistente** (`jornada`), a lista de follow-ups do Open WebUI é a
+escolha de persona: depois de cada resposta, o Open WebUI chama o próprio modelo
+pedindo sugestões de continuação, e o modelo devolve — sem LLM — os rótulos das
+trilhas (técnica, política, gestor, história, baixar — texto puro, sem emoji). A seção 11
+do `custom.css` transforma essa lista em botões:
+
+- âncora: o `aria-label` de cada item, `"Acompanhamento: …"` (pt-BR) ou
+  `"Follow up: …"` — é o que o `FollowUps.svelte` da 0.11.0 põe no `<button>`;
+- o título "Acompanhamento" vira **"Quer ir além? Escolha um caminho"** (`::before`);
+- pílulas que quebram linha; a **primeira** sai preenchida no gradiente da marca
+  (é o palpite do sistema — todas continuam visíveis);
+- no celular (< 640px), um botão por linha, largura cheia.
+
+⚠️ O clique **envia** o rótulo como mensagem (é o default do Open WebUI). Se
+alguém ligar "inserir follow-up na caixa de texto" nas configurações do usuário,
+o botão só preenche a caixa — continua funcionando, com um toque a mais.
+
+⚠️ Os botões dependem de `ENABLE_FOLLOW_UP_GENERATION` (ligado pelo
+`setup_webui_models.sh`). Desligado, a resposta chega sem caminhos.
+
+⚠️ Os gráficos da jornada são PNG em base64, vários por resposta. Uma resposta
+assim passa de 128 KB e o Open WebUI recusa a linha de stream (`Got more than
+131072 bytes`); por isso o wrapper `jornada` manda o texto em pedaços de 16 KB.
+
+Ao subir de versão do Open WebUI, confira se o `aria-label` e a estrutura
+`.mt-4 > .text-sm + .flex-col` do componente de follow-ups continuam iguais.
 
 ## A intro
 

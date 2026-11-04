@@ -60,6 +60,7 @@ inclusive o próprio autor daqui a seis meses — entenda *por que* o sistema é
 | [0017](./0017-execucao-do-sql-via-trino-mcp.md) | Execução do SQL via trino-mcp e contrato de backend configurável | Proposto (execução revisada pelo ADR-0019) |
 | [0018](./0018-mascaramento-de-dado-sensivel-na-saida.md) | Mascaramento de dado sensível na saída, por catálogo de colunas | Proposto (reabre a Alternativa C do ADR-0016) |
 | [0019](./0019-execucao-via-postgres-mcp-com-tunel-ssh.md) | Volta ao postgres-mcp, com túnel SSH até o banco | Proposto (execução revisada do ADR-0017) |
+| [0020](./0020-jornada-com-persona-padrao-e-trilhas-por-botao.md) | Jornada única — População geral como resposta padrão e personas por botão | Proposto (revisa a regra 2 do ADR-0014 para o novo modelo) |
 
 ### Temas candidatos a ADR (backlog)
 

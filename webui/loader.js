@@ -5,10 +5,11 @@
    Roda depois do script inline de tema e ANTES do bootstrap do SvelteKit,
    que é a janela exata para corrigir o tema sem o app já ter lido o valor.
 
-   Duas coisas moram aqui:
+   Três coisas moram aqui:
      1. tema claro fixo + locale pt-BR (abaixo);
      2. a INTRO da marca — a tela roxa com o símbolo quicando, a mensagem de
-        boas-vindas e o botão "Começar" (ver o bloco no fim do arquivo).
+        boas-vindas e o botão "Começar";
+     3. a resposta nova aparece pelo COMEÇO, não pelo fim (último bloco).
    ========================================================================= */
 (function () {
   try {
@@ -271,5 +272,141 @@
   } catch (e) {
     // Sem intro, o splash nativo tematizado assume — a classe gh-intro-on só é
     // ligada em caso de sucesso, então nada fica escondido por engano.
+  }
+})();
+
+
+/* ============================================================================
+   RESPOSTA PELO COMEÇO
+   ----------------------------------------------------------------------------
+   O Open WebUI segue o fim da conversa enquanto a resposta chega
+   (`autoScroll`). Num chat de texto curto isso é o certo; aqui as respostas
+   são longas e começam pelo que importa (a frase com o número, os cartões) —
+   no celular a pessoa clicava em "Números para decisão" e caía nos botões do
+   FIM, tendo de subir para achar o que pediu.
+
+   Então: quando a pessoa ENVIA (botão de caminho, botão de enviar ou Enter), a
+   mensagem dela fica presa no topo da tela enquanto a resposta chega embaixo.
+   Presa até: a resposta TERMINAR (a barra de ações dela aparece — o Open WebUI
+   só a desenha com a mensagem pronta) e o DOM ficar MS_QUIETO sem mudar (os
+   botões de caminho chegam logo depois); a pessoa rolar por conta própria
+   (toque ou roda — ela manda); ou o teto MS_LIMITE. "Só silêncio" não basta:
+   enquanto o LLM pensa (10 s numa pergunta nova) a tela fica parada, e soltar
+   ali devolvia a resposta ao rolar-até-o-fim. Fixar a cada mudança — e não uma vez só — é o que vence o
+   `scrollToBottom` do app, que roda a cada pedaço da resposta.
+
+   DEGRADAÇÃO: qualquer seletor que mudar numa versão nova do Open WebUI só
+   desliga isto; o comportamento volta a ser o nativo.
+   ========================================================================= */
+(function () {
+  var MS_LIMITE = 180000;  // pergunta lenta do Indicador passa de 1 min
+  var MS_QUIETO = 2500;    // sem mudança por esse tempo depois da resposta = terminou
+  var ENVIO = 'button[aria-label^="Acompanhamento"], button[aria-label^="Follow up"], ' +
+              '#send-message-button';
+  // Botões da barra de ações de uma resposta pronta (pt-BR e inglês).
+  var PRONTA = /^(Boa Resposta|Resposta Ruim|Good Response|Bad Response|Regenerar|Regenerate)$/;
+
+  var armado = null;   // { antes: ids das mensagens do usuário no clique, t0 }
+  var ancora = null;   // id da mensagem do usuário que fica no topo
+  var observador = null;
+  var quieto = null;
+  var quadro = 0;
+
+  function caixa() { return document.getElementById('messages-container'); }
+
+  function idsDoUsuario() {
+    var ids = {};
+    var c = caixa();
+    if (!c) return ids;
+    var lista = c.querySelectorAll('.user-message');
+    for (var i = 0; i < lista.length; i++) ids[lista[i].id] = true;
+    return ids;
+  }
+
+  function terminou() {
+    // As mensagens não são irmãs no DOM (cada uma tem seu invólucro): a
+    // resposta é a próxima `message-…` em ordem de documento.
+    var c = caixa();
+    if (!c || !ancora) return false;
+    var lista = c.querySelectorAll('[id^="message-"]');
+    var depois = false;
+    for (var i = 0; i < lista.length; i++) {
+      if (lista[i].id === ancora) { depois = true; continue; }
+      if (!depois) continue;
+      var botoes = lista[i].querySelectorAll('button[aria-label]');
+      for (var j = 0; j < botoes.length; j++) {
+        if (PRONTA.test(botoes[j].getAttribute('aria-label'))) return true;
+      }
+    }
+    return false;
+  }
+
+  function soltar() {
+    if (observador) observador.disconnect();
+    observador = null;
+    ancora = null;
+    armado = null;
+    window.clearTimeout(quieto);
+    window.cancelAnimationFrame(quadro);
+  }
+
+  // Pelo ID, não pelo elemento: num chat novo o app remonta a conversa ao
+  // trocar de rota, e o elemento do clique deixa de ser o que está na tela.
+  function elAncora() { return ancora ? document.getElementById(ancora) : null; }
+
+  function fixar() {
+    quadro = 0;
+    var el = elAncora();
+    // `scroll-margin-top` da própria mensagem (3rem na 0.11.0) desconta o topo fixo.
+    if (el) el.scrollIntoView({ block: 'start' });
+  }
+
+  function aoMudar() {
+    if (!armado) return;
+    if (Date.now() - armado.t0 > MS_LIMITE) return soltar();
+    if (!ancora) {
+      var c = caixa();
+      var lista = c ? c.querySelectorAll('.user-message') : [];
+      var ultima = lista.length ? lista[lista.length - 1] : null;
+      if (!ultima || !ultima.id || armado.antes[ultima.id]) return;  // ainda não entrou
+      ancora = ultima.id;
+    }
+    // Antes do próximo quadro: depois do scrollToBottom do app, antes de pintar.
+    if (!quadro) quadro = window.requestAnimationFrame(fixar);
+    window.clearTimeout(quieto);
+    if (!terminou()) return;
+    quieto = window.setTimeout(function () {
+      fixar();
+      soltar();
+    }, MS_QUIETO);
+  }
+
+  function armar() {
+    if (typeof MutationObserver === 'undefined' || !document.body) return;
+    soltar();
+    armado = { antes: idsDoUsuario(), t0: Date.now() };
+    // O BODY, não a caixa de mensagens: na primeira pergunta de um chat novo a
+    // caixa ainda não existe no clique — o app troca de rota (/ → /c/<id>) e
+    // só então monta a conversa.
+    observador = new MutationObserver(aoMudar);
+    observador.observe(document.body, { childList: true, subtree: true, characterData: true });
+  }
+
+  try {
+    document.addEventListener('click', function (ev) {
+      var alvo = ev.target && ev.target.closest ? ev.target.closest(ENVIO) : null;
+      if (alvo) armar();
+    }, true);
+    document.addEventListener('keydown', function (ev) {
+      var t = ev.target;
+      if (ev.key === 'Enter' && !ev.shiftKey && t && t.closest && t.closest('#chat-input')) armar();
+    }, true);
+    // A pessoa rolou: dela em diante quem manda é ela.
+    ['wheel', 'touchmove'].forEach(function (tipo) {
+      document.addEventListener(tipo, function () { if (ancora) soltar(); },
+                                { capture: true, passive: true });
+    });
+  } catch (e) {
+    /* sem isto, vale o rolar-até-o-fim nativo */
   }
 })();
