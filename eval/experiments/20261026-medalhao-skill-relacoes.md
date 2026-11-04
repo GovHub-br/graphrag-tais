@@ -1,6 +1,6 @@
 # MCid medalhão (prata+ouro): relações da skill e ajustes de consumo no retrieval
 
-Iniciado em 2026-10-26 · última medição em 2026-11-02 (rodada 9) · **atualizado em 2026-11-02**
+Iniciado em 2026-10-26 · última medição em 2026-11-03 (rodada 10) · **atualizado em 2026-11-03**
 
 **Pergunta.** O catálogo de relações gerado pela skill `mapear-joins-semanticos`
 (porte do gerador do MinC para PostgreSQL, rodado no banco do MCid) melhora o
@@ -22,6 +22,15 @@ o canal denso e peso para a camada `ouro` — levam o gold de negócio a **7 de
 8** (era 5 de 8 na baseline de 30/10) e o do Superset de 34 para **37 de 59**,
 com MRR +0,08 e sem crescer o prompt. Linhagem e reranker foram medidos e não
 compensam agora.
+
+**Atualização (rodada 10).** Metade das "falhas" do Superset era do **gabarito**:
+8 casos tinham outra tabela que dá o mesmo resultado no banco, e 3 SQLs de
+referência estavam errados (somavam a linha de total, 2× ou 4×). Com o gold
+corrigido (v0.2.0), a configuração da rodada 9 resolve **45 de 51** casos na
+leitura principal. O BM25 não separava palavras unidas por `_` (`ouro_far_contrapartida`
+era um termo só); com `SPARSE_FOLD_ACCENTS` o canal BM25 sozinho acha a tabela
+certa em **45 de 59** casos (eram 20), a fusão volta ao peso igual, e o gold
+sobe para **46 de 51** com MRR +0,05 e prompt p95 −7%.
 
 Golds em `draft` (sem revisão de domínio, 8 casos na P2 e 18 no Explorar):
 números são **diagnóstico, não gate**. Na P2 cada caso vale 0,125 de
@@ -123,7 +132,8 @@ citam produto. O Explorar não ganha nem perde com os ajustes.
 | poda estrita 25/15 | `PRUNE_MODE=strict`, `PRUNE_EXPANSION_TABLE_MAX_COLS=15` | sim |
 | roteamento no Explorar | `EXPLORE_PRODUCT_ROUTING` | indiferente (neutro) |
 | linha "Produto:" no card | `OM_CARD_PRODUCT_LINE` | **não** (`off`) |
-| fusão ponderada denso/BM25 | `HYBRID_DENSE_WEIGHT=0.7` | **sim** (rodada 9) |
+| fusão ponderada denso/BM25 | `HYBRID_DENSE_WEIGHT=0.7` | só **sem** o fold; com o fold, peso igual (deixar sem a variável) (rodada 10) |
+| BM25 sobre texto sem acento e sem `_` | `SPARSE_FOLD_ACCENTS=true` (ingestão **e** consulta; exige reindexar) | **sim** (rodada 10) |
 | peso para a camada de consumo | `SEED_SCHEMA_BOOST={"ouro":1.0}` (valor do MCid, no `.env`) | **sim** (rodada 9) |
 | uma semente por tabela | `SEED_DISTINCT_TABLES` | não (neutro) |
 | reranker cross-encoder | `RERANK_ENABLED` | não nesta infraestrutura (memória; MRR caiu) |
@@ -632,7 +642,140 @@ golds: `fds-evolucao` passa porque a tabela de evolução entra direto como
 semente. Os dois golds quase não têm pergunta com JOIN, então o valor das
 relações para perguntas que cruzam tabelas **não está medido**.
 
-## Próximos passos (atualizado em 2026-11-02)
+## Rodada 10 — gold do Superset conferido no banco e BM25 com fold (2026-11-03)
+
+Ponto de partida: as 22 falhas do gold do Superset na configuração da rodada 9
+(roteamento + `ppr` 1 + `strict` 25/15 + fusão 0,7 + peso `ouro`). Para cada
+uma, comparei a tabela do gabarito, as tabelas recuperadas, as colunas delas e
+o card no Qdrant.
+
+### Por que as perguntas falhavam
+
+| motivo | casos |
+|---|---|
+| outra tabela recuperada responde a mesma pergunta (gold incompleto) | 380, 390, 370, 436, 507, 53, 54, 149, 376 |
+| a tabela do gabarito não tem descrição no catálogo | 529, 572, 506, 596, 597, 606 |
+| sigla e grão (ver abaixo) | 119, 150, 134, 135 |
+| o conceito está no **valor** de uma coluna, não no schema | 128, 129, 355 |
+
+**Sigla e grão (150).** A pergunta diz "unidades habitacionais"; a tabela certa
+(`ouro_rural_ficha_empreendimento`, uma linha por empreendimento) só diz
+`quantidade_uh`, sem descrição. A recuperada (`prata_rural_historico_empreendimento`)
+descreve a coluna por extenso ("Unidades habitacionais contratadas no
+snapshot"), mas tem grão empreendimento × mês: somar ali multiplica o total
+pelo número de meses. Nome certo, significado certo, grão errado.
+
+### Gold v0.2.0, conferido no banco
+
+`eval/datasets/retrieval/mcid-medalhao-superset-v0.2.0.json`. Cada alternativa
+entra como um segundo `gold_subgraph` (o eval escolhe a melhor) com o SQL dela
+em `metadata.alternatives`. O critério para aceitar foi **resultado igual**:
+rodei o SQL de referência e o da alternativa no banco do MCid e comparei. Só
+agregados, conexão com `default_transaction_read_only=on` e `statement_timeout`.
+
+| caso | alternativa | resultado |
+|---|---|---|
+| 376 | `prata_linha_financiada_contrato` (`COUNT(*)`) | igual (499.055) |
+| 436 | `ouro_pro_moradia_ficha_contrato` | igual (686) |
+| 149 | `prata_rural_empreendimento` (`COUNT(DISTINCT apf)`) | igual (10.402) |
+| 507 | `ouro_rural_entidade_organizadora` | igual (2.549) |
+| 390 | `ouro_reforma_casa_brasil_mapa_uf` | igual nas 27 UFs |
+| 370 | `ouro_linha_financiada_ranking_territorial` | igual; só o rótulo da UF ausente muda (`NULL` × "Não informado") |
+| 53, 54 | `ouro_far_ficha_empreendimento` (colunas `metodo`, `portaria_selecao`) | igual em todos os grupos, **depois de corrigir o SQL do gabarito** |
+| 380 | `ouro_linha_financiada_mapa_uf` | **rejeitada**: recorte diferente, 142.054 de 499.055 contratos (só Fundo Social, Pró-Moradia e MCMV Cidades) |
+
+**Três SQLs de referência estavam errados.** O SQL do gold é montado do
+`form_data` do chart, e o chart não guarda o filtro nativo do dashboard. Nas
+tabelas de painel há linhas de total ("Todas as portarias", "Todos os
+municípios") que o dashboard filtra:
+
+| caso | SQL do chart | com o filtro de total |
+|---|---|---|
+| 53, 54 (`ouro_far_panorama_estadual`) | 527.340 UH | 131.835 UH (4×) |
+| 64 (`ouro_far_mapa_nacional`, por UF) | soma "Todas as portarias" + cada portaria | metade (2×) |
+
+131.835 é o total da ficha e do mapa nacional com `portaria = 'Todas as
+portarias'`: as três fontes batem. Os SQLs corrigidos ficam em
+`metadata.reference_sql` (o do chart em `reference_sql_chart`), com a slice
+`sql_corrigido`. A varredura por valores de total nas outras tabelas do gold só
+achou falsos positivos ("Totalmente Entregue", nomes de empreendimento).
+
+**Dois charts estão quebrados.** 128 e 129 filtram `secao IN ('metodo',
+'portaria')` na `ouro_rural_panorama_estadual`, mas a tabela hoje só tem as
+seções `header`, `agente_financeiro`, `programa`, `situacao` e
+`execucao_fisica`, como a descrição do catálogo diz. O SQL volta vazio
+(provavelmente charts copiados do painel do FAR). Slice `chart_invalido`.
+
+**Leitura principal** = 51 casos: sem `sem_descricao` (6) e sem
+`chart_invalido` (2). As outras slices continuam pontuadas.
+
+### BM25 com fold
+
+O tokenizador do BM25 (fastembed) só quebra em caractere que não é letra,
+número ou `_`. Nomes em snake_case viram um termo só. No caso 572 ("valor total
+das contrapartidas pactuadas nos empreendimentos do FAR"), o card de
+`ouro_far_contrapartida` tem nome e colunas, sem descrição:
+
+| | termos em comum entre pergunta e card |
+|---|---|
+| sem fold | `valor` (presente em centenas de tabelas) |
+| com `SPARSE_FOLD_ACCENTS` | `contrapart`, `empreend`, `far`, `valor` |
+
+O fold não resolve sigla: "unidades habitacionais" × `quantidade_uh` continua
+sem termo em comum.
+
+**Como foi medido sem reingerir.** Uma cópia da coleção
+(`documents_mcid_po_gen_om_fold`) com o mesmo denso e o mesmo payload, e o
+esparso recalculado pela factory da ingestão com o fold ligado. Nenhuma chamada
+ao Ollama. Controle: a mesma cópia com o fold desligado
+(`documents_mcid_po_gen_om_ctrl`) reproduz a referência exatamente (45/59, mesmo
+MRR, mesmo prompt).
+
+| configuração | Superset (59) suf / hit@5 / MRR | leitura principal (51) | negócio (8) suf / MRR | prompt p50 / p95 (S) | prompt p50 / p95 (N) |
+|---|---|---|---|---|---|
+| rodada 9, gold v0.1.0 | 37/59 · 0,576 · 0,494 | — | 7/8 · 0,619 | 13,2k / 21,3k | 15,8k / 24,8k |
+| rodada 9, gold v0.2.0 | 45/59 · 0,695 · 0,585 | 45/51 · 0,804 · 0,673 | 7/8 · 0,619 | 13,2k / 21,3k | 15,8k / 24,8k |
+| + fold, fusão 0,7 | 47/59 · 0,729 · 0,600 | 46/51 · 0,824 · 0,689 | 7/8 · 0,667 | 12,1k / 20,6k | 17,3k / 25,0k |
+| **+ fold, fusão 0,5** | **47/59 · 0,746 · 0,630** | **46/51 · 0,843 · 0,723** | **7/8 · 0,875** | 12,4k / 19,9k | 18,1k / 25,1k |
+
+Prompt calculado por caso (mediana e p95 dos 59 e dos 8). O canal BM25 sozinho:
+
+| | Superset: tabela certa no top-10 | negócio |
+|---|---|---|
+| BM25 sem fold | 20/59 | 3/8 |
+| BM25 com fold | **45/59** | **7/8** |
+| denso (referência) | 46/59 | 6/8 |
+
+Leitura:
+
+- **O fold conserta o canal, e o peso 0,7 deixa de ser necessário.** O 0,7 da
+  rodada 9 compensava um BM25 quebrado; com o fold os dois canais acertam quase
+  o mesmo, e o peso igual (o comportamento padrão, sem `HYBRID_DENSE_WEIGHT`) é
+  o melhor.
+- **Superset:** +1 na leitura principal (`far-355`) e +1 fora dela (`ts-597`,
+  sem descrição: é onde o nome da tabela é tudo o que o card tem). Nenhum caso
+  perdido. Quatro casos perdem posição no ranking (436, 149, 475, 483) sem
+  perder suficiência.
+- **Negócio:** suficiência igual; três casos sobem para o 1º lugar
+  (`fds-eo-risco`, `fds-evolucao`, `fds-entrega-ts`). O prompt p50 cresce 15%
+  (`far-ranking-valor`: 12,7k → 19,7k); o p95 não muda.
+- Em 13/08 o fold tinha sido medido sem ganho no catálogo antigo (74 tabelas,
+  8 casos). Lá os cards eram descritivos; no medalhão boa parte do card é nome
+  em snake_case, e é aí que o fold pesa.
+
+**Para ligar:** `SPARSE_FOLD_ACCENTS=true` na ingestão **e** na consulta (os dois
+lados têm de casar), reingerindo o esparso; e retirar `HYBRID_DENSE_WEIGHT`.
+
+### Exemplo para o artigo
+
+Os casos do motivo 4 mostram uma falha que não é da busca. No painel estadual,
+"método de seleção" existe só como valor de uma coluna `secao`; numa tabela
+descrita como "uma linha por UF" existe uma linha de total por UF que o SQL tem
+de filtrar, senão a soma sai 2× ou 4× maior. Nenhuma busca sobre metadados
+recupera um conceito ou uma regra que o catálogo não declara; a correção é
+documentar os domínios categóricos e o grão no catálogo.
+
+## Próximos passos (atualizado em 2026-11-03)
 
 1. ✅ Ingestão grava o Data Product (rodada 5).
 2. ✅ Roteamento por produto como componente das duas personas
@@ -652,14 +795,24 @@ relações para perguntas que cruzam tabelas **não está medido**.
    poda é invisível para as métricas.
 9. ✅ Hipóteses de semente medidas (rodada 9): **fusão 0,7 + peso `ouro`**
    vence. Reranker fora por memória e MRR.
-10. ✅ Gold derivado do Superset (rodada 8). Pendente: revisão de domínio,
-    sobretudo dos 13 `needs_review` e das alternativas válidas nas falhas.
-11. Execution accuracy: rodar `metadata.reference_sql` contra o banco e
-    comparar com o SQL gerado (precisa do túnel; só agregados).
+10. ✅ Gold derivado do Superset (rodada 8) e v0.2.0 conferido no banco
+    (rodada 10): 8 alternativas, 3 SQLs corrigidos, 2 charts inválidos.
+    Pendente: revisão de domínio dos `needs_review` restantes.
+11. Execution accuracy: o SQL de referência e o das alternativas já foram
+    conferidos no banco (rodada 10). Falta o lado da geração: rodar o SQL que
+    o LLM escreve e comparar o resultado com o de referência. Com isso o eval
+    separa "contexto suficiente" (retrieval) de "resultado certo" (geração).
 12. ✗ Linhagem e "mesma chave" como arestas de recuperação: medido, não vale
     agora (rodada 8).
 13. Gold com perguntas de JOIN (cruzar programas ou tabelas): é o único jeito de
     medir se as relações da skill ainda valem depois das sementes melhores.
 14. Melhorar as descrições das tabelas e colunas da ouro no catálogo (FAR e
     Trabalho Social são os piores no gold do Superset): é o que sobra para a
-    busca depois da rodada 9.
+    busca depois da rodada 9. Inclui as 6 tabelas sem descrição, os valores
+    de `secao` dos painéis e as linhas de total (rodada 10).
+15. **Ligar `SPARSE_FOLD_ACCENTS`** (rodada 10): reingerir com a flag e tirar
+    `HYBRID_DENSE_WEIGHT`. Medido em cópia da coleção; falta confirmar numa
+    ingestão de verdade.
+16. Montar o SQL de referência de chart **com** os filtros nativos do
+    dashboard (o `form_data` do chart não os guarda; foi o que inflou 53, 54 e
+    64).
