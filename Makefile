@@ -8,10 +8,27 @@ EXPLORE_REPORT ?= eval/reports/explore-report.json
 EXPLORE_MARKDOWN ?= eval/reports/explore-report.md
 EXPLORE_POLICY ?= eval/config/explore-policy-v0.1.0.json
 
+# Jornada / Assistente (ADR-0020)
+JOURNEY_DATASET ?= eval/datasets/journey/cidades-journey-v0.1.0.json
+JOURNEY_OUT ?= eval/reports/journey-$(shell date +%Y%m%d)
+
 .PHONY: up eval-quick eval-collect eval-live eval-score eval-full eval-answer \
-	explore-quick eval-explore explore-score explore-gate docs-build docs-serve docs-image
+	explore-quick eval-explore explore-score explore-gate eval-journey \
+	docs-build docs-serve docs-image
 up:
 	docker compose up -d --build --no-deps $(RAG_SERVICES)
+
+# Live: conversa simulada do OpenWebUI no modelo `jornada` (pergunta → botões →
+# clique em cada trilha). CHAMA O LLM. Sai `run.json` + uma transcrição `.md`
+# por caso com as imagens ao lado — a leitura das transcrições é parte do eval.
+eval-journey:
+	docker exec hayhooks rm -rf /app/eval /tmp/journey-run
+	docker cp eval hayhooks:/app/eval
+	docker exec -w /app -e PYTHONPATH=/app:/app/src hayhooks \
+		$(PYTHON) -m eval.journey.live \
+		--dataset "/app/$(JOURNEY_DATASET)" --output-dir /tmp/journey-run
+	rm -rf "$(JOURNEY_OUT)"
+	docker cp hayhooks:/tmp/journey-run "$(JOURNEY_OUT)"
 
 eval-quick:
 	$(MAKE) -C eval quick \
