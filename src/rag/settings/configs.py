@@ -207,6 +207,41 @@ class Settings(BaseSettings):
     )
 
     # ------------------------------------------------------------------ #
+    # Jornada do usuário (ADR-0020) — modelo `jornada` ("Assistente")
+    # ------------------------------------------------------------------ #
+    # Lidos SÓ por `rag.journey` e `pipelines/jornada`: a jornada reusa o motor
+    # e o executor da Persona 2 sem mudar nenhum default deles.
+    #
+    # Validade do resultado guardado para os cliques nos botões. Passou disso,
+    # a trilha recalcula (e avisa). 7 dias = a mesma validade do link do .docx.
+    JOURNEY_STATE_TTL: int = Field(
+        604800, description="Segundos que o resultado de uma resposta fica guardado"
+    )
+    # Link do portal de dados abertos. VAZIO = a linha "dados abertos" não
+    # aparece em resposta nenhuma (o portal ainda não existe). Quando existir,
+    # basta preencher: a fonte de cada resposta passa a levar o link.
+    JOURNEY_OPEN_DATA_URL: str = Field(
+        "", description="URL do portal de dados abertos citado nas respostas (vazio = oculto)"
+    )
+    # Tabela fixa do "número em escala humana" (estádio lotado etc.). O LLM não
+    # inventa comparação: ele nem participa da escolha — ver journey/human_scale.
+    JOURNEY_HUMAN_SCALE_PATH: str = Field(
+        "/app/config/escala_humana.yml",
+        description="Arquivo com as referências fixas de escala humana",
+    )
+    # A trilha "Contexto da política" pede a série histórica ao motor (uma
+    # chamada de LLM + uma execução a mais). Desligar mostra só o que já veio.
+    JOURNEY_POLICY_SERIES: bool = Field(
+        True, description="Na trilha de política, gera e executa a série histórica"
+    )
+    JOURNEY_PLAIN_MAX_TOKENS: int = Field(
+        160, description="Teto de tokens da frase em linguagem simples"
+    )
+    JOURNEY_CHART_DPI: int = Field(
+        130, description="DPI dos gráficos da jornada (PNG embutido no chat)"
+    )
+
+    # ------------------------------------------------------------------ #
     # Guardrails de resposta (ADR-0016)
     # ------------------------------------------------------------------ #
     # Gate determinístico que roda ANTES do retrieval, nas DUAS personas: recusa

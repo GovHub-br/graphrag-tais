@@ -26,9 +26,65 @@ Explorar é **estritamente aditivo** (componentes e pipeline próprios; só
 `configs.py` foi tocado, e só para acrescentar campos `EXPLORE_*`). Mudança no
 modo Explorar **não** deve alterar arquivo do caminho da Persona 2.
 
+## Jornada do usuário — modelo `jornada` / "Assistente" (ADR-0020) ✅
+
+Terceiro modelo, **padrão** no open-webui. A pessoa não escolhe persona: a
+primeira resposta já sai para a **População geral** (frase com o número, número
+em destaque com escala humana, pictograma, mapa por UF/série/comparação, fonte)
+e os **botões** abaixo abrem as trilhas: técnica, política, gestor, história e
+baixar. `Indicador` e `Explorar` seguem no seletor, intactos.
+- **Sem emoji no Assistente** (decisão de produto, 01/11): rótulos e títulos são
+  texto puro, e `text.strip_emoji` limpa a saída inteira — inclusive o que vem do
+  dicionário do Indicador e do panorama do Explorar. Rótulo antigo com emoji
+  ainda abre a trilha (`fold` ignora emoji).
+
+- **Regra em `src/rag/journey/`, wrapper em `pipelines/jornada/`.** O motor da
+  P2, o `McpSqlExecutor` e a pipeline do Explorar são **reusados como caixa-preta**
+  (injetados no `JourneyService`) — nenhum arquivo do caminho medido mudou.
+- **Botões = follow-ups do open-webui.** Ele chama o próprio modelo com
+  `### Task: … "follow_ups"`; o wrapper responde sem LLM (`openwebui_tasks`). O
+  clique volta como mensagem com o rótulo exato → `tracks.match_track` (igualdade
+  do texto normalizado, **nunca** "contém"). ⚠️ Renomear um botão quebra o clique
+  em conversas antigas. Título e tags também saem sem LLM.
+- **Estado**: comentário Markdown invisível no fim de cada resposta
+  (`[//]: # (tais:v1 ref=… rota=… trilha=… vistas=…)`) + resultado no **Redis**
+  (`JOURNEY_STATE_TTL`, 7 dias). O clique reusa O MESMO resultado (sem SQL novo,
+  exceto a série histórica da trilha de política). Estado vencido → recalcula e avisa.
+- **Números só em Python** (`journey/facts.py`). LLM escreve 1 frase + legenda
+  (`prompts/jornada_frase_*`), com guarda: a frase tem de conter o número
+  formatado, a legenda não pode ter dígito. Escala humana = tabela fixa
+  (`config/escala_humana.yml`) + IBGE Censo 2022 (`journey/data/`).
+- **Unidade vem do catálogo, não da base** (`journey/units.py`, 02/11): a
+  descrição da coluna que o motor devolve em `answer["references"]` diz "em
+  milhões de reais", "número índice" etc. — regra de língua, sem nada de órgão.
+  Escala multiplica os valores (a linha crua fica como veio, e a técnica avisa);
+  índice não é somado nem abreviado ("1.283", não "1,3 mil"); `COUNT` não herda
+  unidade. Sem descrição, vale o nome da coluna.
+- **Guarda do total mal atribuído** (`render.misreads_total`): resultado somado
+  + superlativo na frase do total ("o estado com mais tem 878") → frase determinística.
+- **Relatório = o que a pessoa VIU** (03/11): cada trilha guarda seu Markdown em
+  `state["sections"]`, e o `.docx` é montado delas, na ordem em que foram abertas
+  (`render.report_markdown` → `ReportBuilder.build`). É refeito quando entra trilha
+  nova. Antes era o relatório da P2 (SQL + dicionário), que não batia com a tela.
+- **UI no celular** (webui): link para `/files/…` vira botão (`custom.css` §12);
+  `loader.js` prende a mensagem enviada no topo enquanto a resposta chega (o app
+  rolava até o FIM, e a pessoa caía nos botões). ⚠️ O Open WebUI copia o
+  `static/` no boot: editar os arquivos montados pede `docker restart open-webui`,
+  e o navegador guarda cache deles.
+- ⚠️ **Tabela "mapa" com UF + região na mesma coluna** (`ouro_far_mapa_nacional`
+  tem N/NE/CO/S/SE junto das UFs): linhas de região/total saem da soma e "SE"
+  (Sergipe ou Sudeste?) sai junto — a resposta avisa.
+- ⚠️ **Stream em pedaços de 16 KB**: com vários PNG base64 a resposta passa de
+  128 KB e o open-webui recusa a linha SSE (`Got more than 131072 bytes`).
+- Gráficos novos (PNG, desenhados para celular): `components/charts/infographics.py`.
+- `JOURNEY_OPEN_DATA_URL` vazio = link de dados abertos oculto (o portal não existe ainda).
+- Testes: `tests/test_journey_rules.py` (host) e `tests/test_journey_service.py` (container).
+- Setup da UI: `scripts/setup_webui_models.sh` cria o "Assistente", põe como
+  padrão e liga os follow-ups. Botões estilizados na seção 11 do `webui/custom.css`.
+
 ## Verdade da arquitetura: os ADRs
 
-Todas as decisões estão em `docs/adr/` (**0000–0018**) — índice em `docs/adr/README.md`.
+Todas as decisões estão em `docs/adr/` (**0000–0020**) — índice em `docs/adr/README.md`.
 **Leia os ADRs antes de decidir algo de arquitetura.** Regra: um ADR só cita ADR de
 número menor. Destaques recentes: **0011** (contrato da ingestão, substitui o 0005),
 **0012** (eval orientado a métricas), **0013** (gráfico por chart-spec — revisa a
@@ -155,6 +211,12 @@ Pipeline SEPARADA `pipelines/delivery/` que o `run_chat_completion` compõe (mot
   monetário. O catálogo prometia a coluna, o LLM escrevia SQL correto e o banco respondia
   `Column cannot be resolved`; a resposta saía como "SQL gerado", sem gráfico, parecendo
   erro do modelo.
+  ⚠️ **Sessão do agente e `spawn()`** (09/11): o `Agent` do haystack-ai 3 copia o toolset a
+  cada `run`, e a cópia do `MCPToolset` (mcp-haystack 1.4) fechava no `__del__` a sessão do
+  ORIGINAL. Só a 1ª autocorreção de cada processo funcionava, depois vinha `Not connected to an
+  MCP server`, de forma intermitente (depende do GC; acontecia em prod também). `_toolset_cls()`
+  tira da cópia a posse da sessão e `_get_agent` reconstrói se ela estiver fechada
+  (`tests/test_mcp_executor_session.py`). Ao subir de versão as libs, confira se isso ainda é preciso.
   ⚠️ **Transporte não se deduz do path**: o `/sse` do trino-mcp é a MESMA rota Streamable
   HTTP do `/mcp` — não é o SSE clássico que o postgres-mcp (legado, `execute_sql(sql=…)`) fala.
   ⚠️ **Duas serializações, um parser**: trino devolve **JSON** e marca `isError=True`;

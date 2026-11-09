@@ -50,6 +50,44 @@ _KNOWN_SQL_TOOLS = frozenset({"execute_query", "execute_sql"})
 _KNOWN_SQL_ARGS = ("query", "sql")
 
 
+_TOOLSET_CLS = None
+
+
+def _toolset_cls():
+    """`MCPToolset` cuja cópia por execução NÃO fecha a sessão compartilhada.
+
+    O `Agent` do haystack-ai 3 faz `toolset.spawn()` (um `copy.copy`) a cada
+    `run`, e a cópia herda o `_worker` — a sessão SSE. O `MCPToolset` do
+    mcp-haystack 1.4 não sobrescreve `spawn` e fecha o `_worker` no `__del__`:
+    quando a cópia sai de escopo no fim do `run`, ela derruba a sessão do
+    toolset ORIGINAL, e a autocorreção seguinte do agente guardado em
+    `self._agent` falha com "Not connected to an MCP server". Só a primeira
+    autocorreção de cada processo funcionava.
+
+    A cópia continua chamando a tool (a função da tool guarda o client, não o
+    worker); só deixa de ser dona da sessão. Quem fecha é o toolset original.
+    Import tardio, pelo mesmo motivo do `_build_agent`."""
+    global _TOOLSET_CLS
+    if _TOOLSET_CLS is None:
+        from haystack_integrations.tools.mcp import MCPToolset
+
+        class _SessaoCompartilhadaMCPToolset(MCPToolset):
+            def spawn(self):
+                copia = super().spawn()
+                copia._worker = None
+                return copia
+
+        _TOOLSET_CLS = _SessaoCompartilhadaMCPToolset
+    return _TOOLSET_CLS
+
+
+def _session_alive(toolset) -> bool:
+    """A sessão MCP do toolset ainda está aberta? Sem worker = nunca conectou."""
+    worker = getattr(toolset, "_worker", None)
+    client = getattr(worker, "_client", None)
+    return getattr(client, "session", None) is not None
+
+
 class _Attempt(NamedTuple):
     """Uma chamada da tool de execução no histórico do agente, já interpretada.
     `error` vazio = a chamada rodou e o resultado é utilizável."""
@@ -108,9 +146,8 @@ class McpSqlExecutor:
         """Constrói o Agent + MCPToolset. Import tardio para não acoplar o resto
         da pipeline à dependência de MCP."""
         from haystack.components.agents import Agent
-        from haystack_integrations.tools.mcp import MCPToolset
 
-        toolset = MCPToolset(
+        toolset = _toolset_cls()(
             server_info=self._server_info(),
             tool_names=[self.tool_name],
         )
@@ -135,6 +172,16 @@ class McpSqlExecutor:
         return agent
 
     def _get_agent(self):
+        # Sessão morta (servidor reiniciado, rede caída) → reconstrói em vez de
+        # devolver um agente que só sabe responder "Not connected". A lib só
+        # reconecta sozinha quando o erro aparece NO MEIO de uma chamada.
+        if self._agent is not None and not _session_alive(self._agent.tools):
+            logger.warning("McpSqlExecutor: sessão MCP do agente fechada; reconectando")
+            try:
+                self._agent.tools.close()
+            except Exception:  # noqa: BLE001
+                pass
+            self._agent = None
         if self._agent is None:
             self._agent = self._build_agent()
         return self._agent

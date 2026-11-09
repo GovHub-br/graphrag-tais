@@ -81,6 +81,12 @@ PY
 #   • o que a tela já diz não se repete aqui: "escreva na barra abaixo" é o
 #     placeholder do input, e o convite a começar são os cards de "Sugerido".
 echo "Configurando dropdown em ${WEBUI}"
+# Jornada do usuário (ADR-0020): o modelo em que a pessoa NÃO escolhe persona.
+# A primeira resposta já sai para a População geral e os botões abaixo dela
+# abrem as personas específicas. Vem primeiro no seletor e é o padrão.
+aplicar jornada "Assistente" \
+  "Olá! Pergunte em linguagem simples. Eu respondo com o número e o mapa, e os botões abaixo da resposta levam ao cálculo, ao contexto ou à decisão." \
+  true "${RAIZ}/webui/assets/govhub-icon-assistente.png"
 aplicar query "Indicador" \
   "Olá! Vou te acompanhar na medição: me diga o que você quer medir e eu devolvo as bases usadas, o SQL executado, a leitura do resultado, o gráfico e o relatório .docx." \
   true "${RAIZ}/webui/assets/govhub-icon-indicador.png"
@@ -104,6 +110,24 @@ curl -sf --max-time 15 -o /dev/null -X POST "${WEBUI}/api/v1/evaluations/config"
   -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' \
   -d '{"ENABLE_EVALUATION_ARENA_MODELS": false}'
 echo "  oculto:     arena-model"
+
+# Modelo padrão e ordem do seletor (ADR-0020): o Assistente abre a conversa;
+# Indicador e Explorar continuam disponíveis para quem já sabe o modo que quer.
+# Config do BANCO (PersistentConfig) — mesma armadilha do Arena: env só vale em
+# instalação nova.
+curl -sf --max-time 15 -o /dev/null -X POST "${WEBUI}/api/v1/configs/models" \
+  -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' \
+  -d '{"DEFAULT_MODELS": "jornada", "DEFAULT_PINNED_MODELS": null, "MODEL_ORDER_LIST": ["jornada", "query", "explore"]}'
+echo "  padrao:     jornada (Assistente), ordem jornada > query > explore"
+
+# Os botões da jornada SÃO os follow-ups do OpenWebUI: a chamada de follow-up
+# vai ao próprio modelo `jornada`, que responde sem LLM. Se alguém desligar a
+# geração de follow-ups, os botões somem — por isso ela é ligada aqui.
+TASKS="$(curl -sf --max-time 15 -H "Authorization: Bearer ${TOKEN}" "${WEBUI}/api/v1/tasks/config")"
+TASKS="$(printf '%s' "$TASKS" | python3 -c 'import json,sys; d=json.load(sys.stdin); d["ENABLE_FOLLOW_UP_GENERATION"]=True; print(json.dumps(d))')"
+curl -sf --max-time 15 -o /dev/null -X POST "${WEBUI}/api/v1/tasks/config/update" \
+  -H "Authorization: Bearer ${TOKEN}" -H 'Content-Type: application/json' -d "${TASKS}"
+echo "  botoes:     follow-ups ligados (ENABLE_FOLLOW_UP_GENERATION)"
 
 # --------------------------------------------------------------------------- #
 # Perguntas sugeridas da tela inicial.
