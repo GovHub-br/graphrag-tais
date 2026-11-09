@@ -211,6 +211,12 @@ Pipeline SEPARADA `pipelines/delivery/` que o `run_chat_completion` compõe (mot
   monetário. O catálogo prometia a coluna, o LLM escrevia SQL correto e o banco respondia
   `Column cannot be resolved`; a resposta saía como "SQL gerado", sem gráfico, parecendo
   erro do modelo.
+  ⚠️ **Sessão do agente e `spawn()`** (09/11): o `Agent` do haystack-ai 3 copia o toolset a
+  cada `run`, e a cópia do `MCPToolset` (mcp-haystack 1.4) fechava no `__del__` a sessão do
+  ORIGINAL. Só a 1ª autocorreção de cada processo funcionava, depois vinha `Not connected to an
+  MCP server`, de forma intermitente (depende do GC; acontecia em prod também). `_toolset_cls()`
+  tira da cópia a posse da sessão e `_get_agent` reconstrói se ela estiver fechada
+  (`tests/test_mcp_executor_session.py`). Ao subir de versão as libs, confira se isso ainda é preciso.
   ⚠️ **Transporte não se deduz do path**: o `/sse` do trino-mcp é a MESMA rota Streamable
   HTTP do `/mcp` — não é o SSE clássico que o postgres-mcp (legado, `execute_sql(sql=…)`) fala.
   ⚠️ **Duas serializações, um parser**: trino devolve **JSON** e marca `isError=True`;
