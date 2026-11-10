@@ -163,6 +163,16 @@ RETURN schema_fqn, size(names) AS table_count, names
 ORDER BY schema_fqn
 """
 
+# Mesmo panorama por Data Product (EXPLORE_GROUP_BY=product): uma linha por
+# tabela, agrupada em Python (tabela sem produto cai no grupo do schema).
+_TABLES_BY_PRODUCT_CYPHER = """
+MATCH (t:Table)
+WHERE $scope_id IS NULL OR t.scope_id = $scope_id
+RETURN t.schema AS schema_fqn, t.name AS name,
+       t.data_product AS product, t.data_product_label AS product_label
+ORDER BY schema_fqn, name
+"""
+
 # Resolve as sementes para TABELAS preservando a ordem do ranking híbrido:
 # `min(i)` guarda a melhor posição em que aquela tabela apareceu.
 _SEED_TABLES_CYPHER = """
@@ -194,6 +204,7 @@ MATCH (tab:Table {node_id: tid})-[:HAS_COLUMN]->(col:Column)
 WITH tab, col ORDER BY col.ordinal_position
 RETURN tab.node_id AS table_fqn, tab.name AS table_name, tab.schema AS schema_fqn,
        tab.description AS table_desc, tab.grain AS table_grain,
+       tab.data_product AS product, tab.data_product_label AS product_label,
        collect({
          name: col.name,
          type: coalesce(col.data_type_display, col.data_type),
@@ -251,8 +262,12 @@ class Neo4jCatalogRetriever:
         max_columns: int = 8,
         max_columns_expansion: int | None = None,
         expand_neighbors: bool = True,
+        group_by: str = "schema",
     ):
         self.store = graph_store
+        # `schema` (o schema é o assunto) ou `product` (layout medalhão: o
+        # schema é a camada e o assunto é o Data Product). Ver EXPLORE_GROUP_BY.
+        self.group_by = "product" if (group_by or "").strip().lower() == "product" else "schema"
         self.scope_id = scope_id
         self.max_seeds = max_seeds
         self.max_tables = max_tables
@@ -313,6 +328,7 @@ class Neo4jCatalogRetriever:
                 continue
             schema = _schema_short(row.get("schema_fqn"), table_fqn)
             sql_name = f"{schema}.{row['table_name']}" if schema else row["table_name"]
+            group, domain = self._group_of(schema, row.get("product"), row.get("product_label"))
             all_cols = [c for c in (row.get("columns") or []) if c and c.get("name")]
             kept = self._select_columns(
                 all_cols,
@@ -328,13 +344,15 @@ class Neo4jCatalogRetriever:
             omitidas = ([c["name"] for c in all_cols if c["name"] not in mantidas]
                         if e_semente else [])
             out.append(Document(
-                content=self._serialize(row, sql_name, schema, kept, neighbors, omitidas),
+                content=self._serialize(row, sql_name, schema, kept, neighbors, omitidas,
+                                        domain=domain),
                 meta={
                     "node_id": table_fqn,
                     "fqn": table_fqn,
                     "label": "Table",
                     "schema": schema,
-                    "domain": _domain_label(schema),
+                    "group": group,
+                    "domain": domain,
                     "table": row["table_name"],
                     "sql_name": sql_name,
                     "description": row.get("table_desc") or "",
@@ -364,8 +382,21 @@ class Neo4jCatalogRetriever:
         return {"documents": out, "joins": joins, "domains": domains, "catalog": catalog}
 
     # ------------------------------------------------------------------ #
+    def _group_of(self, schema: str, product: str | None,
+                  product_label: str | None) -> tuple[str, str]:
+        """(chave do grupo, rótulo) de uma tabela, conforme `group_by`.
+
+        Em `product`, tabela sem Data Product cai no grupo do schema: some do
+        panorama não é opção (cobertura não é limitada pelo agrupamento)."""
+        if self.group_by == "product" and (product or product_label):
+            key = (product or product_label or "").strip()
+            return f"produto:{key}", (product_label or product or "").strip()
+        return schema, _domain_label(schema)
+
     def _catalog_overview(self) -> tuple[List[Dict[str, Any]], List[str]]:
-        """Panorama por schema + lista completa de nomes físicos do escopo."""
+        """Panorama por grupo + lista completa de nomes físicos do escopo."""
+        if self.group_by == "product":
+            return self._catalog_overview_by_product()
         rows = self.store.execute_read(_DOMAINS_CYPHER, {"scope_id": self.scope_id})
         domains: List[Dict[str, Any]] = []
         catalog: List[str] = []
@@ -374,11 +405,34 @@ class Neo4jCatalogRetriever:
             names = sorted(n for n in (row.get("names") or []) if n)
             domains.append({
                 "schema": schema,
+                "group": schema,
                 "domain": _domain_label(schema),
                 "table_count": int(row.get("table_count") or len(names)),
                 "tables": [f"{schema}.{n}" for n in names],
             })
             catalog.extend(f"{schema}.{n}" for n in names)
+        return domains, sorted(set(catalog))
+
+    def _catalog_overview_by_product(self) -> tuple[List[Dict[str, Any]], List[str]]:
+        rows = self.store.execute_read(_TABLES_BY_PRODUCT_CYPHER, {"scope_id": self.scope_id})
+        grupos: Dict[str, Dict[str, Any]] = {}
+        catalog: List[str] = []
+        for row in rows:
+            name = row.get("name")
+            if not name:
+                continue
+            schema = _schema_short(row.get("schema_fqn"), "")
+            fisico = f"{schema}.{name}" if schema else name
+            group, domain = self._group_of(schema, row.get("product"), row.get("product_label"))
+            g = grupos.setdefault(group, {"schema": schema, "group": group, "domain": domain,
+                                          "tables": []})
+            g["tables"].append(fisico)
+            catalog.append(fisico)
+        domains = []
+        for g in sorted(grupos.values(), key=lambda d: (d["domain"].lower(), d["group"])):
+            g["tables"] = sorted(set(g["tables"]))
+            g["table_count"] = len(g["tables"])
+            domains.append(g)
         return domains, sorted(set(catalog))
 
     def _ranked_table_ids(self, seed_ids: List[str]) -> List[tuple[str, int, bool]]:
@@ -475,13 +529,14 @@ class Neo4jCatalogRetriever:
 
     @staticmethod
     def _serialize(row: dict, sql_name: str, schema: str, columns: list,
-                   neighbors: List[str], omitidas: List[str] | None = None) -> str:
+                   neighbors: List[str], omitidas: List[str] | None = None,
+                   domain: str | None = None) -> str:
         """Card de catálogo para o LLM: o que a tabela é, em que grão, com quem
         conversa. Mais enxuto que a serialização da Persona 2 (que precisa de
         tipo e descrição de cada coluna para escrever SQL de indicador)."""
         lines = [
             f"Tabela: {sql_name}   (FQN: {row['table_fqn']})",
-            f"  Domínio: {_domain_label(schema)}",
+            f"  Domínio: {domain or _domain_label(schema)}",
         ]
         grain = _grain_for(row["table_fqn"], row.get("table_grain"))
         if grain:

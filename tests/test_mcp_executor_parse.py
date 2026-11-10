@@ -243,3 +243,21 @@ class TestScanExecutions(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(HAYSTACK, "Haystack indisponível no host — rode no container")
+class PhysicalSchemaContextTest(unittest.TestCase):
+    """A autocorreção copiava o FQN do card (`Cidades.cidades.prata.x`), que o
+    banco recusa: o contexto do agente sai só com o nome físico."""
+
+    def test_fqn_note_is_removed_and_the_rest_kept(self):
+        from rag.components.executors.mcp_sql_executor import physical_schema_context
+
+        card = ("Tabela: prata.prata_far   (FQN: Cidades.cidades.prata.prata_far)\n"
+                "  Descrição: base do FAR (dado conformado)\n"
+                "  Colunas:\n    - uf text")
+        out = physical_schema_context(card)
+        self.assertNotIn("Cidades.cidades", out)
+        self.assertIn("Tabela: prata.prata_far\n", out)
+        self.assertIn("(dado conformado)", out)  # parêntese comum fica
+        self.assertEqual(physical_schema_context(""), "")

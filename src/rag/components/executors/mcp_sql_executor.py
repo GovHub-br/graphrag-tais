@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import json
+import re
 from decimal import Decimal
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
@@ -48,6 +49,20 @@ _SYSTEM_PROMPT = prompts.render(
 _KNOWN_SQL_TOOLS = frozenset({"execute_query", "execute_sql"})
 #: Nomes de argumento conhecidos, na mesma lógica.
 _KNOWN_SQL_ARGS = ("query", "sql")
+
+#: O "(FQN: Cidades.cidades.prata.x)" que os cards trazem ao lado do nome físico.
+_FQN_NOTE = re.compile(r"[ \t]*\(FQN:[^)\n]*\)")
+
+
+def physical_schema_context(text: str) -> str:
+    """Contexto do agente de autocorreção só com o nome físico das tabelas.
+
+    Os cards dizem `Tabela: prata.x   (FQN: Cidades.cidades.prata.x)`. O
+    gerador tem a regra "use o nome físico, nunca o FQN" no prompt; o agente
+    de autocorreção recebe os mesmos cards e não tem — e, ao corrigir, copiava
+    o FQN, que o banco recusa (o catálogo `Cidades` não existe para ele). Tirar
+    o FQN daqui resolve sem mexer em prompt: o agente não copia o que não vê."""
+    return _FQN_NOTE.sub("", text or "")
 
 
 _TOOLSET_CLS = None
@@ -257,7 +272,8 @@ class McpSqlExecutor:
             return empty
 
         user_msg = prompts.render(
-            "sql_executor_user", query=query, schema_context=schema_context, sql=sql,
+            "sql_executor_user", query=query, schema_context=physical_schema_context(schema_context),
+            sql=sql,
         )
         try:
             agent = self._get_agent()
