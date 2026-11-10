@@ -28,13 +28,13 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from loguru import logger
 
 from rag.journey import facts as facts_mod
-from rag.journey import fmt, ibge, render, routing, tracks
+from rag.journey import drill, fmt, ibge, interactive, render, routing, tracks
 from rag.journey.catalog_probe import (CatalogIndex, Scope, complementary, policy_stages,
                                        products_of, scope_of)
 from rag.journey.human_scale import scale_for
 from rag.journey.marker import Marker
 from rag.journey.state import JourneyStore, new_ref
-from rag.journey.text import strip_emoji
+from rag.journey.text import plain_typography, strip_emoji
 
 # Contratos dos colaboradores injetados.
 MotorFn = Callable[[str], Tuple[Dict[str, Any], List[Any]]]           # pergunta → (answer, docs)
@@ -44,22 +44,22 @@ PhraseFn = Callable[[str, str, str, str], str]                          # pergun
 CatalogFn = Callable[[], Optional[CatalogIndex]]
 
 ABOUT = """\
-Sou o assistente de dados do GovHub. Pergunte em linguagem simples — por exemplo, \
-*"quanto foi contratado por estado?"* — e eu respondo com o número, o que ele \
-significa e onde ele está no mapa.
+Sou o assistente de dados do GovHub. Pergunte em linguagem simples, por exemplo \
+*"quanto foi contratado por estado?"*, e eu respondo com o número, o que ele \
+significa e onde ele está no mapa. Pode continuar a conversa: *"e em São Paulo?"* \
+usa o que você perguntou antes.
 
-Depois da resposta aparecem botões para ir além, conforme o que você precisa:
-
-- **Como esse dado foi calculado?** — o SQL, as tabelas, as colunas e o CSV;
-- **Contexto da política** — a série histórica, as regiões e o que falta no dado;
-- **Números para decisão** — indicadores-chave, ranking e o relatório `.docx`;
-- **Contar a história** — o dado em quatro passos.
+Depois da resposta aparecem botões para ir além, conforme o que você precisa. \
+**Como esse dado foi calculado?** mostra o SQL, as tabelas, as colunas e o CSV. \
+**Contexto da política** traz a série histórica, as regiões e o que falta no dado. \
+**Números para decisão** reúne indicadores-chave, ranking e o relatório `.docx`. \
+**Contar a história** conta o dado em quatro passos.
 
 Se quiser saber o que existe sobre um assunto, pergunte *"o que vocês têm sobre …?"*."""
 
 _SEM_RESULTADO = (
     "Não consegui chegar a um número para essa pergunta com as bases disponíveis. "
-    "Abaixo está o que o sistema tentou — dá para reformular a pergunta com outro recorte "
+    "Abaixo está o que o sistema tentou. Dá para reformular a pergunta com outro recorte "
     "(por UF, por ano) ou perguntar *\"o que vocês têm sobre …?\"* para ver as bases."
 )
 
@@ -74,7 +74,7 @@ class Reply:
         # O Assistente não usa emoji (pedido de produto, 01/11/2026). Os textos
         # próprios já saem sem; isto limpa o que vem das peças reaproveitadas —
         # o dicionário do Indicador ("🔑 PK"), o panorama do Explorar ("📥").
-        self.markdown = strip_emoji(self.markdown)
+        self.markdown = plain_typography(strip_emoji(self.markdown))
         self.follow_ups = [strip_emoji(b).strip() for b in self.follow_ups]
 
     def text(self) -> str:
@@ -98,13 +98,67 @@ class JourneyService:
     # ------------------------------------------------------------------ #
     # Pergunta nova
     # ------------------------------------------------------------------ #
-    def answer(self, question: str) -> Reply:
+    def answer(self, question: str, previous_ref: str = "") -> Reply:
+        """`previous_ref` é o resultado da resposta anterior da conversa: com
+        ele, "… por município na Bahia?" detalha aquele mesmo número (o botão
+        do mapa interativo) em vez de ir ao motor como pergunta nova."""
         rota = routing.classify(question)
         logger.info("[jornada] rota={} '{}…'", rota, question[:60])
         if rota == routing.ASSUNTO:
             return self._assunto(question)
-        state = self._compute(question)
+        state = self._drill(question, previous_ref) or self._compute(question)
         return self._populacao_reply(state)
+
+    def _drill(self, question: str, previous_ref: str) -> Optional[Dict[str, Any]]:
+        """Detalhamento por município no MESMO SQL da resposta por UF
+        (`journey.drill`). None quando não se aplica: aí vale o motor."""
+        sigla = drill.requested_uf(question)
+        anterior = self.store.load(previous_ref) if (sigla and previous_ref) else None
+        if not anterior or anterior.get("status") != "ok":
+            return None
+        f = facts_of(anterior)
+        if f.dimension_kind != "uf":
+            return None
+        execu = anterior.get("exec") or {}
+        sql, dialeto = execu.get("sql_final", ""), getattr(self.settings, "SQL_DIALECT", "postgres")
+        uf_col = drill.uf_source_column(sql, f.dimension, dialeto)
+        tabela = drill.table_of(sql, dialeto)
+        index = self.catalog() if (uf_col and tabela) else None
+        if not index:
+            return None
+        nome = f"{tabela[0]}.{tabela[1]}" if tabela[0] else tabela[1]
+        mun_col = drill.municipio_column([c for (t, c) in index.columns
+                                          if t == nome or t.endswith("." + tabela[1])])
+        # O valor da UF como está na base ("BA" ou "Bahia"): o rótulo da linha.
+        valor_uf = next((str(r.get(f.dimension)) for r in execu.get("rows") or []
+                         if (ibge.resolve(r.get(f.dimension)) or {}).get("sigla") == sigla), None)
+        novo = (drill.rewrite(sql, uf_col, valor_uf, mun_col, dialeto)
+                if (mun_col and valor_uf) else None)
+        if not novo:
+            logger.info("[jornada/municipios] sem detalhamento direto (tabela={} coluna={}); vai ao motor",
+                        nome, mun_col)
+            return None
+        resultado = self.executor(novo, question, "") or {}
+        if not resultado.get("exec_ok") or not resultado.get("rows"):
+            logger.warning("[jornada/municipios] SQL detalhado não rodou ({}); vai ao motor",
+                           resultado.get("error") or "sem linhas")
+            return None
+        logger.info("[jornada/municipios] {} detalhado por {} no mesmo SQL", sigla, mun_col)
+        answer = dict(anterior.get("answer") or {})
+        answer["sql"] = novo
+        answer["explanation"] = (f"Mesma base e mesmo cálculo da resposta por estado, agora "
+                                 f"{interactive.in_uf(sigla)} e separado por município.")
+        state: Dict[str, Any] = {"route": routing.NUMERO, "question": question, "answer": answer,
+                                 "status": "ok", "exec": {
+                                     "rows": resultado.get("rows") or [],
+                                     "columns": resultado.get("columns") or [],
+                                     "sql_final": resultado.get("sql_final") or novo,
+                                     "exec_ok": True, "error": "",
+                                     "masked_columns": resultado.get("masked_columns") or [],
+                                     "truncated": bool(resultado.get("truncated"))}}
+        if not facts_of(state).ok:
+            return None
+        return state
 
     def _assunto(self, question: str) -> Reply:
         markdown, answer = self.explorer(question)
@@ -145,13 +199,18 @@ class JourneyService:
         return state
 
     def _facts(self, state: Dict[str, Any], prefer_time: bool = False) -> facts_mod.Facts:
-        execu = state.get("exec") or {}
-        f = facts_mod.build(execu.get("rows") or [], execu.get("columns") or [],
-                            sql=execu.get("sql_final", ""), truncated=bool(execu.get("truncated")),
-                            prefer_time=prefer_time,
-                            references=(state.get("answer") or {}).get("references") or [])
-        f.label = state.get("label", "")
-        return f
+        return facts_of(state, prefer_time)
+
+    def _chart_line(self, state: Dict[str, Any], f: facts_mod.Facts, ref: str, kind: str) -> str:
+        """Linha escondida com o caminho do gráfico interativo deste resultado,
+        para a Function do Open WebUI (`render.chart_marker`). Só quando há
+        gráfico (2+ itens) e o recurso está ligado."""
+        if not getattr(self.settings, "JOURNEY_INTERACTIVE_CHARTS", False) or f.n < 2:
+            return ""
+        from rag.components.storage.download_links import build_chart_path
+
+        ttl = getattr(self.settings, "JOURNEY_STATE_TTL", 7 * 24 * 3600)
+        return render.chart_marker(build_chart_path(ref, kind, ttl))
 
     def _populacao_reply(self, state: Dict[str, Any]) -> Reply:
         ref = new_ref()
@@ -181,6 +240,9 @@ class JourneyService:
         _keep_section(state, tracks.POPULACAO, markdown)
         self.store.save(ref, state)
         buttons = tracks.buttons(tracks.suggest_order(question))
+        grafico = self._chart_line(state, f, ref, interactive.ONDE)
+        if grafico:
+            markdown = f"{render.for_chat(markdown)}\n\n{grafico}"
         return Reply(markdown, marker, follow_ups=buttons)
 
     def _phrase(self, question: str, f: facts_mod.Facts) -> Tuple[str, str]:
@@ -218,8 +280,8 @@ class JourneyService:
         aviso = ""
         if state is None or state.get("route") != routing.NUMERO:
             if not fallback_question:
-                return Reply("Faça uma pergunta primeiro — por exemplo, *\"quanto foi contratado "
-                             "por estado?\"* — e os botões aparecem logo abaixo da resposta.",
+                return Reply("Faça uma pergunta primeiro, por exemplo *\"quanto foi contratado "
+                             "por estado?\"*, e os botões aparecem logo abaixo da resposta.",
                              Marker(rota=routing.NUMERO, trilha=track.id))
             logger.info("[jornada] estado ausente para ref={}; recalculando",
                         marker.ref if marker else "-")
@@ -250,6 +312,15 @@ class JourneyService:
             self.store.save(marker.ref, state)
         if track.id == tracks.GESTOR.id:
             corpo += "\n\n" + render.report_link(self._ensure_report(state, marker.ref))
+        if track.id in (tracks.GESTOR.id, tracks.HISTORIA.id):
+            tipo = interactive.RANKING if track.id == tracks.GESTOR.id else interactive.ONDE
+            grafico = self._chart_line(state, f, marker.ref, tipo)
+            if grafico:
+                # Chat sem o PNG e sem a tabela (o embed os substitui); a seção
+                # guardada para o .docx, acima, fica completa.
+                aviso_onde = ("_No gráfico interativo, no fim desta resposta._"
+                              if track.id == tracks.HISTORIA.id else "")
+                corpo = f"{render.for_chat(corpo, aviso_onde)}\n\n{grafico}"
         if aviso:
             corpo = aviso + "\n\n" + corpo
         botoes = tracks.buttons(tracks.suggest_order(state["question"], vistas))
@@ -315,7 +386,7 @@ class JourneyService:
             # O catálogo apontou uma tabela com data, mas o banco não a executou:
             # dizer "não há coluna de tempo" seria falso. Diz o que houve e
             # mostra a consulta, que é o que alguém técnico precisa para seguir.
-            return (None, "Tentei montar a série histórica, mas a consulta não rodou no banco — "
+            return (None, "Tentei montar a série histórica, mas a consulta não rodou no banco: "
                           "a tabela com datas que o catálogo indica não respondeu. A consulta "
                           "tentada está no fim desta resposta.", tentado)
         return (None, "Não encontrei, nas tabelas do catálogo, uma coluna de tempo que permita "
@@ -380,6 +451,18 @@ class JourneyService:
 # --------------------------------------------------------------------------- #
 # Peças determinísticas (funções de módulo: testáveis sem serviço)
 # --------------------------------------------------------------------------- #
+def facts_of(state: Dict[str, Any], prefer_time: bool = False) -> facts_mod.Facts:
+    """Os números de um estado guardado — o mesmo cálculo em toda trilha e na
+    rota do gráfico interativo (`rag/server/charts.py`)."""
+    execu = state.get("exec") or {}
+    f = facts_mod.build(execu.get("rows") or [], execu.get("columns") or [],
+                        sql=execu.get("sql_final", ""), truncated=bool(execu.get("truncated")),
+                        prefer_time=prefer_time,
+                        references=(state.get("answer") or {}).get("references") or [])
+    f.label = state.get("label", "")
+    return f
+
+
 def parse_phrase(raw: str) -> Tuple[str, str]:
     """`{"frase", "legenda"}` do LLM. Texto que não é JSON vira só a frase."""
     import json
@@ -527,7 +610,7 @@ def lineage_steps(state: Dict[str, Any], settings: Any) -> List[Tuple[str, List[
             if nome.lower() in citadas and nome not in [c.split(" ")[0] for c in colunas]:
                 colunas.append(f"{nome} ({col.get('type') or 'sem tipo'})")
     return [
-        ("Fonte", [f"OpenMetadata · serviço {settings.OM_SERVICE}",
+        ("Fonte", [f"OpenMetadata, serviço {settings.OM_SERVICE}",
                    f"banco {settings.OM_DATABASE}"]),
         ("Tabela" if len(tabelas) <= 1 else "Tabelas", tabelas[:3] or ["(não identificada)"]),
         ("Colunas", colunas[:4] or ["(não identificadas)"]),
@@ -558,7 +641,7 @@ def limitations(state: Dict[str, Any], f: facts_mod.Facts) -> List[str]:
                  "mesmo valor duas vezes.")
         if "SE" in f.mixed_levels:
             aviso += (" “SE” também ficou de fora: nessa mistura ele pode ser Sergipe ou a região "
-                      "Sudeste — confira no CSV.")
+                      "Sudeste. Confira no CSV.")
         itens.append(aviso)
     if execu.get("masked_columns"):
         itens.append("Há colunas com dado pessoal pseudonimizadas (ver nota acima).")
@@ -572,8 +655,9 @@ def kpis(f: facts_mod.Facts) -> List[Tuple[str, str, str]]:
     """Até 4 cartões (valor, rótulo, detalhe). Rótulos CURTOS e genéricos — o
     cartão tem ~2,8" de largura; o nome da métrica já está no título da trilha."""
     m = render.money_fmt(f)
-    unidade = {"uf": "UF", "tempo": "período"}.get(f.dimension_kind, "categoria")
-    plural = {"uf": "UFs", "tempo": "períodos"}.get(f.dimension_kind, "categorias")
+    unidade = {"uf": "UF", "municipio": "município", "tempo": "período"}.get(f.dimension_kind, "categoria")
+    plural = {"uf": "UFs", "municipio": "municípios", "tempo": "períodos"}.get(f.dimension_kind,
+                                                                               "categorias")
     if f.dimension_kind == "tempo":
         serie = f.series()
         cartoes = [(render.headline_text(f), "Último período",
@@ -595,7 +679,7 @@ def kpis(f: facts_mod.Facts) -> List[Tuple[str, str, str]]:
         rotulo, valor = f.top(1)[0]
         share = f.share_of_top()
         cartoes.append((_short(rotulo), "Maior valor",
-                        m(valor) + (f" · {fmt.percent(share[1])} do total" if share else "")))
+                        m(valor) + (f", {fmt.percent(share[1])} do total" if share else "")))
         ordenados = sorted(v for _, v in f.values)
         mediana = ordenados[len(ordenados) // 2]
         cartoes.append((m(f.mean()), f"Média por {unidade}", f"mediana {m(mediana)}"))
@@ -633,7 +717,7 @@ def region_table(f: facts_mod.Facts) -> str:
         taxas = {s: per(v, pops[s]) for s, v in ufs_.items() if pops[s]}
         melhor = max(taxas, key=taxas.get)
         pior = min(taxas, key=taxas.get)
-        fmt_v = (lambda v: fmt.compact(v, money=True)) if f.money else (lambda v: fmt.compact(v))
+        fmt_v = (lambda v: fmt.exact(v, money=True)) if f.money else (lambda v: fmt.exact(v))
         linhas.append(f"| {regiao} | {fmt_v(media)} | {melhor} ({fmt_v(taxas[melhor])}) | "
                       f"{pior} ({fmt_v(taxas[pior])}) |")
     nota = (f"\n\n*Cada UF comparada com as da mesma região, {unidade} "
@@ -663,7 +747,7 @@ def planned_text(f: facts_mod.Facts, index: Optional[CatalogIndex], used: Sequen
         if etapa and etapa.tables:
             texto += (" No catálogo há tabelas de orçamento que podem ajudar: "
                       + ", ".join(f"`{t}`" for t in etapa.tables[:2])
-                      + " — pergunte, por exemplo, pelo valor previsto do mesmo recorte.")
+                      + ". Pergunte, por exemplo, pelo valor previsto do mesmo recorte.")
     return texto
 
 
@@ -704,7 +788,7 @@ def _line_renderer(f: facts_mod.Facts) -> Optional[bytes]:
         return None
     fora = [r for r, _ in f.outliers()]
     return infographics.alerts(
-        serie, fora, render.money_fmt(f), temporal=True,
+        serie, fora, render.chart_fmt(f), temporal=True,
         title=f"{render.cap(f.metric_label)} ao longo do tempo",
         subtitle="Pontos fora da curva em laranja" if fora else
         f"{fmt.period(serie[0][0])} a {fmt.period(serie[-1][0])}",

@@ -25,7 +25,7 @@ from rag.journey.catalog_probe import Item, Stage
 from rag.journey.facts import Facts
 from rag.journey.human_scale import Scale
 
-_DIM_PLURAL = {"uf": "UFs", "tempo": "períodos"}
+_DIM_PLURAL = {"uf": "UFs", "municipio": "municípios", "tempo": "períodos"}
 
 
 # --------------------------------------------------------------------------- #
@@ -55,7 +55,16 @@ def cap(texto: str) -> str:
 
 def money_fmt(facts: Facts):
     """O formatador da métrica: dinheiro, índice ou contagem. Todo número da
-    métrica que vai para a tela passa por aqui."""
+    métrica que vai para o TEXTO passa por aqui — inteiro, sem "mi"/"bi"."""
+    if facts.unit == units.INDICE:
+        return fmt.plain
+    return lambda v: fmt.exact(v, money=facts.money)
+
+
+def chart_fmt(facts: Facts):
+    """O formatador de DENTRO do gráfico (eixo, rótulo de barra, legenda do
+    mapa): compacto, porque "R$ 5.938.123.456" não cabe ao lado de uma barra no
+    celular. O valor exato de cada item vai em `values_table`, embaixo."""
     if facts.unit == units.INDICE:
         return fmt.plain
     return lambda v: fmt.compact(v, money=facts.money)
@@ -91,7 +100,7 @@ def digest(facts: Facts) -> str:
         linhas.append(f"Começa em {fmt.period(serie[0][0])} com {f(serie[0][1])} e termina em "
                       f"{fmt.period(serie[-1][0])} com {f(serie[-1][1])}")
     elif facts.n > 1:
-        linhas.append("Maiores: " + " · ".join(f"{r}: {f(v)}" for r, v in facts.top(3)))
+        linhas.append("Maiores: " + "; ".join(f"{r}: {f(v)}" for r, v in facts.top(3)))
         share = facts.share_of_top()
         if share:
             linhas.append(f"A maior concentra {fmt.percent(share[1])} do total")
@@ -154,21 +163,109 @@ def misreads_total(facts: Facts, phrase: str, numero: str) -> bool:
 def source_line(tables: Sequence[str], service: str, open_data_url: str = "") -> str:
     nomes = ", ".join(f"`{t}`" for t in tables[:3]) or "catálogo"
     # Sem <sub>: o Markdown do OpenWebUI escapa a tag e ela aparece crua.
-    linha = (f"*De onde veio:* {nomes} · *catálogo OpenMetadata ({service}) · "
-             "calculado agora no banco analítico*")
+    # Frase corrida, sem "·": separador de tópico na resposta soa a texto de
+    # máquina (pedido de produto, 10/11/2026).
+    linha = (f"*Fonte: {nomes}, do catálogo OpenMetadata ({service}), "
+             "calculado agora no banco analítico.*")
     if open_data_url:
-        linha += f" · [ver nos dados abertos]({open_data_url})"
+        linha += f" [Ver nos dados abertos]({open_data_url})."
     return linha
+
+
+CHART_TAG = "tais:grafico"
+
+
+def chart_marker(path: str) -> str:
+    """Linha invisível com o caminho assinado do gráfico interativo
+    (`interactive.page`), no mesmo formato do marcador de estado. A Function
+    do Open WebUI a lê e põe o gráfico embaixo da resposta; sem a Function,
+    nada aparece (é comentário de Markdown)."""
+    return f"[//]: # ({CHART_TAG} {path})" if path else ""
+
+
+# `alt` dos gráficos que têm versão interativa (`interactive.page`). É também a
+# âncora da seção 13 do `webui/custom.css`, que esconde o PNG nas conversas
+# antigas: mudar um destes textos pede mudar lá também.
+INTERACTIVE_ALTS = ("Mapa do Brasil", "Mapa dos municípios", "Série:", "Barras:", "Ranking de",
+                    "Tendência de")
+_IMAGEM_INTERATIVA = re.compile(
+    r"^!\[(?:" + "|".join(re.escape(a) for a in INTERACTIVE_ALTS) + r")[^\]]*\]\(data:[^)]*\)[ \t]*$",
+    re.M)
+_TABELA_DE_VALORES = re.compile(
+    r"<details>\n<summary>Os valores d[^<]*</summary>.*?</details>"
+    r"|\*\*Os valores d[^*\n]*\*\*\n\n(?:\|[^\n]*(?:\n|$))+", re.S)
+
+
+def for_chat(markdown: str, placeholder: str = "") -> str:
+    """A versão de CHAT de uma trilha que tem gráfico interativo.
+
+    No chat, quem mostra o mapa/série/ranking é o embed da Function (com o
+    valor no cursor e a aba de ranking): o PNG e a tabela de valores ali seriam
+    o mesmo dado três vezes (pedido de produto, 10/11/2026). O Markdown
+    COMPLETO, com o PNG e a tabela, é o que fica guardado em
+    `state["sections"]` e vai para o relatório .docx, onde não há cursor."""
+    texto = _IMAGEM_INTERATIVA.sub(placeholder, markdown or "")
+    texto = _TABELA_DE_VALORES.sub("", texto)
+    return re.sub(r"\n{3,}", "\n\n", texto).strip()
+
+
+# Até aqui a tabela de valores fica à mostra; acima, recolhida num <details>
+# (27 UFs abertas empurram os botões para longe no celular).
+_TABELA_ABERTA_ATE = 12
+
+
+def values_table(facts: Facts, title: str = "Os valores do gráfico") -> str:
+    """Os números que o gráfico desenha, um por linha, por extenso.
+
+    O PNG não deixa passar o cursor para ler o valor de uma UF; sem isto, o
+    mapa só mostrava a cor e o mínimo e o máximo. Série no tempo vai em ordem
+    cronológica; o resto, do maior para o menor, com a fatia do total quando
+    somar faz sentido."""
+    if facts.n < 2:
+        return ""
+    f = money_fmt(facts)
+    tempo = facts.dimension_kind == "tempo"
+    if tempo:
+        itens = facts.series()
+    else:
+        # UF: as mesmas linhas do mapa (sem a de região/total que a tabela "mapa" mistura).
+        base = (list(facts.uf_values.items()) if facts.dimension_kind == "uf" and facts.uf_values
+                else facts.values)
+        itens = sorted(base, key=lambda kv: kv[1], reverse=True)
+    total = sum(v for _, v in itens) if (facts.additive and not tempo) else 0
+    cabeca = {"uf": "UF", "municipio": "Município", "tempo": "Período"}.get(facts.dimension_kind) or cap(
+        fmt.humanize(facts.dimension or "")) or "Item"
+    metrica = cap(facts.metric_label or "valor")
+    linhas = [f"| {cabeca} | {metrica} |" + (" % do total |" if total else ""),
+              "| :-- | --: |" + (" --: |" if total else "")]
+    for rotulo, valor in itens:
+        nome = fmt.period(rotulo) if tempo else _display(facts, rotulo)
+        linha = f"| {str(nome).replace('|', '/')} | {f(valor)} |"
+        if total:
+            linha += f" {fmt.percent(valor / total, 1)} |"
+        linhas.append(linha)
+    tabela = "\n".join(linhas)
+    if len(itens) <= _TABELA_ABERTA_ATE:
+        return f"**{title}**\n\n{tabela}"
+    return f"<details>\n<summary>{title} ({len(itens)})</summary>\n\n{tabela}\n\n</details>"
 
 
 def where_chart(facts: Facts, charts, line_renderer=None) -> Tuple[Optional[bytes], str]:
     """O gráfico do "onde?": mapa para UF, série para tempo, comparação no resto."""
-    f = money_fmt(facts)
+    f = chart_fmt(facts)
     metrica = facts.metric_label
     if facts.dimension_kind == "uf" and facts.uf_values:
-        png = safe_chart(charts.uf_map, facts.uf_values, f, title="Onde?",
+        # No mapa o formatador só escreve o mínimo e o máximo da legenda: aí
+        # cabe o número inteiro (e é o que vai impresso no relatório).
+        png = safe_chart(charts.uf_map, facts.uf_values, money_fmt(facts), title="Onde?",
                          subtitle=f"{cap(metrica)} por UF")
         return png, f"Mapa do Brasil: {metrica} por UF"
+    if facts.dimension_kind == "municipio" and facts.mun_values:
+        ufs = ", ".join(facts.mun_ufs)
+        png = safe_chart(charts.municipal_map, facts.mun_values, facts.mun_ufs, money_fmt(facts),
+                         title="Onde?", subtitle=f"{cap(metrica)} por município ({ufs})")
+        if png:
+            return png, f"Mapa dos municípios: {metrica} ({ufs})"
     if facts.dimension_kind == "tempo" and facts.n >= 2 and line_renderer:
         png = safe_chart(line_renderer, facts)
         return png, f"Série: {metrica} ao longo do tempo"
@@ -215,14 +312,20 @@ def populacao(facts: Facts, phrase: str, scale: Optional[Scale], *, charts,
     png, alt = where_chart(facts, charts, line_renderer)
     if png:
         partes.append(image(png, alt))
+        partes.append(values_table(facts))
     partes.extend(n for n in notes if n)
     partes.append(source_line(tables, service, open_data_url))
     return "\n\n".join(p for p in partes if p)
 
 
+def _paragraphs(items: Sequence[str]) -> str:
+    """Itens como parágrafos curtos, sem marcador de lista ("- ")."""
+    return "\n\n".join(i for i in items if i)
+
+
 def tecnica(facts: Facts, motor_markdown: str, *, charts, steps, preview_table: str,
             limitations: Sequence[str], csv_url: str = "", open_data_url: str = "") -> str:
-    f = money_fmt(facts)
+    f = chart_fmt(facts)
     partes = ["## Como esse dado foi calculado"]
     partes.append(image(safe_chart(charts.lineage, steps, title="Jornada do dado"),
                         "Jornada do dado: fonte, tabela, colunas e cálculo"))
@@ -237,7 +340,7 @@ def tecnica(facts: Facts, motor_markdown: str, *, charts, steps, preview_table: 
     partes.append(image(safe_chart(charts.coverage, facts.coverage, title="O que falta no dado?",
                                    subtitle="% de linhas preenchidas por coluna"),
                         "Cobertura: porcentagem preenchida por coluna"))
-    partes.append("### Limitações\n\n" + "\n".join(f"- {l}" for l in limitations))
+    partes.append("### Limitações\n\n" + _paragraphs(limitations))
     links = []
     if csv_url:
         links.append(f"[Baixar o resultado completo (CSV)]({csv_url})")
@@ -249,11 +352,12 @@ def tecnica(facts: Facts, motor_markdown: str, *, charts, steps, preview_table: 
 
 
 def gestor(facts: Facts, *, charts, kpis, region_table: str, planned_text: str) -> str:
-    f = money_fmt(facts)
+    f = chart_fmt(facts)
+    texto = money_fmt(facts)
     metrica = facts.metric_label
     partes = ["## Números para decisão"]
     partes.append(image(safe_chart(charts.kpi_cards, kpis, title="Como estamos?"),
-                        "Cartões: " + " · ".join(f"{k[1]} {k[0]}" for k in kpis)))
+                        "Cartões: " + "; ".join(f"{k[1]} {k[0]}" for k in kpis)))
     if facts.dimension_kind == "tempo":
         serie = facts.series()
         anomalias = [r for r, _ in facts.outliers()]
@@ -261,19 +365,22 @@ def gestor(facts: Facts, *, charts, kpis, region_table: str, planned_text: str) 
                          title="Tendência com alerta",
                          subtitle="Pontos fora da curva em laranja" if anomalias else metrica)
         partes.append(image(png, f"Tendência de {metrica}"))
+        partes.append(values_table(facts))
     elif facts.n >= 3:
         partes.append(image(safe_chart(charts.ranking, facts.values, f,
                                        title="Quem está melhor e pior?",
-                                       subtitle=f"{cap(metrica)} — 3 primeiros em roxo, "
+                                       subtitle=f"{cap(metrica)}: 3 primeiros em roxo, "
                                                 "3 últimos em laranja"),
                             f"Ranking de {metrica}"))
+        partes.append(values_table(facts, "Os valores do ranking"))
         fora = facts.outliers()
         if fora:
             partes.append(image(safe_chart(charts.alerts, facts.values, [r for r, _ in fora], f,
                                            title="Tem algo fora da curva?",
                                            subtitle="Valores muito acima ou abaixo dos demais"),
                                 "Pontos fora da curva"))
-            partes.append("**Fora da curva:** " + ", ".join(f"{r} ({f(v)})" for r, v in fora) + ".")
+            partes.append("**Fora da curva:** "
+                          + ", ".join(f"{r} ({texto(v)})" for r, v in fora) + ".")
         else:
             partes.append("**Fora da curva:** nenhum valor destoa dos demais (regra do IQR).")
     if region_table:
@@ -302,7 +409,7 @@ def report_markdown(sections: Sequence[Tuple[str, str]]) -> str:
     download (o relatório não se baixa de dentro dele), o marcador de estado,
     e o HTML do `<details>` (vira um subtítulo — no Word não há o que recolher).
     """
-    from rag.journey.text import strip_emoji
+    from rag.journey.text import plain_typography, strip_emoji
 
     partes = []
     for track_id, markdown in sections:
@@ -325,17 +432,17 @@ def report_markdown(sections: Sequence[Tuple[str, str]]) -> str:
         if track_id == "populacao":
             texto = "## Resposta\n\n" + texto
         partes.append(texto)
-    return strip_emoji("\n\n---\n\n".join(partes))
+    return plain_typography(strip_emoji("\n\n---\n\n".join(partes)))
 
 
 _ESTADO_TEXTO = {"usado": "usado nesta resposta", "catalogo": "existe no catálogo",
-                 "lacuna": "lacuna — o catálogo não tem"}
+                 "lacuna": "lacuna, o catálogo não tem"}
 
 
 def politica(facts: Facts, *, charts, stages: Sequence[Stage], complementary: Sequence[Item],
              series_png: Optional[bytes], series_text: str, series_sql: str,
              methodology: Sequence[str]) -> str:
-    f = money_fmt(facts)
+    f = chart_fmt(facts)
     partes = ["## Contexto da política"]
     if stages:
         # Embaixo de cada círculo, o ESTADO em duas palavras — nome de tabela
@@ -344,10 +451,11 @@ def politica(facts: Facts, *, charts, stages: Sequence[Stage], complementary: Se
         steps = [(s.name, s.state, rotulo[s.state]) for s in stages]
         partes.append(image(safe_chart(charts.policy_journey, steps, title="Jornada da política"),
                             "Jornada da política: lei, programa, orçamento, execução e resultado"))
-        partes.append("\n".join(
-            f"- **{s.name}** — {_ESTADO_TEXTO[s.state]}"
-            + (": " + ", ".join(f"`{t.split('.')[-1]}`" for t in s.tables[:2]) if s.tables else "")
-            for s in stages))
+        partes.append(_paragraphs([
+            f"**{s.name}:** {_ESTADO_TEXTO[s.state]}"
+            + (" (" + ", ".join(f"`{t.split('.')[-1]}`" for t in s.tables[:2]) + ")"
+               if s.tables else "") + "."
+            for s in stages]))
     partes.append("### Série histórica")
     if series_png:
         partes.append(image(series_png, "Série histórica"))
@@ -359,9 +467,9 @@ def politica(facts: Facts, *, charts, stages: Sequence[Stage], complementary: Se
                                        subtitle="Total de cada região, dividido pelas suas UFs"),
                             "Barras empilhadas por região"))
     partes.append("### Para quem? Indicadores complementares")
-    partes.append("\n".join(_complementary_line(i) for i in complementary)
+    partes.append(_paragraphs([_complementary_line(i) for i in complementary])
                   or "_Catálogo indisponível agora._")
-    partes.append("### Ressalvas de metodologia\n\n" + "\n".join(f"- {m}" for m in methodology))
+    partes.append("### Ressalvas de metodologia\n\n" + _paragraphs(methodology))
     lacunas = [s.name for s in stages if s.state == "lacuna"]
     lacunas += [i.name for i in complementary if not i.found]
     partes.append("### O que o sistema não tem\n\n" + (
@@ -381,19 +489,19 @@ def _complementary_line(item: Item) -> str:
     if item.found:
         colunas = list(dict.fromkeys(c.split(".")[-1] for c in item.columns))[:3]
         tabelas = len(item.tables)
-        return (f"- **{item.name}** — há no catálogo: "
+        return (f"**{item.name}:** há no catálogo "
                 + ", ".join(f"`{c}`" for c in colunas)
-                + f" (em {tabelas} tabela{'s' if tabelas > 1 else ''})")
-    return f"- **{item.name}** — lacuna: nenhuma coluna no catálogo"
+                + f" (em {tabelas} tabela{'s' if tabelas > 1 else ''}).")
+    return f"**{item.name}:** lacuna, nenhuma coluna no catálogo."
 
 
 def historia(facts: Facts, phrase: str, scale: Optional[Scale], *, charts,
              complementary: Sequence[Item], line_renderer=None) -> str:
     partes = ["## A história do dado"]
-    partes.append("### 1 · Quanto?\n\n" + phrase.strip())
+    partes.append("### 1. Quanto?\n\n" + phrase.strip())
     partes.append(image(safe_chart(charts.highlight, headline_text(facts), caption(facts)),
                         f"{headline_text(facts)}: {caption(facts)}"))
-    significado = ["### 2 · O que significa?"]
+    significado = ["### 2. O que significa?"]
     if scale:
         significado.append(scale.text)
     picto = _pictogram(facts, charts)
@@ -404,17 +512,17 @@ def historia(facts: Facts, phrase: str, scale: Optional[Scale], *, charts,
                            "(é uma taxa ou média)._")
     partes.append("\n\n".join(significado))
     png, alt = where_chart(facts, charts, line_renderer)
-    partes.append("### 3 · Onde?\n\n" + (image(png, alt) if png else
-                                          "_O resultado não tem recorte por lugar._"))
+    partes.append("### 3. Onde?\n\n" + (image(png, alt) + "\n\n" + values_table(facts) if png else
+                                         "_O resultado não tem recorte por lugar._"))
     achados = [i for i in complementary if i.found]
     if achados:
         quem = ("O catálogo tem recortes que ajudam a responder **para quem**:\n\n"
-                + "\n".join(_complementary_line(i) for i in achados)
+                + _paragraphs([_complementary_line(i) for i in achados])
                 + "\n\nPergunte, por exemplo, o mesmo número separado por um desses recortes.")
     else:
         quem = ("Para dizer **para quem** foi, faltam dados: o catálogo não tem raça, gênero, "
                 "emprego nem renda das pessoas atendidas. Sem dado, a história para aqui.")
-    partes.append("### 4 · Para quem?\n\n" + quem)
+    partes.append("### 4. Para quem?\n\n" + quem)
     return "\n\n".join(p for p in partes if p)
 
 

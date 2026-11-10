@@ -27,6 +27,7 @@ try:  # pragma: no cover - depende do ambiente
     from rag.journey.marker import Marker, parse
     from rag.journey.service import (JourneyService, calculation_lines, kpis, parse_phrase,
                                      planned_text, region_table, series_questions)
+    from rag.journey.service import facts_of
     from rag.journey.state import JourneyStore
 
     OK = True
@@ -130,6 +131,49 @@ def _pngs(markdown):
 
 
 @unittest.skipUnless(OK, "precisa do container (Haystack + matplotlib)")
+class TestMunicipiosDoEstado(unittest.TestCase):
+    """O botão "Ver os municípios da Bahia" detalha o MESMO SQL da resposta por UF."""
+
+    def _svc(self):
+        svc, calls, pub = _service()
+        executados = []
+        motor_original = svc.motor
+
+        def executor(sql, q, ctx):
+            executados.append(sql)
+            if "municipio" in sql:
+                return {"rows": [{"municipio": "Salvador", "total": 70.0},
+                                 {"municipio": "Feira de Santana", "total": 50.0}],
+                        "columns": ["municipio", "total"], "sql_final": sql, "exec_ok": True}
+            return {"rows": UF_ROWS, "columns": ["uf", "total"], "sql_final": sql, "exec_ok": True}
+
+        svc.executor = executor
+        svc.catalog = lambda: CatalogIndex.from_rows(
+            tables=[{"schema": "Cidades.cidades.ouro", "name": "far", "description": "x"}],
+            columns=[{"schema": "Cidades.cidades.ouro", "table": "far", "name": n}
+                     for n in ("uf", "municipio", "valor_contratado")])
+        return svc, calls, executados, motor_original
+
+    def test_detalha_no_mesmo_sql_sem_motor(self):
+        svc, calls, executados, _ = self._svc()
+        por_uf = svc.answer("Quanto foi contratado no FAR por estado?")
+        motor_antes = len(calls["motor"])
+        reply = svc.answer("Quanto foi contratado no FAR por município na Bahia?",
+                           previous_ref=por_uf.marker.ref)
+        self.assertEqual(len(calls["motor"]), motor_antes)          # nada de motor
+        self.assertEqual(executados[-1], "SELECT municipio, SUM(valor_contratado) AS total FROM "
+                                         "ouro.far WHERE uf = 'BA' GROUP BY municipio")
+        self.assertIn("R$ 120", reply.markdown)                     # = o valor da BA no mapa
+        estado = svc.store.load(reply.marker.ref)
+        self.assertEqual(facts_of(estado).dimension_kind, "municipio")
+
+    def test_sem_resposta_anterior_vai_ao_motor(self):
+        svc, calls, _, _ = self._svc()
+        svc.answer("Quanto foi contratado no FAR por município na Bahia?")
+        self.assertEqual(len(calls["motor"]), 1)
+
+
+@unittest.skipUnless(OK, "precisa do container (Haystack + matplotlib)")
 class TestPopulacaoGeral(unittest.TestCase):
     def test_resposta_padrao(self):
         svc, calls, _ = _service()
@@ -137,9 +181,16 @@ class TestPopulacaoGeral(unittest.TestCase):
         md = reply.markdown
         self.assertTrue(md.startswith("Foram contratados R$ 820 no FAR."))
         imagens = _pngs(md)
-        self.assertEqual(len(imagens), 3)  # destaque, pictograma, mapa
+        # No chat, o mapa é o interativo (linha `tais:grafico`); o PNG do mapa
+        # e a tabela de valores ficam só na seção que vai para o .docx.
+        self.assertEqual(len(imagens), 2)  # destaque, pictograma
         self.assertTrue(all(i.startswith(b"\x89PNG") for i in imagens))
-        self.assertIn("De onde veio", md)
+        self.assertIn("tais:grafico /charts/", md)
+        self.assertNotIn("Os valores do gráfico", md)
+        secao = svc.store.load(reply.marker.ref)["sections"]["populacao"]
+        self.assertEqual(len(_pngs(secao)), 3)  # + o mapa
+        self.assertIn("Os valores do gráfico", secao)
+        self.assertIn("*Fonte:", md)
         self.assertNotIn("SELECT", md)        # População geral não vê SQL
         self.assertNotIn("dados abertos", md)  # portal não configurado → oculto
         self.assertEqual(reply.marker.trilha, "populacao")
@@ -303,7 +354,7 @@ class TestTrilhas(unittest.TestCase):
     def test_historia_em_quatro_passos(self):
         svc, _, _, r = self._primeira()
         h = svc.track(tracks.HISTORIA, r.marker, "").markdown
-        for passo in ("1 · Quanto?", "2 · O que significa?", "3 · Onde?", "4 · Para quem?"):
+        for passo in ("1. Quanto?", "2. O que significa?", "3. Onde?", "4. Para quem?"):
             self.assertIn(passo, h)
         self.assertIn("Gênero", h)  # catálogo do dublê tem beneficiario_sexo
 

@@ -965,3 +965,26 @@ button[aria-label^="Follow up"]:focus-visible {
 @media (hover: none) {
   [data-tippy-root] { display: none !important; }
 }
+
+/* ------------------------------------------------------------------------
+   13. Gráfico interativo da jornada (embed)
+   ------------------------------------------------------------------------ */
+/* A Function `grafico_interativo` (webui/functions/) grava embaixo da resposta
+   do Assistente um iframe com o mapa/ranking/série em que se lê o valor exato
+   no cursor ou no toque (src/rag/journey/interactive.py).
+
+   O Open WebUI desenha os embeds ANTES do texto da mensagem: a pessoa veria um
+   mapa grande antes da frase que responde a pergunta. O bloco que contém os
+   dois vira coluna flex, e o embed desce para depois do texto. */
+div:has(> [id$="-embeds-container"]) { display: flex; flex-direction: column; }
+div:has(> [id$="-embeds-container"]) > [id$="-embeds-container"] { order: 2; }
+
+/* Com o interativo na mensagem, o PNG do mesmo gráfico some (seria o mesmo
+   desenho duas vezes). A âncora é o `alt` que o RAG escreve
+   (`render.where_chart` e `render.gestor`). Sem a Function, nada muda: o PNG
+   continua sendo o gráfico, e é ele que vai para o .docx. */
+[id^="message-"]:has([id$="-embeds-container"] iframe)
+  img:is([alt^="Mapa do Brasil"], [alt^="Mapa dos municípios"], [alt^="Série:"], [alt^="Barras:"],
+         [alt^="Ranking de"], [alt^="Tendência de"]) {
+  display: none;
+}

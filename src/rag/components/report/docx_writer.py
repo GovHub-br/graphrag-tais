@@ -225,7 +225,7 @@ def add_dictionary_table(doc: _Document, table_name: str, columns: List[dict]) -
     r0.font.color.rgb = theme.WHITE
     theme.set_run_font(r0, theme.FONT_BASE)
     add_mono_chip(h0.paragraphs[0], table_name, color=theme.WHITE, shaded=False, bold=True)
-    r1 = h1.paragraphs[0].add_run("Tipo · Chave")
+    r1 = h1.paragraphs[0].add_run("Tipo e chave")
     r1.bold = True
     r1.font.color.rgb = theme.WHITE
     theme.set_run_font(r1, theme.FONT_BASE)

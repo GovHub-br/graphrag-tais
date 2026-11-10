@@ -21,7 +21,9 @@ from hayhooks import BasePipelineWrapper, get_last_user_message
 from loguru import logger
 
 from rag.components.answer.sql_answer_builder import render_markdown
+from rag import conversation
 from rag.guardrails import guardrail_verdict
+from rag.journey.text import plain_typography
 from rag.pipelines.query.query_pipeline import build_query_pipeline
 from rag.pipelines.delivery.delivery_pipeline import build_delivery_pipeline
 from rag.settings.configs import settings
@@ -80,8 +82,22 @@ class PipelineWrapper(BasePipelineWrapper):
             return {"status": "erro", "mensagem": str(e)}
 
     def run_chat_completion(self, model: str, messages: list, body: dict) -> str:
-        """Contrato OpenAI-compat para o OpenWebUI: texto do motor + gráfico."""
+        """Contrato OpenAI-compat. A pergunta de seguimento ("e em SP?") é
+        completada com o histórico antes da pipeline (`rag.conversation`), e a
+        resposta sai sem tipografia de máquina (" · ", " — ", "- item")."""
         query = get_last_user_message(messages) or ""
+        # Guardrail na mensagem como veio, antes de gastar a reescrita; o
+        # `_chat_completion` repete na pergunta completada.
+        verdict = guardrail_verdict(query)
+        if verdict:
+            return plain_typography(verdict.message)
+        pergunta = conversation.with_context(query, messages, tag="query")
+        resposta = self._chat_completion(model, pergunta, body)
+        nota = conversation.interpreted_note(query, pergunta)
+        return plain_typography(f"{nota}\n\n{resposta}" if nota else resposta)
+
+    def _chat_completion(self, model: str, query: str, body: dict) -> str:
+        """Contrato OpenAI-compat para o OpenWebUI: texto do motor + gráfico."""
         logger.info(">>> [query/chat] model={} '{}...'", model, query[:60])
         if not query.strip():
             return "Envie uma pergunta sobre os dados para eu gerar o SQL."

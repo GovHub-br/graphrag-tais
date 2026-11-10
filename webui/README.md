@@ -13,6 +13,7 @@ webui/
 ├── Dockerfile     → imagem GovHub = Open WebUI oficial + os arquivos abaixo
 ├── custom.css     → /static/custom.css   (link no <head>, CSS livre)
 ├── loader.js      → /static/loader.js    (script defer: tema fixo + INTRO da marca)
+├── functions/     → Functions do Open WebUI (instaladas no banco pelo setup, não copiadas)
 └── assets/        → ícone, favicon, splash e avatares dos modelos
 ```
 
@@ -89,6 +90,29 @@ assim passa de 128 KB e o Open WebUI recusa a linha de stream (`Got more than
 
 Ao subir de versão do Open WebUI, confira se o `aria-label` e a estrutura
 `.mt-4 > .text-sm + .flex-col` do componente de follow-ups continuam iguais.
+
+## Gráfico interativo (Function `grafico_interativo`)
+
+`functions/grafico_interativo.py` é uma Function de **filtro** do Open WebUI, não
+um arquivo estático: ela vive no BANCO do Open WebUI e é instalada (e mantida
+ativa e global) pelo `scripts/setup_webui_models.sh`. No fim de cada resposta,
+ela procura a linha escondida `[//]: # (tais:grafico /charts/…)` que o
+Assistente deixa quando há mapa, ranking ou série, busca o HTML no RAG e o
+grava na mensagem como **embed** (iframe com `allow-scripts`). Nesse HTML, a
+pessoa passa o mouse ou toca para ler o valor exato.
+
+- `GRAFICO_RAG_URL` = o RAG visto de DENTRO do container do Open WebUI:
+  `http://hayhooks:8000` no compose local, `http://hayhooks-mcid:8000` na VM.
+- O Open WebUI desenha os embeds ANTES do texto. A seção 13 do `custom.css`
+  manda o embed para depois do texto e esconde o PNG do mesmo gráfico quando o
+  embed existe. Sem a Function, nada muda: o PNG continua sendo o gráfico.
+- O embed fica gravado na conversa. Reabrir a conversa não depende mais do RAG.
+- Só funciona pelo navegador: é o frontend que chama o `outlet` ao fim da
+  resposta. Pela API, a resposta segue sem mapa no chat (o PNG fica no .docx).
+- No mapa por UF, o toque num estado abre um painel com o botão "Ver os
+  municípios de …". Ele manda a pergunta ao chat com `postMessage({type:
+  "input:prompt:submit"})`, e o Open WebUI pede confirmação antes de enviar
+  (é o comportamento dele para embed de outra origem).
 
 ## A intro
 

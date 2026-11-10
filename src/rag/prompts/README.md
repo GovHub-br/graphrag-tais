@@ -18,6 +18,8 @@ carrega com `prompts.load("<nome>")` (cru) ou `prompts.render("<nome>", **vars)`
 | `explore_user.md` | `pipelines/explore` (P1) | **template Jinja**: domínios + tabelas recuperadas + JOINs + pergunta |
 | `jornada_frase_system.md` | `pipelines/jornada` (ADR-0020) | frase da População geral + legenda do número, em JSON. Recebe o número **já formatado**; o serviço descarta a frase que não o contém e a legenda com dígito |
 | `jornada_frase_user.md` | `pipelines/jornada` (ADR-0020) | `str.format`: pergunta + número + nome técnico da métrica + resumo compacto |
+| `conversa_reescrita_system.md` | `rag/conversation.py` (os três wrappers) | reescreve a pergunta de seguimento ("e em SP?") como pergunta completa, a partir do histórico; JSON `{"pergunta"}`. Só roda quando há histórico |
+| `conversa_reescrita_user.md` | `rag/conversation.py` | `str.format`: histórico resumido (perguntas + 1ª frase das respostas) + nova mensagem |
 
 **Guardrails (ADR-0016).** `query_system`, `explore_system` e
 `result_summary_system` carregam um bloco de **RECUSAS**: não gerar SQL que
