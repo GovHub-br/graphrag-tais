@@ -29,7 +29,6 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import truth as truth_mod
 from .metrics import aggregate, phrase_numbers_outside, score_case
 
 _IMG = re.compile(r"!\[([^\]]*)\]\(data:image/png;base64,([A-Za-z0-9+/=]+)\)")
@@ -167,10 +166,6 @@ def collect(dataset_path: str, output_dir: str, only: list[str] | None = None) -
 
         resultado = {**case, "turns": turnos}
         resultado["score"] = score_case(case, turnos)
-        if case.get("truth"):
-            resultado["truth_result"] = _truth(case["truth"], turnos[0], service)
-            print(f'    gabarito: {resultado["truth_result"]["verdict"]} '
-                  f'({resultado["truth_result"]["owner"]}) {resultado["truth_result"]["hint"]}', flush=True)
         casos.append(resultado)
         _transcript(out_dir, resultado)
 
@@ -181,7 +176,6 @@ def collect(dataset_path: str, output_dir: str, only: list[str] | None = None) -
         "summary": aggregate(casos), "cases": casos,
     }
     (out_dir / "run.json").write_text(json.dumps(run, ensure_ascii=False, indent=2), encoding="utf-8")
-    truth_mod.write_table(casos, out_dir)
     return run
 
 
@@ -201,90 +195,9 @@ def _state_view(service, render, ref: str, kind: str) -> dict:
         phrase = state.get("phrase", "")
         view.update({"headline": headline, "label": state.get("label", ""), "phrase": phrase,
                      "digest": digest, "dimension_kind": f.dimension_kind, "facts_n": f.n,
-                     # O número CRU (já na unidade base): é o que se compara ao banco.
-                     "headline_raw": f.headline, "headline_kind": f.headline_kind,
-                     "values_raw": [[str(k), float(v)] for k, v in f.values][:300],
                      "phrase_numbers_outside": phrase_numbers_outside(
                          phrase, headline + " " + digest + " " + state.get("question", ""))})
     return view
-
-
-_EXECUTOR = None
-
-
-def _run_sql(sql: str) -> dict:
-    """SQL do gabarito, direto no banco (sem LLM, sem autocorreção)."""
-    global _EXECUTOR
-    from rag.components.executors.mcp_sql_executor import McpSqlExecutor
-
-    if _EXECUTOR is None:
-        _EXECUTOR = McpSqlExecutor(direct_only=True)
-        _EXECUTOR.max_rows = 100000
-    r = _EXECUTOR.run(sql=sql)
-    return {"rows": r["rows"], "error": r["error"]}
-
-
-def _catalog_has(tables: list) -> dict:
-    """Quais tabelas do gabarito o catálogo do escopo conhece (Neo4j)."""
-    if not tables:
-        return {}
-    from neo4j import GraphDatabase
-
-    from rag.settings.configs import settings as s
-
-    d = GraphDatabase.driver(s.NEO4J_URL, auth=(s.NEO4J_USERNAME, s.NEO4J_PASSWORD))
-    try:
-        with d.session(database=s.NEO4J_DATABASE) as ss:
-            achadas = {r["n"] for r in ss.run(
-                "MATCH (t)-[:HAS_COLUMN]->() WHERE t.name IN $ts RETURN DISTINCT t.name AS n", ts=tables)}
-    finally:
-        d.close()
-    return {t: t in achadas for t in tables}
-
-
-def _truth(spec: dict, t0: dict, service) -> dict:
-    """Roda o gabarito no banco real e compara com o que o sistema mostrou."""
-    from rag.journey import ibge
-
-    base = _run_sql(spec["sql"])
-    alternativas = []
-    for alt in spec.get("alternatives", []):
-        r = _run_sql(alt["sql"])
-        alternativas.append((alt["name"], truth_mod.headline_from_rows(r["rows"], alt.get("headline", "total"))))
-    checks = []
-    for chk in spec.get("data_checks", []):
-        r = _run_sql(chk["sql"])
-        item = truth_mod.check_data(chk, r["rows"])
-        if r["error"]:
-            item.update(ok=False, means=f'checagem não rodou: {r["error"][:150]}')
-        checks.append(item)
-    sistema = {"reached": t0.get("status") == "ok" and bool(t0.get("exec_ok")),
-               "headline": t0.get("headline_raw"), "headline_kind": t0.get("headline_kind", ""),
-               "values": t0.get("values_raw") or []}
-    out = truth_mod.compare(spec, base["rows"], sistema, alternativas, uf_resolver=ibge.resolve)
-    catalogo = _catalog_has(spec.get("catalog_tables", []))
-    # Tabela que o SQL do SISTEMA usou e que o banco não tem: o catálogo
-    # prometeu algo que não existe (defeito de catálogo, não do modelo).
-    usadas = sorted({f"{a}.{b}" for a, b in re.findall(r"\b(ouro|prata|bronze)\.(\w+)", t0.get("sql") or "")})
-    fantasmas = []
-    if usadas:
-        lista = ", ".join(f"'{u}'" for u in usadas)
-        r = _run_sql("SELECT table_schema||'.'||table_name AS t FROM information_schema.tables "
-                     f"WHERE table_schema||'.'||table_name IN ({lista})")
-        existem = {x["t"] for x in r["rows"]}
-        fantasmas = [u for u in usadas if u not in existem]
-    out.update({
-        "system_tables": usadas, "system_tables_missing_in_db": fantasmas,
-        "truth_sql": spec["sql"], "truth_error": base["error"][:300], "truth_rows": len(base["rows"]),
-        "expected_snapshot": spec.get("expected_snapshot"),
-        "alternatives": [{"name": n, "value": v} for n, v in alternativas],
-        "data_checks": checks, "catalog": catalogo,
-        "catalog_missing": [t for t, ok in catalogo.items() if not ok],
-        "system_sql": t0.get("sql", ""), "system_headline_text": t0.get("headline", ""),
-        "note": spec.get("note", ""),
-    })
-    out["owner"] = truth_mod.owner(out)
-    return out
 
 
 def _settings_snapshot() -> dict:
@@ -300,18 +213,6 @@ def _transcript(out_dir: Path, case: dict) -> None:
     linhas = [f'# {case["id"]}', "", f'**Pergunta:** {case["question"]}', "",
               f'Esperado: rota `{case["expected_route"]}`, desfecho `{case["expected_outcome"]}`',
               "", "```json", json.dumps(case["score"], ensure_ascii=False, indent=2), "```", ""]
-    tr = case.get("truth_result")
-    if tr:
-        linhas += ["## Gabarito (banco real) × sistema", "",
-                   f'- veredito: **{tr["verdict"]}** — dono provável: **{tr["owner"]}** {tr["hint"]}',
-                   f'- esperado (banco): `{tr["expected"]}` ({tr["expected_kind"]}) · recebido: '
-                   f'`{tr["received"]}` ({tr["received_kind"]}) → "{tr["system_headline_text"]}"',
-                   f'- catálogo: {tr["catalog"]}', ""]
-        if tr.get("keys"):
-            linhas += [f'- por chave: {json.dumps(tr["keys"], ensure_ascii=False)}', ""]
-        for c in tr["data_checks"]:
-            linhas.append(f'- dado · {c["name"]}: {"ok" if c["ok"] else "FALHA"} (v={c["value"]}) {c["means"]}')
-        linhas += ["", "SQL do gabarito:", "```sql", tr["truth_sql"], "```", ""]
     for t in case["turns"]:
         linhas += [f'---\n\n## Turno {t["n"]} — {t["kind"]}: “{t["input"]}”', "",
                    f'{t["latency_s"]}s · {t["bytes"] // 1024} KB · {len(t["images"])} imagem(ns) · '
