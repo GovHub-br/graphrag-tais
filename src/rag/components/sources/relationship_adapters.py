@@ -40,7 +40,6 @@ class MCDMarkdownRelationshipAdapter:
     contra as 408 tabelas anotadas do MinC, 703 linhas, zero malformadas.
     """
 
-    CATALOG_ID = "mcid-semantic-relationships"
     _HEADER = re.compile(
         r"Catálogo `(?P<catalog>[^`]+)`, evidência agregada de "
         r"`(?P<snapshot>[^`]+)`\."
@@ -65,24 +64,43 @@ class MCDMarkdownRelationshipAdapter:
         self,
         markdown_property: str,
         related_tables_property: str,
-        catalog_id: str | None = None,
+        catalog_id: str,
         eligible_join_rules: str = "exact",
         source_kind: str | None = None,
+        lineage_only_markers: str = "",
     ) -> None:
         self.markdown_property = markdown_property
         self.related_tables_property = related_tables_property
         # O identificador do catálogo é o que separa um escopo do outro; sem
         # parametrizar, o MinC bate no `Contrato Markdown desconhecido`.
-        self.catalog_id = catalog_id or self.CATALOG_ID
+        if not (catalog_id or "").strip():
+            raise ValueError("catalog_id é obrigatório: é ele que separa um escopo do outro")
+        self.catalog_id = catalog_id.strip()
         # Procedência da aresta no grafo. Sem isto, relação do MinC era gravada
         # como `mcid_markdown_v1` — rótulo errado num grafo que pode ter os dois
         # escopos ao mesmo tempo.
-        self.source_kind = source_kind or "mcid_markdown_v1"
+        self.source_kind = source_kind or "markdown_v1"
         self.eligible_join_rules = {
             rule.strip().lower()
             for rule in eligible_join_rules.split(",")
             if rule.strip()
         }
+        # Prosa de LINHAGEM que um processo do escopo publica na mesma
+        # propriedade quando a tabela não tem relação medida (no MCid, o sync
+        # de governança do dbt: ~220 de 253 tabelas de prata+ouro, out/2026).
+        # Linhagem diz quem deriva de quem, não por qual coluna cruzar — então
+        # não vira aresta, mas também não é contrato desconhecido. Os
+        # marcadores vêm do escopo (OM_LINEAGE_ONLY_MARKERS); sem eles, nada é
+        # tolerado. Reconhecimento POSITIVO pela abertura: qualquer outra
+        # gramática continua abortando.
+        markers = [m.strip() for m in (lineage_only_markers or "").split(",") if m.strip()]
+        self._lineage_only = (
+            re.compile(
+                r"^\s*\*\*(?:" + "|".join(re.escape(m) for m in markers) + r"):\*\*"
+            )
+            if markers
+            else None
+        )
 
     @staticmethod
     def _type_family(data_type: str) -> str:
@@ -186,6 +204,8 @@ class MCDMarkdownRelationshipAdapter:
             "semantic_relationships_out_of_scope": 0,
             "semantic_candidates_skipped": 0,
             "semantic_relationships_deduplicated": 0,
+            "semantic_lineage_only_tables": 0,
+            "semantic_relationships_unconfirmed": 0,
         }
 
         for table in tables:
@@ -198,6 +218,9 @@ class MCDMarkdownRelationshipAdapter:
                 continue
 
             header = self._HEADER.search(markdown)
+            if not header and self._lineage_only and self._lineage_only.match(markdown):
+                stats["semantic_lineage_only_tables"] += 1
+                continue
             if not header or header.group("catalog") != self.catalog_id:
                 raise ValueError(
                     f"Contrato Markdown desconhecido em {table_fqn}"
@@ -278,11 +301,20 @@ class MCDMarkdownRelationshipAdapter:
                         f"Relação publicada em tabela que não é uma ponta: {table_fqn}"
                     )
                 other_table = target_table if table_fqn == source_table else source_table
+                # As duas propriedades podem ser publicadas por processos
+                # diferentes (MCid, out/2026: relações avulsas de setembro, lista
+                # de tabelas reescrita depois pelo sync do dbt). Divergência é
+                # catálogo inconsistente: a aresta não confirmada fica de FORA,
+                # mas não derruba a ingestão das outras.
                 if other_table not in related_table_fqns:
-                    raise ValueError(
-                        f"{self.related_tables_property} não confirma {other_table} "
-                        f"em {table_fqn}"
+                    stats["semantic_relationships_unconfirmed"] += 1
+                    logger.warning(
+                        "{} não confirma {} em {}; relação ignorada",
+                        self.related_tables_property,
+                        other_table,
+                        table_fqn,
                     )
+                    continue
 
                 join_rule = match.group("join_rule")
                 normalized_join_rule = join_rule.strip().lower()
@@ -395,10 +427,16 @@ def build_relationship_adapter(
     related_tables_property: str,
     eligible_join_rules: str = "exact",
     catalog_id: str = "",
+    lineage_only_markers: str = "",
 ) -> RelationshipSourceAdapter | None:
     normalized = (name or "").strip().lower()
     if normalized in {"", "none", "disabled"}:
         return None
+    if not (markdown_property or "").strip() or not (related_tables_property or "").strip():
+        raise ValueError(
+            f"OM_RELATIONSHIP_ADAPTER={name!r} exige OM_SEMANTIC_RELATIONSHIPS_PROPERTY "
+            "e OM_RELATED_TABLES_PROPERTY"
+        )
     resolvido = (catalog_id or "").strip() or _catalog_id_por_convencao(normalized)
     if not resolvido:
         raise ValueError(
@@ -411,4 +449,5 @@ def build_relationship_adapter(
         catalog_id=resolvido,
         eligible_join_rules=eligible_join_rules,
         source_kind=normalized,
+        lineage_only_markers=lineage_only_markers,
     )

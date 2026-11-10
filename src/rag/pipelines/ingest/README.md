@@ -195,8 +195,20 @@ Regras que o adapter impõe — todas viram **erro**, nunca aviso silencioso:
 - **“Relação candidata” é ignorada** (contada em `semantic_candidates_skipped`) — candidata não vira aresta;
 - as duas pontas precisam existir no snapshot (logo, **os dois schemas precisam estar em `OM_SCHEMAS`**);
 - a tabela que publica a relação precisa ser uma das pontas;
-- a contraparte precisa aparecer em `mcidRelatedTables`;
 - duas publicações divergentes da mesma relação = erro; iguais = dedup.
+
+Duas exceções contadas, que **não** abortam:
+
+- propriedade que só traz **prosa de linhagem** não é contrato de join: conta
+  em `semantic_lineage_only_tables` e segue. O formato é do ESCOPO, então os
+  marcadores de abertura vêm de `OM_LINEAGE_ONLY_MARKERS` (no MCid,
+  `Lê de,É lido por,Granularidade temporal`, escritos pelo
+  `sincronizar_governanca.py` do repositório de cidades). Vazio = nenhuma
+  tolerância; qualquer outra gramática sem o cabeçalho continua abortando;
+- relação cuja contraparte a `mcidRelatedTables` **não confirma** fica de
+  fora e conta em `semantic_relationships_unconfirmed` — é catálogo
+  inconsistente (as duas propriedades escritas por processos diferentes), e
+  uma aresta duvidosa não deve derrubar as outras.
 
 `sql_join_eligible` só é `true` quando `JOIN` é `exact`. Regras que exigem
 normalização entram no grafo, mas **nunca** são oferecidas ao LLM como JOIN
@@ -216,6 +228,9 @@ autorizado.
 | `OM_SERVICE`, `OM_DATABASE` | service e database permitidos |
 | `OM_SCHEMAS` | **allowlist** de FQNs `Service.database.schema`, separados por vírgula |
 | `OM_REQUIRE_DOCUMENTED_TABLES` | aceita só tabelas com a Custom Property documental |
+| `OM_LINEAGE_ONLY_MARKERS` | marcadores, separados por vírgula, da prosa de linhagem tolerada na propriedade de relações (ver acima); vazio = contrato estrito |
+| `OM_EXTENSION_OVERRIDES_FILE` | **só dev**: JSON `{fqn: {propriedade: valor}}` sobreposto à `extension` do OM, para medir um catálogo de relações gerado localmente sem publicá-lo. Lido no boot: trocou o arquivo, reinicie o hayhooks. Conta em `extension_overrides_applied` |
+| `OM_CARD_PRODUCT_LINE` | `off` (default) \| `label` \| `full`: acrescenta a linha `Produto:` (Data Product do OM) ao card v2; `full` põe também a descrição do produto no card de tabela. Muda o texto embedado → reingestão + gate. O produto vai **sempre** para o payload (`meta.data_product`, `data_product_label`) e para o nó `Table` (`data_product`, `data_product_label`, `data_product_description`), com ou sem a linha |
 | `OM_RELATIONSHIP_ADAPTER` | `mcid_markdown_v1`, `minc_markdown_v1` ou `none`/vazio para desligar |
 | `OM_SQL_ELIGIBLE_JOIN_RULES` | `join_rule` autorizadas para igualdade SQL direta, separadas por vírgula; default `exact` |
 | `OM_TABLE_GRAIN_PROPERTY` | Custom Property textual com o grão medido; vazio mantém apenas o fallback `OM_GRAIN_KEYS` |

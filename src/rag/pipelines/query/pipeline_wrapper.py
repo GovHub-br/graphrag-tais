@@ -55,6 +55,11 @@ class PipelineWrapper(BasePipelineWrapper):
         # Com rerank ligado, o corte do top-k migra do híbrido para o reranker.
         if "reranker" in self.pipeline.graph.nodes:
             inputs["reranker"] = {"query": query, "top_k": top_k}
+        # Idem com o roteamento por produto, quando não há rerank depois dele.
+        if "product_router" in self.pipeline.graph.nodes:
+            inputs["product_router"] = {"query": query}
+            if "reranker" not in self.pipeline.graph.nodes:
+                inputs["product_router"]["top_k"] = top_k
         return self.pipeline.run(inputs, include_outputs_from=_MOTOR_OUTPUTS)
 
     def run_api(self, query: str, top_k: int = 5) -> dict:

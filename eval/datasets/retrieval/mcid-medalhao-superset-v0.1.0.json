@@ -1,0 +1,4209 @@
+{
+ "schema_version": "1",
+ "name": "mcid-medalhao-superset-retrieval",
+ "version": "0.1.0",
+ "status": "draft",
+ "metadata": {
+  "scope_id": "mcid",
+  "language": "pt-BR",
+  "review_status": "pending_domain_review",
+  "escopo_ingestao": [
+   "Cidades.cidades.prata",
+   "Cidades.cidades.ouro"
+  ],
+  "derivado_de": "charts do Superset de produção (govhub.mcid.lablivre.rocks), lidos via MCP em 2026-11-02, somente leitura",
+  "description": "Casos derivados dos charts 'tier A' do Superset: tabela do catálogo prata/ouro, agregação simples, filtros simples, sem dataset virtual. A pergunta é redação do assistente a partir do SQL e da descrição do chart (não do título); o SQL de referência vai em metadata.reference_sql. Todos mono-tabela: testam semente, colunas e agregação, não o grafo. Complementa o gold de negócio. Casos com slice needs_review podem depender de filtro de dashboard. Diagnóstico, não gate, até revisão de domínio."
+ },
+ "cases": [
+  {
+   "id": "superset-far-535",
+   "question": "Quantos contratos de famílias beneficiárias do FAR foram assinados por ano, separando pela geração do programa?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "far",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "time_series",
+    "needs_review"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_far_beneficiario_contrato": 3,
+    "Cidades.cidades.ouro.ouro_far_beneficiario_contrato.ano_assinatura": 2,
+    "Cidades.cidades.ouro.ouro_far_beneficiario_contrato.geracao": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-535",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_beneficiario_contrato",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_beneficiario_contrato.ano_assinatura",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_beneficiario_contrato.geracao",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "57efbcde4a24d6f1544a359e8b4b02065c66129441e45cd1baddebbbdb3034c1",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_beneficiario_contrato",
+       "target": "Cidades.cidades.ouro.ouro_far_beneficiario_contrato.ano_assinatura",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "b998432e1273cad7b4cf83a8df8bf856078b0d1d7fa7b987cdc71a529f494353",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_beneficiario_contrato",
+       "target": "Cidades.cidades.ouro.ouro_far_beneficiario_contrato.geracao",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 535,
+     "titulo": "FAR ▸ Contratos de famílias por ano de assinatura",
+     "viz": "echarts_timeseries_bar",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=535"
+    },
+    "reference_sql": "SELECT ano_assinatura, geracao, COUNT(*) AS \"Contratos\" FROM ouro.ouro_far_beneficiario_contrato GROUP BY ano_assinatura, geracao ORDER BY ano_assinatura, geracao",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Outros charts desta tabela filtram por ['estado_civil', 'faixa_renda', 'geracao', 'sexo_responsavel']: pode haver linhas de total ou formato longo; conferir se o SQL de referência precisa do mesmo filtro (no Superset ele pode vir do filtro do dashboard, que o chart não guarda).",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-far-527",
+   "question": "Quantos contratos de famílias beneficiárias o FAR tem no total?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "far",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "single_value",
+    "needs_review"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_far_beneficiario_contrato": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-527",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_beneficiario_contrato",
+       "type": "Table"
+      }
+     ],
+     "relationships": []
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 527,
+     "titulo": "FAR ▸ Contratos de famílias",
+     "viz": "big_number_total",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=527"
+    },
+    "reference_sql": "SELECT COUNT(*) AS \"Contratos\" FROM ouro.ouro_far_beneficiario_contrato",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Outros charts desta tabela filtram por ['estado_civil', 'faixa_renda', 'geracao', 'sexo_responsavel']: pode haver linhas de total ou formato longo; conferir se o SQL de referência precisa do mesmo filtro (no Superset ele pode vir do filtro do dashboard, que o chart não guarda).",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-far-576",
+   "question": "Qual o valor das contrapartidas pactuadas no FAR por ente e por tipo de contrapartida?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "far",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "needs_review"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_far_contrapartida": 3,
+    "Cidades.cidades.ouro.ouro_far_contrapartida.valor": 3,
+    "Cidades.cidades.ouro.ouro_far_contrapartida.ente": 2,
+    "Cidades.cidades.ouro.ouro_far_contrapartida.tipo": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-576",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_contrapartida",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_contrapartida.valor",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_contrapartida.ente",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_contrapartida.tipo",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "bdf569da04de7d5ed4c3038ebcde3256c66c74ccd105550c449a9a2c44434574",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_contrapartida",
+       "target": "Cidades.cidades.ouro.ouro_far_contrapartida.valor",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "9d6d107e92322ee7abc266ef911c45cc995337348eda06e57420f8879dda61af",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_contrapartida",
+       "target": "Cidades.cidades.ouro.ouro_far_contrapartida.ente",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "12f07c360a9356ae8c6987811825ad55465a3ba68a0d9426808de28941560bca",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_contrapartida",
+       "target": "Cidades.cidades.ouro.ouro_far_contrapartida.tipo",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 576,
+     "titulo": "FAR ▸ Contrapartidas por ente e tipo",
+     "viz": "echarts_timeseries_bar",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=576"
+    },
+    "reference_sql": "SELECT ente, tipo, SUM(valor) AS \"Valor pactuado\" FROM ouro.ouro_far_contrapartida GROUP BY ente, tipo ORDER BY ente, tipo",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Outros charts desta tabela filtram por ['ente']: pode haver linhas de total ou formato longo; conferir se o SQL de referência precisa do mesmo filtro (no Superset ele pode vir do filtro do dashboard, que o chart não guarda).",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-far-572",
+   "question": "Qual o valor total das contrapartidas pactuadas nos empreendimentos do FAR?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "far",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "single_value",
+    "needs_review"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_far_contrapartida": 3,
+    "Cidades.cidades.ouro.ouro_far_contrapartida.valor": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-572",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_contrapartida",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_contrapartida.valor",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "bdf569da04de7d5ed4c3038ebcde3256c66c74ccd105550c449a9a2c44434574",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_contrapartida",
+       "target": "Cidades.cidades.ouro.ouro_far_contrapartida.valor",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 572,
+     "titulo": "FAR ▸ Contrapartidas pactuadas",
+     "viz": "big_number_total",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=572"
+    },
+    "reference_sql": "SELECT SUM(valor) AS \"Valor\" FROM ouro.ouro_far_contrapartida",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Outros charts desta tabela filtram por ['ente']: pode haver linhas de total ou formato longo; conferir se o SQL de referência precisa do mesmo filtro (no Superset ele pode vir do filtro do dashboard, que o chart não guarda).",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-far-560",
+   "question": "Quantos empreendimentos do FAR existem por tipo de edificação e tipo de empreendimento?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "far",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "needs_review"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_far_empreendimento_perguntas": 3,
+    "Cidades.cidades.ouro.ouro_far_empreendimento_perguntas.tipo_edificacao": 2,
+    "Cidades.cidades.ouro.ouro_far_empreendimento_perguntas.tipo_empreendimento": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-560",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_empreendimento_perguntas",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_empreendimento_perguntas.tipo_edificacao",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_empreendimento_perguntas.tipo_empreendimento",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "f6aea08442502178fa0b5d6b11bdf57136a8b2f9d272a6864773955e495b8236",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_empreendimento_perguntas",
+       "target": "Cidades.cidades.ouro.ouro_far_empreendimento_perguntas.tipo_edificacao",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "8379fbc26f1c617ef7b03b0cf64ff10f7bdfd114039249ccf46fb4e58cf2b4e1",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_empreendimento_perguntas",
+       "target": "Cidades.cidades.ouro.ouro_far_empreendimento_perguntas.tipo_empreendimento",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 560,
+     "titulo": "FAR ▸ Tipo de edificação e de empreendimento",
+     "viz": "echarts_timeseries_bar",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=560"
+    },
+    "reference_sql": "SELECT tipo_edificacao, tipo_empreendimento, COUNT(*) AS \"Empreendimentos\" FROM ouro.ouro_far_empreendimento_perguntas GROUP BY tipo_edificacao, tipo_empreendimento ORDER BY tipo_edificacao, tipo_empreendimento",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Outros charts desta tabela filtram por ['alerta_execucao']: pode haver linhas de total ou formato longo; conferir se o SQL de referência precisa do mesmo filtro (no Superset ele pode vir do filtro do dashboard, que o chart não guarda).",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-far-529",
+   "question": "Quantos empreendimentos do FAR foram contratados no Novo MCMV?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "far",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "single_value",
+    "needs_review"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_far_empreendimento_perguntas": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-529",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_empreendimento_perguntas",
+       "type": "Table"
+      }
+     ],
+     "relationships": []
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 529,
+     "titulo": "FAR ▸ Empreendimentos do Novo MCMV contratados",
+     "viz": "big_number_total",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=529"
+    },
+    "reference_sql": "SELECT COUNT(*) AS \"Empreendimentos\" FROM ouro.ouro_far_empreendimento_perguntas",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Outros charts desta tabela filtram por ['alerta_execucao']: pode haver linhas de total ou formato longo; conferir se o SQL de referência precisa do mesmo filtro (no Superset ele pode vir do filtro do dashboard, que o chart não guarda).",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-far-354",
+   "question": "Quantos empreendimentos do FAR estão em cada situação?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "far",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_far_ficha_empreendimento": 3,
+    "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.apf": 3,
+    "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.situacao_empreendimento": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-354",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.apf",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.situacao_empreendimento",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "be517d92ddf117ec4e59370e7feaab69c6eaa9fb0ece12500245abcf10cd4c03",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.apf",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "6372aef8d0836c6952460dfcaac8aa7ef0c9a72522640107fbd3c322c758e295",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_far_ficha_empreendimento.situacao_empreendimento",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 354,
+     "titulo": "FAR Executivo — Situação dos Empreendimentos",
+     "viz": "pie",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=354"
+    },
+    "reference_sql": "SELECT situacao_empreendimento, COUNT(apf) AS \"Empreendimentos\" FROM ouro.ouro_far_ficha_empreendimento GROUP BY situacao_empreendimento ORDER BY situacao_empreendimento",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-far-64",
+   "question": "Quantas unidades habitacionais do FAR existem em cada UF?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "far",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "geo",
+    "needs_review"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_far_mapa_nacional": 3,
+    "Cidades.cidades.ouro.ouro_far_mapa_nacional.total_uhs": 3,
+    "Cidades.cidades.ouro.ouro_far_mapa_nacional.iso_3166_2": 2,
+    "Cidades.cidades.ouro.ouro_far_mapa_nacional.nivel": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-64",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_mapa_nacional",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_mapa_nacional.total_uhs",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_mapa_nacional.iso_3166_2",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_mapa_nacional.nivel",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "aa55c14f38a39386814981ac12289ce76eae67c516e8509b3df3808db72399d0",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_mapa_nacional",
+       "target": "Cidades.cidades.ouro.ouro_far_mapa_nacional.total_uhs",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "fa5d20a6e5fc22738ae4573e508d6ffeb60edd19f0928427c78215aad67e40b0",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_mapa_nacional",
+       "target": "Cidades.cidades.ouro.ouro_far_mapa_nacional.iso_3166_2",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "9f2f30e8bd78e7cccc790073fda6b777d93d367acb064e0c7243ccfa116b8b91",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_mapa_nacional",
+       "target": "Cidades.cidades.ouro.ouro_far_mapa_nacional.nivel",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 64,
+     "titulo": "Mapa de UHs por UF",
+     "viz": "country_map",
+     "dashboards": [
+      3
+     ],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=64"
+    },
+    "reference_sql": "SELECT iso_3166_2, SUM(total_uhs) AS \"SUM(total_uhs)\" FROM ouro.ouro_far_mapa_nacional WHERE nivel = 'uf' GROUP BY iso_3166_2 ORDER BY iso_3166_2",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Outros charts desta tabela filtram por ['portaria']: pode haver linhas de total ou formato longo; conferir se o SQL de referência precisa do mesmo filtro (no Superset ele pode vir do filtro do dashboard, que o chart não guarda).",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-far-355",
+   "question": "Quantas unidades habitacionais o FAR contratou no total, somando todas as portarias?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "far",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "single_value"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_far_mapa_nacional": 3,
+    "Cidades.cidades.ouro.ouro_far_mapa_nacional.total_uhs": 3,
+    "Cidades.cidades.ouro.ouro_far_mapa_nacional.nivel": 2,
+    "Cidades.cidades.ouro.ouro_far_mapa_nacional.portaria": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-355",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_mapa_nacional",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_mapa_nacional.total_uhs",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_mapa_nacional.nivel",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_mapa_nacional.portaria",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "aa55c14f38a39386814981ac12289ce76eae67c516e8509b3df3808db72399d0",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_mapa_nacional",
+       "target": "Cidades.cidades.ouro.ouro_far_mapa_nacional.total_uhs",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "9f2f30e8bd78e7cccc790073fda6b777d93d367acb064e0c7243ccfa116b8b91",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_mapa_nacional",
+       "target": "Cidades.cidades.ouro.ouro_far_mapa_nacional.nivel",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "d982b545dec5d57d65ff0534e34ed649a4b3e826bb4da8dfc3d1da8ad5f3e7f5",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_mapa_nacional",
+       "target": "Cidades.cidades.ouro.ouro_far_mapa_nacional.portaria",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 355,
+     "titulo": "FAR Executivo — UHs Contratadas",
+     "viz": "big_number_total",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=355"
+    },
+    "reference_sql": "SELECT SUM(total_uhs) AS \"UHs Contratadas\" FROM ouro.ouro_far_mapa_nacional WHERE nivel = 'uf' AND portaria = 'Todas as portarias'",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-far-53",
+   "question": "Quantas unidades habitacionais do FAR foram selecionadas por cada método de seleção?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "far",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "needs_review"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_far_panorama_estadual": 3,
+    "Cidades.cidades.ouro.ouro_far_panorama_estadual.qtd_uhs": 3,
+    "Cidades.cidades.ouro.ouro_far_panorama_estadual.dimensao": 2,
+    "Cidades.cidades.ouro.ouro_far_panorama_estadual.secao": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-53",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_panorama_estadual",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_panorama_estadual.qtd_uhs",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_panorama_estadual.dimensao",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_panorama_estadual.secao",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "1ed6faf4acda241a1909296e7252d4ab5e326a37bc5dab622c924a27575a6634",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_panorama_estadual",
+       "target": "Cidades.cidades.ouro.ouro_far_panorama_estadual.qtd_uhs",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "40faa9adee4d20b5f5eeebb60f37b16ba0835d62cd8cab58041bab85e1a6cf91",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_panorama_estadual",
+       "target": "Cidades.cidades.ouro.ouro_far_panorama_estadual.dimensao",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "86f7cdb0f0fc26f2fa5da7a221f68bc7ed895be9bab94cc2853ce92380b12a72",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_panorama_estadual",
+       "target": "Cidades.cidades.ouro.ouro_far_panorama_estadual.secao",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 53,
+     "titulo": "Seleção",
+     "viz": "echarts_timeseries_bar",
+     "dashboards": [
+      3
+     ],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=53"
+    },
+    "reference_sql": "SELECT dimensao, SUM(qtd_uhs) AS \"UHs\" FROM ouro.ouro_far_panorama_estadual WHERE secao = 'metodo' GROUP BY dimensao ORDER BY dimensao",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Outros charts desta tabela filtram por ['municipio', 'portaria']: pode haver linhas de total ou formato longo; conferir se o SQL de referência precisa do mesmo filtro (no Superset ele pode vir do filtro do dashboard, que o chart não guarda).",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-far-54",
+   "question": "Quantas unidades habitacionais do FAR existem por portaria de seleção e enquadramento?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "far",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "needs_review"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_far_panorama_estadual": 3,
+    "Cidades.cidades.ouro.ouro_far_panorama_estadual.qtd_uhs": 3,
+    "Cidades.cidades.ouro.ouro_far_panorama_estadual.dimensao": 2,
+    "Cidades.cidades.ouro.ouro_far_panorama_estadual.secao": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-54",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_panorama_estadual",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_panorama_estadual.qtd_uhs",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_panorama_estadual.dimensao",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_far_panorama_estadual.secao",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "1ed6faf4acda241a1909296e7252d4ab5e326a37bc5dab622c924a27575a6634",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_panorama_estadual",
+       "target": "Cidades.cidades.ouro.ouro_far_panorama_estadual.qtd_uhs",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "40faa9adee4d20b5f5eeebb60f37b16ba0835d62cd8cab58041bab85e1a6cf91",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_panorama_estadual",
+       "target": "Cidades.cidades.ouro.ouro_far_panorama_estadual.dimensao",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "86f7cdb0f0fc26f2fa5da7a221f68bc7ed895be9bab94cc2853ce92380b12a72",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_far_panorama_estadual",
+       "target": "Cidades.cidades.ouro.ouro_far_panorama_estadual.secao",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 54,
+     "titulo": "Seleção e Enquadramento - Referência",
+     "viz": "echarts_timeseries_bar",
+     "dashboards": [
+      3
+     ],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=54"
+    },
+    "reference_sql": "SELECT dimensao, SUM(qtd_uhs) AS \"UHs\" FROM ouro.ouro_far_panorama_estadual WHERE secao = 'portaria' GROUP BY dimensao ORDER BY dimensao",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Outros charts desta tabela filtram por ['municipio', 'portaria']: pode haver linhas de total ou formato longo; conferir se o SQL de referência precisa do mesmo filtro (no Superset ele pode vir do filtro do dashboard, que o chart não guarda).",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-fds-137",
+   "question": "Quantos empreendimentos do FDS estão em cada cor do semáforo de alerta das obras?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "fds",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento": 3,
+    "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.apf": 3,
+    "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.semaforo_alerta": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-137",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.apf",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.semaforo_alerta",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "021cac5eb89cf876f210a964457ba2f296b8db9b9924d512a6da0902ff6bca66",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.apf",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "b9c9d58eb6c641f038fad4c2e560df5261fac767b4ab1c89c1bcbe4b2a60eea7",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.semaforo_alerta",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 137,
+     "titulo": "Situação das Obras",
+     "viz": "pie",
+     "dashboards": [
+      5
+     ],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=137"
+    },
+    "reference_sql": "SELECT semaforo_alerta, COUNT(apf) AS \"Empreendimentos\" FROM ouro.ouro_fds_ficha_empreendimento GROUP BY semaforo_alerta ORDER BY semaforo_alerta",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-fds-119",
+   "question": "Quantas unidades habitacionais foram contratadas no FDS, o MCMV Entidades?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "fds",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "single_value"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento": 3,
+    "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.quantidade_uh": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-119",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.quantidade_uh",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "f83c4a12b0771410b373ac2588b3d40a0774b5c1b81e232f87214a07202ec9d3",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_fds_ficha_empreendimento.quantidade_uh",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 119,
+     "titulo": "UHs Contratadas FDS",
+     "viz": "big_number_total",
+     "dashboards": [
+      5
+     ],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=119"
+    },
+    "reference_sql": "SELECT SUM(quantidade_uh) AS \"UHs Contratadas\" FROM ouro.ouro_fds_ficha_empreendimento",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-fnhis-428",
+   "question": "Por que as propostas do FNHIS ficaram de fora? Quantas propostas por motivo e pela etapa em que saíram?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "fnhis",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_fnhis_motivos_nao_enquadramento": 3,
+    "Cidades.cidades.ouro.ouro_fnhis_motivos_nao_enquadramento.numero_proposta": 3,
+    "Cidades.cidades.ouro.ouro_fnhis_motivos_nao_enquadramento.etapa_em_que_saiu": 2,
+    "Cidades.cidades.ouro.ouro_fnhis_motivos_nao_enquadramento.motivo": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-428",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_fnhis_motivos_nao_enquadramento",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fnhis_motivos_nao_enquadramento.numero_proposta",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fnhis_motivos_nao_enquadramento.etapa_em_que_saiu",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fnhis_motivos_nao_enquadramento.motivo",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "0dba3bd379123e5448da8c5f0a40b5204396767cf042f22f6917b18e612a6433",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fnhis_motivos_nao_enquadramento",
+       "target": "Cidades.cidades.ouro.ouro_fnhis_motivos_nao_enquadramento.numero_proposta",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "5182df56e30b6e15d59a5a1ea59141f5cf9d4debedf5945cb400bdca5daaf3b9",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fnhis_motivos_nao_enquadramento",
+       "target": "Cidades.cidades.ouro.ouro_fnhis_motivos_nao_enquadramento.etapa_em_que_saiu",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "876ad5b852dcf7b7154e112ff50dbfe4613d0d882616dfa180f770b425d39330",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fnhis_motivos_nao_enquadramento",
+       "target": "Cidades.cidades.ouro.ouro_fnhis_motivos_nao_enquadramento.motivo",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 428,
+     "titulo": "FNHIS · Por que as propostas ficaram de fora",
+     "viz": "echarts_timeseries_bar",
+     "dashboards": [
+      27
+     ],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=428"
+    },
+    "reference_sql": "SELECT motivo, etapa_em_que_saiu, COUNT(DISTINCT numero_proposta) AS \"Propostas\" FROM ouro.ouro_fnhis_motivos_nao_enquadramento GROUP BY motivo, etapa_em_que_saiu ORDER BY motivo, etapa_em_que_saiu",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Descrição do chart: Motivos de não enquadramento (texto da justificativa, categorizado) e de não seleção (cota da UF, município já contemplado). Uma proposta pode ter mais de um motivo.",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-fnhis-424",
+   "question": "Quantas propostas estados e municípios apresentaram ao FNHIS?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "fnhis",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "single_value",
+    "needs_review"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_fnhis_proposta_tramite": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-424",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_fnhis_proposta_tramite",
+       "type": "Table"
+      }
+     ],
+     "relationships": []
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 424,
+     "titulo": "FNHIS · Propostas apresentadas",
+     "viz": "big_number_total",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=424"
+    },
+    "reference_sql": "SELECT COUNT(*) AS \"Propostas\" FROM ouro.ouro_fnhis_proposta_tramite",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Outros charts desta tabela filtram por ['resultado_selecao']: pode haver linhas de total ou formato longo; conferir se o SQL de referência precisa do mesmo filtro (no Superset ele pode vir do filtro do dashboard, que o chart não guarda). Descrição do chart: Total de propostas apresentadas por estados e municípios.",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-fnhis-429",
+   "question": "Como evoluiu, a cada retrato mensal, a quantidade de termos de compromisso do FNHIS em cada situação?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "fnhis",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "time_series"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal": 3,
+    "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal.qt_termos": 3,
+    "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal.dt_retrato": 2,
+    "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal.situacao_instrumento": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-429",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal.qt_termos",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal.dt_retrato",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal.situacao_instrumento",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "4925979c3e1df874bf6274c69da285dcf3d33f09dfc1c7ad05ca412b8aab3a74",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal",
+       "target": "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal.qt_termos",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "03e7ae8801563a7d2d3d89863e1c0ada819119cd275c6fa23a66957aae8f673e",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal",
+       "target": "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal.dt_retrato",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "465820e1afde0921a5200d5ee7b75aabf95b48372128e0859435b1a4b0201633",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal",
+       "target": "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal.situacao_instrumento",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 429,
+     "titulo": "FNHIS · Termos por situação, retrato a retrato",
+     "viz": "echarts_timeseries_bar",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=429"
+    },
+    "reference_sql": "SELECT dt_retrato, situacao_instrumento, SUM(qt_termos) AS \"Termos\" FROM ouro.ouro_fnhis_termo_situacao_mensal GROUP BY dt_retrato, situacao_instrumento ORDER BY dt_retrato, situacao_instrumento",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Descrição do chart: Situação dos termos de compromisso em cada retrato mensal do painel do TransfereGov (mar/2025 em diante). O primeiro retrato não trazia a situação do instrumento.",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-fnhis-430",
+   "question": "Quanto já foi empenhado nos termos do FNHIS frente ao repasse previsto, a cada retrato mensal?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "fnhis",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "time_series"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal": 3,
+    "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal.valor_empenhado_acumulado": 3,
+    "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal.valor_repasse": 3,
+    "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal.dt_retrato": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-430",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal.valor_empenhado_acumulado",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal.valor_repasse",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal.dt_retrato",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "501f650bdb1b6e3047b2825882c756e27d04f73352a4201f490d7ea2067e9352",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal",
+       "target": "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal.valor_empenhado_acumulado",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "c2dee471976bb05341f5bf4e70c2028fba9336dae8dc70530f92eb89bee7014e",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal",
+       "target": "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal.valor_repasse",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "03e7ae8801563a7d2d3d89863e1c0ada819119cd275c6fa23a66957aae8f673e",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal",
+       "target": "Cidades.cidades.ouro.ouro_fnhis_termo_situacao_mensal.dt_retrato",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 430,
+     "titulo": "FNHIS · Empenho acumulado dos termos",
+     "viz": "echarts_timeseries_line",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=430"
+    },
+    "reference_sql": "SELECT dt_retrato, SUM(valor_empenhado_acumulado) AS \"Empenhado (R$)\", SUM(valor_repasse) AS \"Repasse previsto (R$)\" FROM ouro.ouro_fnhis_termo_situacao_mensal GROUP BY dt_retrato ORDER BY dt_retrato",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Descrição do chart: Quanto já foi empenhado frente ao repasse previsto, a cada retrato. Como a SNH ainda mostra 0% de obra, o empenho é hoje o melhor sinal de andamento.",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-linha-financiada-372",
+   "question": "Na Linha Financiada, quantos contratos e qual o valor de contrapartida por fonte de recurso e tipo de contrapartida, separando os que têm o valor informado?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "linha_financiada",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas": 3,
+    "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas.quantidade_contratos": 3,
+    "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas.valor_contrapartida": 3,
+    "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas.fonte_recurso": 2,
+    "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas.ic_valor_informado": 2,
+    "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas.tipo_contrapartida": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-372",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas.quantidade_contratos",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas.valor_contrapartida",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas.fonte_recurso",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas.ic_valor_informado",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas.tipo_contrapartida",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "7da2910b169e2b35756d3d12ddfb63ad3c920b813fb4ee88a6cf76a78f53b714",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas.quantidade_contratos",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "4caf31722ad0bd0ba5be5724f63e915a9605438977eac494a4df093739cd61dd",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas.valor_contrapartida",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "7cca230b00c5a4ae4c4f44b6a9719d90bbdd17c495d498d4938d2cb2b3af8482",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas.fonte_recurso",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "129bcfbd3db831bfb778076c762d27768fe91ea28c5efa3069fdf6889c401d1e",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas.ic_valor_informado",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "5aa93567f1b2ba7d61c4f7c8439dc709b9cce78c792b68696d92803108d1817f",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas.tipo_contrapartida",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 372,
+     "titulo": "Linha Financiada | Cobertura das contrapartidas",
+     "viz": "table",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=372"
+    },
+    "reference_sql": "SELECT fonte_recurso, tipo_contrapartida, ic_valor_informado, SUM(quantidade_contratos) AS \"sum__quantidade_contratos\", SUM(valor_contrapartida) AS \"sum__valor_contrapartida\" FROM ouro.ouro_linha_financiada_contrapartidas GROUP BY fonte_recurso, tipo_contrapartida, ic_valor_informado ORDER BY fonte_recurso, tipo_contrapartida, ic_valor_informado",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-linha-financiada-382",
+   "question": "Na Linha Financiada, quantos contratos existem por tipo de contrapartida?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "linha_financiada",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas": 3,
+    "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas.quantidade_contratos": 3,
+    "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas.tipo_contrapartida": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-382",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas.quantidade_contratos",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas.tipo_contrapartida",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "7da2910b169e2b35756d3d12ddfb63ad3c920b813fb4ee88a6cf76a78f53b714",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas.quantidade_contratos",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "5aa93567f1b2ba7d61c4f7c8439dc709b9cce78c792b68696d92803108d1817f",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_contrapartidas.tipo_contrapartida",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 382,
+     "titulo": "Linha Financiada | Cobertura de contrapartidas por tipo",
+     "viz": "pie",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=382"
+    },
+    "reference_sql": "SELECT tipo_contrapartida, SUM(quantidade_contratos) AS \"sum__quantidade_contratos\" FROM ouro.ouro_linha_financiada_contrapartidas GROUP BY tipo_contrapartida ORDER BY tipo_contrapartida",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-linha-financiada-452",
+   "question": "Quantos empreendimentos da Linha Financiada estão em cada situação de execução?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "linha_financiada",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_linha_financiada_empreendimentos": 3,
+    "Cidades.cidades.ouro.ouro_linha_financiada_empreendimentos.codigo_empreendimento": 3,
+    "Cidades.cidades.ouro.ouro_linha_financiada_empreendimentos.situacao_execucao": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-452",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_empreendimentos",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_empreendimentos.codigo_empreendimento",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_empreendimentos.situacao_execucao",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "cfb4c1df8de10d641e3b1bcd0963511ec83aaa339fd07a48ac3333d2628280ee",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_empreendimentos",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_empreendimentos.codigo_empreendimento",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "979a946d7adc820f8147553429485aaa6b3635c6b5b9ab8a8d90fca9a8cbc8e8",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_empreendimentos",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_empreendimentos.situacao_execucao",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 452,
+     "titulo": "Linha Financiada | Empreendimento — Situação de execução",
+     "viz": "pie",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=452"
+    },
+    "reference_sql": "SELECT situacao_execucao, COUNT(DISTINCT codigo_empreendimento) AS \"count__empreendimentos\" FROM ouro.ouro_linha_financiada_empreendimentos GROUP BY situacao_execucao ORDER BY situacao_execucao",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-linha-financiada-449",
+   "question": "Quantos contratos de pessoa física estão vinculados aos empreendimentos da Linha Financiada?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "linha_financiada",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "single_value"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_linha_financiada_empreendimentos": 3,
+    "Cidades.cidades.ouro.ouro_linha_financiada_empreendimentos.quantidade_contratos": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-449",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_empreendimentos",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_empreendimentos.quantidade_contratos",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "3a622473422fdcd65723af1c620593bd6bc607e8ca811afa1ba3bfb106eebe63",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_empreendimentos",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_empreendimentos.quantidade_contratos",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 449,
+     "titulo": "Linha Financiada | Empreendimento — Contratos PF vinculados",
+     "viz": "big_number_total",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=449"
+    },
+    "reference_sql": "SELECT SUM(quantidade_contratos) AS \"sum__quantidade_contratos\" FROM ouro.ouro_linha_financiada_empreendimentos",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-linha-financiada-383",
+   "question": "Qual o orçamento atualizado e o total pago da Linha Financiada por ano e fonte de recurso?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "linha_financiada",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "time_series"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_linha_financiada_execucao_orcamentaria": 3,
+    "Cidades.cidades.ouro.ouro_linha_financiada_execucao_orcamentaria.orcamento_atualizado": 3,
+    "Cidades.cidades.ouro.ouro_linha_financiada_execucao_orcamentaria.pagamentos_totais": 3,
+    "Cidades.cidades.ouro.ouro_linha_financiada_execucao_orcamentaria.ano": 2,
+    "Cidades.cidades.ouro.ouro_linha_financiada_execucao_orcamentaria.fonte_recurso": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-383",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_execucao_orcamentaria",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_execucao_orcamentaria.orcamento_atualizado",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_execucao_orcamentaria.pagamentos_totais",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_execucao_orcamentaria.ano",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_execucao_orcamentaria.fonte_recurso",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "fa9c0d664d141bcca3dab65481057177abd4da0fc4b8f57c3515cdd267281b8e",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_execucao_orcamentaria",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_execucao_orcamentaria.orcamento_atualizado",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "4d96df7e18fd117ef0c71ed47f6a01a2b5641a897080c174b533f2647fa45599",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_execucao_orcamentaria",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_execucao_orcamentaria.pagamentos_totais",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "2928a914c91087862690f412b7070670c1f37c599d02a253cc0b01c826beb626",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_execucao_orcamentaria",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_execucao_orcamentaria.ano",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "f92842f63cc844f3aa06d05e9912ef7b25bc99f9409aeafbaa435c78d8e15fb0",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_execucao_orcamentaria",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_execucao_orcamentaria.fonte_recurso",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 383,
+     "titulo": "Linha Financiada | Orçamento atualizado e pagamentos",
+     "viz": "table",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=383"
+    },
+    "reference_sql": "SELECT ano, fonte_recurso, SUM(orcamento_atualizado) AS \"sum__orcamento_atualizado\", SUM(pagamentos_totais) AS \"sum__pagamentos_totais\" FROM ouro.ouro_linha_financiada_execucao_orcamentaria GROUP BY ano, fonte_recurso ORDER BY ano, fonte_recurso",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-linha-financiada-370",
+   "question": "Quantos contratos e qual o valor financiado da Linha Financiada em cada município, por segmento?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "linha_financiada",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "geo"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao": 3,
+    "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.quantidade_contratos": 3,
+    "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.valor_financiamento": 3,
+    "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.municipio": 2,
+    "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.segmento_linha_financiada": 2,
+    "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.uf": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-370",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.quantidade_contratos",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.valor_financiamento",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.municipio",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.segmento_linha_financiada",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.uf",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "c9c3c9a350cbb07feaf1e34c8630f1ef1a157ee7c23ce6a4de389d2b7a15dd70",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.quantidade_contratos",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "fdef5ed6e004cfd084cf25f4cf797170b9c12342e37040950364fcb74328b57c",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.valor_financiamento",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "20933075afbbb543ae2c9b36c0ed1a0cfe1f550bb2ca9d0a2fecebd6b32db8dc",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.municipio",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "05becd7b83ce870e0c7aa1cb5a792ebf47443782de406264e031097f6ff377c2",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.segmento_linha_financiada",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "354dc05263af385904731beba51268dbfb17087a500a9f914109f024831fdfb8",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.uf",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 370,
+     "titulo": "Linha Financiada | Execução por município",
+     "viz": "table",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=370"
+    },
+    "reference_sql": "SELECT uf, municipio, segmento_linha_financiada, SUM(quantidade_contratos) AS \"sum__quantidade_contratos\", SUM(valor_financiamento) AS \"sum__valor_financiamento\" FROM ouro.ouro_linha_financiada_mapa_execucao GROUP BY uf, municipio, segmento_linha_financiada ORDER BY uf, municipio, segmento_linha_financiada",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-linha-financiada-380",
+   "question": "Quantos contratos e qual o valor financiado da Linha Financiada em cada UF?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "linha_financiada",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "geo"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao": 3,
+    "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.quantidade_contratos": 3,
+    "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.valor_financiamento": 3,
+    "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.uf": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-380",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.quantidade_contratos",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.valor_financiamento",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.uf",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "c9c3c9a350cbb07feaf1e34c8630f1ef1a157ee7c23ce6a4de389d2b7a15dd70",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.quantidade_contratos",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "fdef5ed6e004cfd084cf25f4cf797170b9c12342e37040950364fcb74328b57c",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.valor_financiamento",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "354dc05263af385904731beba51268dbfb17087a500a9f914109f024831fdfb8",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_execucao.uf",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 380,
+     "titulo": "Linha Financiada | Contratação por UF",
+     "viz": "table",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=380"
+    },
+    "reference_sql": "SELECT uf, SUM(quantidade_contratos) AS \"sum__quantidade_contratos\", SUM(valor_financiamento) AS \"sum__valor_financiamento\" FROM ouro.ouro_linha_financiada_mapa_execucao GROUP BY uf ORDER BY uf",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-linha-financiada-387",
+   "question": "Quantos contratos da Linha Financiada existem em cada estado, para mostrar num mapa?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "linha_financiada",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "geo"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_linha_financiada_mapa_uf": 3,
+    "Cidades.cidades.ouro.ouro_linha_financiada_mapa_uf.quantidade_contratos": 3,
+    "Cidades.cidades.ouro.ouro_linha_financiada_mapa_uf.iso_3166_2": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-387",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_uf",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_uf.quantidade_contratos",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_uf.iso_3166_2",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "b5caee588aea5cea06efd71b4a449471b1dd016e05403d56aeac6addb5484ffe",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_uf",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_uf.quantidade_contratos",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "9107fd1f3d122485abe7e845491e35effcf47709f5a38e147ed74eaea5e38bed",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_uf",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_mapa_uf.iso_3166_2",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 387,
+     "titulo": "Linha Financiada | Mapa do Brasil por UF",
+     "viz": "country_map",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=387"
+    },
+    "reference_sql": "SELECT iso_3166_2, SUM(quantidade_contratos) AS \"sum__quantidade_contratos\" FROM ouro.ouro_linha_financiada_mapa_uf GROUP BY iso_3166_2 ORDER BY iso_3166_2",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-linha-financiada-366",
+   "question": "Como evoluiu, mês a mês, a contratação da Linha Financiada por fonte de recurso e segmento?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "linha_financiada",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "time_series",
+    "needs_review"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal": 3,
+    "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal.quantidade_contratos": 3,
+    "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal.competencia_contratacao": 2,
+    "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal.fonte_recurso": 2,
+    "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal.segmento_linha_financiada": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-366",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal.quantidade_contratos",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal.competencia_contratacao",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal.fonte_recurso",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal.segmento_linha_financiada",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "ba2bf3b80089507a41dbc9e86b6e8d7e594dacb281bf9b34546da1defcc2dd03",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal.quantidade_contratos",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "88bc54d8b163726886f4273897f237b730aaa2f5b2d622c420138c233a85d4d9",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal.competencia_contratacao",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "4c4e7953a147f71bae906957ccd5cd55527b876451db7145eaf1696697d0ae1c",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal.fonte_recurso",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "e1e6f62366700e12453ccea547bf967eab22a92139eeae8698bcd5c244ac4c16",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal.segmento_linha_financiada",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 366,
+     "titulo": "Linha Financiada | Contratos por mês e fonte",
+     "viz": "echarts_timeseries_line",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=366"
+    },
+    "reference_sql": "SELECT competencia_contratacao, fonte_recurso, segmento_linha_financiada, SUM(quantidade_contratos) AS \"sum__quantidade_contratos\" FROM ouro.ouro_linha_financiada_resumo_mensal GROUP BY competencia_contratacao, fonte_recurso, segmento_linha_financiada ORDER BY competencia_contratacao, fonte_recurso, segmento_linha_financiada",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Outros charts desta tabela filtram por ['ic_classe_media', 'ic_mcmv_cidades', 'ic_pro_moradia']: pode haver linhas de total ou formato longo; conferir se o SQL de referência precisa do mesmo filtro (no Superset ele pode vir do filtro do dashboard, que o chart não guarda).",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-linha-financiada-376",
+   "question": "Quantos contratos existem na carteira da Linha Financiada?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "linha_financiada",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "single_value",
+    "needs_review"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal": 3,
+    "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal.quantidade_contratos": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-376",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal.quantidade_contratos",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "ba2bf3b80089507a41dbc9e86b6e8d7e594dacb281bf9b34546da1defcc2dd03",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal",
+       "target": "Cidades.cidades.ouro.ouro_linha_financiada_resumo_mensal.quantidade_contratos",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 376,
+     "titulo": "Linha Financiada | Contratos na carteira",
+     "viz": "big_number_total",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=376"
+    },
+    "reference_sql": "SELECT SUM(quantidade_contratos) AS \"sum__quantidade_contratos\" FROM ouro.ouro_linha_financiada_resumo_mensal",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Outros charts desta tabela filtram por ['ic_classe_media', 'ic_mcmv_cidades', 'ic_pro_moradia']: pode haver linhas de total ou formato longo; conferir se o SQL de referência precisa do mesmo filtro (no Superset ele pode vir do filtro do dashboard, que o chart não guarda).",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-pro-moradia-439",
+   "question": "De que tipo de ato de seleção vêm os contratos do Pró-Moradia?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "pro_moradia",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_pro_moradia_contrato_selecao": 3,
+    "Cidades.cidades.ouro.ouro_pro_moradia_contrato_selecao.tipo_ato": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-439",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_pro_moradia_contrato_selecao",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_pro_moradia_contrato_selecao.tipo_ato",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "b32414f65569d5d5cfaafea4aaf549fa01e3a439906ef82129ffa7481762b093",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_pro_moradia_contrato_selecao",
+       "target": "Cidades.cidades.ouro.ouro_pro_moradia_contrato_selecao.tipo_ato",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 439,
+     "titulo": "Pró-Moradia · De que tipo de ato vêm os contratos",
+     "viz": "pie",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=439"
+    },
+    "reference_sql": "SELECT tipo_ato, COUNT(*) AS \"Contratos\" FROM ouro.ouro_pro_moradia_contrato_selecao GROUP BY tipo_ato ORDER BY tipo_ato",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Descrição do chart: Tipo de ato inferido do identificador de seleção: seleção PAC, processo administrativo, ofício, portaria, voto ou sem identificação.",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-pro-moradia-436",
+   "question": "Quantos contratos o Pró-Moradia tem?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "pro_moradia",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "single_value"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_pro_moradia_contrato_selecao": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-436",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_pro_moradia_contrato_selecao",
+       "type": "Table"
+      }
+     ],
+     "relationships": []
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 436,
+     "titulo": "Pró-Moradia · Contratos",
+     "viz": "big_number_total",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=436"
+    },
+    "reference_sql": "SELECT COUNT(*) AS \"Contratos\" FROM ouro.ouro_pro_moradia_contrato_selecao",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Descrição do chart: Contratos do Pró-Moradia (linha 26 do Canal FGTS).",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-pro-moradia-444",
+   "question": "Em que estágio estão as obras do Pró-Moradia, por tipo de intervenção?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "pro_moradia",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_pro_moradia_obra_andamento": 3,
+    "Cidades.cidades.ouro.ouro_pro_moradia_obra_andamento.estagio_obra": 2,
+    "Cidades.cidades.ouro.ouro_pro_moradia_obra_andamento.tipo_intervencao": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-444",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_pro_moradia_obra_andamento",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_pro_moradia_obra_andamento.estagio_obra",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_pro_moradia_obra_andamento.tipo_intervencao",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "fd87efa4bb642c4f5265908964e8eb30531b7ad077f3f057725420dd07499e07",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_pro_moradia_obra_andamento",
+       "target": "Cidades.cidades.ouro.ouro_pro_moradia_obra_andamento.estagio_obra",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "7c175436c2a12fa7cdbbac4b0ee2c307273599640607340035ffe6e3b7a04c25",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_pro_moradia_obra_andamento",
+       "target": "Cidades.cidades.ouro.ouro_pro_moradia_obra_andamento.tipo_intervencao",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 444,
+     "titulo": "Pró-Moradia · Obras por estágio atual",
+     "viz": "echarts_timeseries_bar",
+     "dashboards": [
+      27
+     ],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=444"
+    },
+    "reference_sql": "SELECT estagio_obra, tipo_intervencao, COUNT(*) AS \"Contratos\" FROM ouro.ouro_pro_moradia_obra_andamento GROUP BY estagio_obra, tipo_intervencao ORDER BY estagio_obra, tipo_intervencao",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Descrição do chart: Estágio de execução de cada contrato, por tipo de intervenção (urbanização, provisão...).",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-pro-moradia-442",
+   "question": "Quantos tomadores do Pró-Moradia estão em cada situação de execução?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "pro_moradia",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_pro_moradia_tomador": 3,
+    "Cidades.cidades.ouro.ouro_pro_moradia_tomador.situacao_execucao_tomador": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-442",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_pro_moradia_tomador",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_pro_moradia_tomador.situacao_execucao_tomador",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "c3092f7cf3464f16a01e562f8780901e6182de550e18128e010d1606a7e795bf",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_pro_moradia_tomador",
+       "target": "Cidades.cidades.ouro.ouro_pro_moradia_tomador.situacao_execucao_tomador",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 442,
+     "titulo": "Pró-Moradia · Situação de execução dos tomadores",
+     "viz": "pie",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=442"
+    },
+    "reference_sql": "SELECT situacao_execucao_tomador, COUNT(*) AS \"Tomadores\" FROM ouro.ouro_pro_moradia_tomador GROUP BY situacao_execucao_tomador ORDER BY situacao_execucao_tomador",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Descrição do chart: Cada tomador classificado pelo conjunto dos contratos: concluiu tudo, em execução, com obra paralisada ou sem informação suficiente.",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-pro-moradia-441",
+   "question": "A cada ano, quantos contratos do Pró-Moradia foram assinados por tomadores com contratos anteriores concluídos ou ainda pendentes?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "pro_moradia",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "time_series"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_pro_moradia_tomador_recontratacao": 3,
+    "Cidades.cidades.ouro.ouro_pro_moradia_tomador_recontratacao.ano_assinatura": 2,
+    "Cidades.cidades.ouro.ouro_pro_moradia_tomador_recontratacao.situacao_recontratacao": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-441",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_pro_moradia_tomador_recontratacao",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_pro_moradia_tomador_recontratacao.ano_assinatura",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_pro_moradia_tomador_recontratacao.situacao_recontratacao",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "b0677c763a7b697523a65e4a0ab85151953b67d9717077740f90f269ff8c74de",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_pro_moradia_tomador_recontratacao",
+       "target": "Cidades.cidades.ouro.ouro_pro_moradia_tomador_recontratacao.ano_assinatura",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "a8bf7a2ad3c8da6871262701fcc464e493932c27c1cd23e14f535f9831e5a10b",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_pro_moradia_tomador_recontratacao",
+       "target": "Cidades.cidades.ouro.ouro_pro_moradia_tomador_recontratacao.situacao_recontratacao",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 441,
+     "titulo": "Pró-Moradia · Contratos por ano: anteriores concluídos ou pendentes?",
+     "viz": "echarts_timeseries_bar",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=441"
+    },
+    "reference_sql": "SELECT ano_assinatura, situacao_recontratacao, COUNT(*) AS \"Contratos\" FROM ouro.ouro_pro_moradia_tomador_recontratacao GROUP BY ano_assinatura, situacao_recontratacao ORDER BY ano_assinatura, situacao_recontratacao",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Descrição do chart: Para cada contrato do ano, a situação dos contratos anteriores do mesmo tomador na data da assinatura.",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-reforma-casa-brasil-482",
+   "question": "Qual o valor total financiado no Reforma Casa Brasil?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "reforma_casa_brasil",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "single_value"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_ficha_reforma_dash": 3,
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_ficha_reforma_dash.valor_financiado": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-482",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_ficha_reforma_dash",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_ficha_reforma_dash.valor_financiado",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "36ff92eb83fd2c5700667b08350e1029b7abd5904d4d4dd62642ab3ee2e77c56",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_ficha_reforma_dash",
+       "target": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_ficha_reforma_dash.valor_financiado",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 482,
+     "titulo": "Reforma Casa Brasil | Ficha — valor financiado",
+     "viz": "big_number_total",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=482"
+    },
+    "reference_sql": "SELECT SUM(valor_financiado) AS \"sum__valor_financiado\" FROM ouro.ouro_reforma_casa_brasil_ficha_reforma_dash",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-reforma-casa-brasil-483",
+   "question": "Qual o valor total de investimento do Reforma Casa Brasil?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "reforma_casa_brasil",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "single_value"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_ficha_reforma_dash": 3,
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_ficha_reforma_dash.valor_investimento": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-483",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_ficha_reforma_dash",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_ficha_reforma_dash.valor_investimento",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "ee56d3e47cfd23f67d5bb8ee746ab47583a4ad603460bcb7495ed81456a19676",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_ficha_reforma_dash",
+       "target": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_ficha_reforma_dash.valor_investimento",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 483,
+     "titulo": "Reforma Casa Brasil | Ficha — valor de investimento",
+     "viz": "big_number_total",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=483"
+    },
+    "reference_sql": "SELECT SUM(valor_investimento) AS \"sum__valor_investimento\" FROM ouro.ouro_reforma_casa_brasil_ficha_reforma_dash",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-reforma-casa-brasil-390",
+   "question": "Quantos contratos, quanto financiado e quanto investido o Reforma Casa Brasil tem em cada UF?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "reforma_casa_brasil",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "geo"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash": 3,
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash.quantidade_contratos": 3,
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash.valor_financiado_total": 3,
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash.valor_investimento_total": 3,
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash.uf": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-390",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash.quantidade_contratos",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash.valor_financiado_total",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash.valor_investimento_total",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash.uf",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "1d2acc2b771a8d224454595049bf800b35d671ad85b0a6dd94081cd5dbe19daa",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash",
+       "target": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash.quantidade_contratos",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "7fe84fbb243840d2989370774959f5fe27757ff18d956f7c7c4764c8d474cd9a",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash",
+       "target": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash.valor_financiado_total",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "0235e670409e4170ca18630dcb5f8e2b726d06c61fa75bc4beb761e30b4a303f",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash",
+       "target": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash.valor_investimento_total",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "3c51a5508cd2a139373e2408dae115d6392a111d755ed63d692ea9eae474728c",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash",
+       "target": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash.uf",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 390,
+     "titulo": "Reforma Casa Brasil | Contratos por UF",
+     "viz": "table",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=390"
+    },
+    "reference_sql": "SELECT uf, SUM(quantidade_contratos) AS \"sum__quantidade_contratos\", SUM(valor_financiado_total) AS \"sum__valor_financiado_total\", SUM(valor_investimento_total) AS \"sum__valor_investimento_total\" FROM ouro.ouro_reforma_casa_brasil_implementacao_dash GROUP BY uf ORDER BY uf",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-reforma-casa-brasil-466",
+   "question": "Quantos contratos o Reforma Casa Brasil já fez?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "reforma_casa_brasil",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "single_value"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash": 3,
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash.quantidade_contratos": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-466",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash.quantidade_contratos",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "1d2acc2b771a8d224454595049bf800b35d671ad85b0a6dd94081cd5dbe19daa",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash",
+       "target": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_implementacao_dash.quantidade_contratos",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 466,
+     "titulo": "Reforma Casa Brasil | Contratos",
+     "viz": "big_number_total",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=466"
+    },
+    "reference_sql": "SELECT SUM(quantidade_contratos) AS \"sum__quantidade_contratos\" FROM ouro.ouro_reforma_casa_brasil_implementacao_dash",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-reforma-casa-brasil-476",
+   "question": "Quantos contratos do Reforma Casa Brasil existem em cada estado, para mostrar num mapa?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "reforma_casa_brasil",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "geo"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_mapa_uf": 3,
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_mapa_uf.quantidade_contratos": 3,
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_mapa_uf.iso_3166_2": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-476",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_mapa_uf",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_mapa_uf.quantidade_contratos",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_mapa_uf.iso_3166_2",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "bb2d64f8177a855d731be109341adda0a00fb35f21fff665d8bdb03bccdce624",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_mapa_uf",
+       "target": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_mapa_uf.quantidade_contratos",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "8288367540da4f457b519456d217ff411a94a03b14ef9636b7f64d8524b16acb",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_mapa_uf",
+       "target": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_mapa_uf.iso_3166_2",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 476,
+     "titulo": "Reforma Casa Brasil | Mapa do Brasil — contratos por UF",
+     "viz": "country_map",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=476"
+    },
+    "reference_sql": "SELECT iso_3166_2, SUM(quantidade_contratos) AS \"sum__quantidade_contratos\" FROM ouro.ouro_reforma_casa_brasil_mapa_uf GROUP BY iso_3166_2 ORDER BY iso_3166_2",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-reforma-casa-brasil-475",
+   "question": "Quantos municípios o Reforma Casa Brasil já alcançou?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "reforma_casa_brasil",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "single_value"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_mapa_uf": 3,
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_mapa_uf.quantidade_municipios": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-475",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_mapa_uf",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_mapa_uf.quantidade_municipios",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "5c58862719185e69533e294fede417cec08993ca69a0dd212614a41c877a1adb",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_mapa_uf",
+       "target": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_mapa_uf.quantidade_municipios",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 475,
+     "titulo": "Reforma Casa Brasil | Municípios alcançados",
+     "viz": "big_number_total",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=475"
+    },
+    "reference_sql": "SELECT SUM(quantidade_municipios) AS \"sum__quantidade_municipios\" FROM ouro.ouro_reforma_casa_brasil_mapa_uf",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-reforma-casa-brasil-393",
+   "question": "Como evoluiu a carteira de contratos do Reforma Casa Brasil por mês de referência e UF?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "reforma_casa_brasil",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "geo",
+    "time_series"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash": 3,
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash.quantidade_contratos": 3,
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash.quantidade_primeira_ocorrencia_serie": 3,
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash.dt_referencia": 2,
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash.uf": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-393",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash.quantidade_contratos",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash.quantidade_primeira_ocorrencia_serie",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash.dt_referencia",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash.uf",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "e9c1999760b57c805210bc3bded377b46e2dd4606bb4f6b7eb2d1c3ec8fdf4d5",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash",
+       "target": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash.quantidade_contratos",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "2e81fa794cae666512fb280a3eabb511bc96cdb23d4679ca48af21befed04965",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash",
+       "target": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash.quantidade_primeira_ocorrencia_serie",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "27799f65e6b9fd52b370839cfae167ee8d07f6d195162271840e0ed53a97f2fa",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash",
+       "target": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash.dt_referencia",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "3cef39f9b01a1700ebd3baabbe2e3945e24129892f265037569477c10c4c43a0",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash",
+       "target": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash.uf",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 393,
+     "titulo": "Reforma Casa Brasil | Carteira por competência",
+     "viz": "echarts_timeseries_line",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=393"
+    },
+    "reference_sql": "SELECT dt_referencia, uf, SUM(quantidade_contratos) AS \"sum__quantidade_contratos\", SUM(quantidade_primeira_ocorrencia_serie) AS \"sum__quantidade_primeira_ocorrencia_serie\" FROM ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash GROUP BY dt_referencia, uf ORDER BY dt_referencia, uf",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-reforma-casa-brasil-394",
+   "question": "Quanto o Reforma Casa Brasil contratou em recursos por mês e por modalidade?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "reforma_casa_brasil",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "time_series"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash": 3,
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash.valor_financiado_total": 3,
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash.dt_referencia": 2,
+    "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash.modalidade": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-394",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash.valor_financiado_total",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash.dt_referencia",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash.modalidade",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "b7977acd20f101a5608e891db9c4c01b654fcb9f10fb43b0a8d7dce34f60403a",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash",
+       "target": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash.valor_financiado_total",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "27799f65e6b9fd52b370839cfae167ee8d07f6d195162271840e0ed53a97f2fa",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash",
+       "target": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash.dt_referencia",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "58fe5f36c097977546a842d42916a5abd258947b7b98d43f8fc9ab87652f5acb",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash",
+       "target": "Cidades.cidades.ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash.modalidade",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 394,
+     "titulo": "Reforma Casa Brasil | Recursos contratados por competência",
+     "viz": "echarts_timeseries_bar",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=394"
+    },
+    "reference_sql": "SELECT dt_referencia, modalidade, SUM(valor_financiado_total) AS \"sum__valor_financiado_total\" FROM ouro.ouro_reforma_casa_brasil_monitoramento_recursos_dash GROUP BY dt_referencia, modalidade ORDER BY dt_referencia, modalidade",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-rural-410",
+   "question": "Quantas entidades organizadoras do Rural estão em cada situação de execução?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "rural",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_rural_entidade_organizadora": 3,
+    "Cidades.cidades.ouro.ouro_rural_entidade_organizadora.situacao_execucao_eo": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-410",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_entidade_organizadora",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_entidade_organizadora.situacao_execucao_eo",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "139d1f07b4928f9eb32487e41cf53c4c2bc091111fdf28e9939eeae00813963b",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_entidade_organizadora",
+       "target": "Cidades.cidades.ouro.ouro_rural_entidade_organizadora.situacao_execucao_eo",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 410,
+     "titulo": "Rural · Situação de execução das entidades organizadoras",
+     "viz": "pie",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=410"
+    },
+    "reference_sql": "SELECT situacao_execucao_eo, COUNT(*) AS \"Entidades\" FROM ouro.ouro_rural_entidade_organizadora GROUP BY situacao_execucao_eo ORDER BY situacao_execucao_eo",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Descrição do chart: Cada EO classificada pelo conjunto das operações: entregou tudo, concluiu com entrega parcial, está em execução ou tem obra paralisada.",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-rural-407",
+   "question": "Quantas entidades organizadoras contrataram ao menos uma operação no Rural?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "rural",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "single_value"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_rural_entidade_organizadora": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-407",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_entidade_organizadora",
+       "type": "Table"
+      }
+     ],
+     "relationships": []
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 407,
+     "titulo": "Rural · Entidades organizadoras com operação",
+     "viz": "big_number_total",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=407"
+    },
+    "reference_sql": "SELECT COUNT(*) AS \"Entidades organizadoras\" FROM ouro.ouro_rural_entidade_organizadora",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Descrição do chart: Quantas entidades organizadoras (EO) contrataram ao menos uma operação no Rural (PNHR e Novo Rural).",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-rural-412",
+   "question": "A cada ano, quantos contratos do Rural foram assinados por entidades na primeira operação, com operações anteriores concluídas ou com anterior pendente?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "rural",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "time_series"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_rural_entidade_recontratacao": 3,
+    "Cidades.cidades.ouro.ouro_rural_entidade_recontratacao.ano_contratacao": 2,
+    "Cidades.cidades.ouro.ouro_rural_entidade_recontratacao.situacao_recontratacao": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-412",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_entidade_recontratacao",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_entidade_recontratacao.ano_contratacao",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_entidade_recontratacao.situacao_recontratacao",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "b5a9798c32e17b6d7904bb8153684250d23a6f9eca334906c15bed3d68f4ecc6",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_entidade_recontratacao",
+       "target": "Cidades.cidades.ouro.ouro_rural_entidade_recontratacao.ano_contratacao",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "915b3c9a97ee99632d6fc45e80665c8325e944950d32cd16184497d14651120c",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_entidade_recontratacao",
+       "target": "Cidades.cidades.ouro.ouro_rural_entidade_recontratacao.situacao_recontratacao",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 412,
+     "titulo": "Rural · Contratos por ano: anteriores concluídos ou pendentes?",
+     "viz": "echarts_timeseries_bar",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=412"
+    },
+    "reference_sql": "SELECT ano_contratacao, situacao_recontratacao, COUNT(*) AS \"Contratos\" FROM ouro.ouro_rural_entidade_recontratacao GROUP BY ano_contratacao, situacao_recontratacao ORDER BY ano_contratacao, situacao_recontratacao",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Descrição do chart: Para cada contrato do ano, a situação das operações anteriores da mesma EO na data da assinatura: primeira operação, anteriores concluídas ou contratou com anterior pendente.",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-rural-149",
+   "question": "Quantos empreendimentos o Rural tem?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "rural",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "single_value"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_rural_ficha_empreendimento": 3,
+    "Cidades.cidades.ouro.ouro_rural_ficha_empreendimento.apf": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-149",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_ficha_empreendimento",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_ficha_empreendimento.apf",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "52afe5fc32db71885962678a53ee307c8a620d301c9c7a58f82f36a4d45390fa",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_rural_ficha_empreendimento.apf",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 149,
+     "titulo": "N° Empreendimentos ",
+     "viz": "big_number_total",
+     "dashboards": [
+      6
+     ],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=149"
+    },
+    "reference_sql": "SELECT COUNT(apf) AS \"Empreendimentos\" FROM ouro.ouro_rural_ficha_empreendimento",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-rural-150",
+   "question": "Quantas unidades habitacionais foram contratadas no Rural?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "rural",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "single_value"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_rural_ficha_empreendimento": 3,
+    "Cidades.cidades.ouro.ouro_rural_ficha_empreendimento.quantidade_uh": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-150",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_ficha_empreendimento",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_ficha_empreendimento.quantidade_uh",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "658da199d1357b21536255bf485fea35545b7630f7a9231e0f0475ee2304ccf4",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_ficha_empreendimento",
+       "target": "Cidades.cidades.ouro.ouro_rural_ficha_empreendimento.quantidade_uh",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 150,
+     "titulo": "UHs Contratadas ",
+     "viz": "big_number_total",
+     "dashboards": [
+      6
+     ],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=150"
+    },
+    "reference_sql": "SELECT SUM(quantidade_uh) AS \"UHs Contratadas\" FROM ouro.ouro_rural_ficha_empreendimento",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-rural-162",
+   "question": "Quanto foi investido em saneamento básico nos empreendimentos do Rural em cada UF?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "rural",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "geo"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_rural_infraestrutura_agua_saneamento": 3,
+    "Cidades.cidades.ouro.ouro_rural_infraestrutura_agua_saneamento.valor_investimento_saneamento_total": 3,
+    "Cidades.cidades.ouro.ouro_rural_infraestrutura_agua_saneamento.uf": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-162",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_infraestrutura_agua_saneamento",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_infraestrutura_agua_saneamento.valor_investimento_saneamento_total",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_infraestrutura_agua_saneamento.uf",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "a3aa3ac59196195dabe2bebc0dd697a528d8c67445da5c3a9683322d8f1bcb00",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_infraestrutura_agua_saneamento",
+       "target": "Cidades.cidades.ouro.ouro_rural_infraestrutura_agua_saneamento.valor_investimento_saneamento_total",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "a5437d75143792f73486d0c00b16a0a4a60b83d83e3496aafac9a307cbc8cecd",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_infraestrutura_agua_saneamento",
+       "target": "Cidades.cidades.ouro.ouro_rural_infraestrutura_agua_saneamento.uf",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 162,
+     "titulo": "Investimento em Saneamento Básico",
+     "viz": "echarts_timeseries_bar",
+     "dashboards": [
+      6
+     ],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=162"
+    },
+    "reference_sql": "SELECT uf, SUM(valor_investimento_saneamento_total) AS \"Investimento em Saneamento Básico\" FROM ouro.ouro_rural_infraestrutura_agua_saneamento GROUP BY uf ORDER BY uf",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-rural-134",
+   "question": "Quantas unidades habitacionais do Rural existem em cada UF?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "rural",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "geo"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_rural_mapa_nacional": 3,
+    "Cidades.cidades.ouro.ouro_rural_mapa_nacional.total_uhs": 3,
+    "Cidades.cidades.ouro.ouro_rural_mapa_nacional.iso_3166_2": 2,
+    "Cidades.cidades.ouro.ouro_rural_mapa_nacional.nivel": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-134",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_mapa_nacional",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_mapa_nacional.total_uhs",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_mapa_nacional.iso_3166_2",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_mapa_nacional.nivel",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "149b7875db10bc530289fb4174040756d6491eefa575448d300eeebd17a951e3",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_mapa_nacional",
+       "target": "Cidades.cidades.ouro.ouro_rural_mapa_nacional.total_uhs",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "130c206f22ce1d705a4d7db27a666c46c5d31955e14059268f64c23aeb982033",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_mapa_nacional",
+       "target": "Cidades.cidades.ouro.ouro_rural_mapa_nacional.iso_3166_2",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "82cf65c67e13777c282ccc94430644f58467653980ade723cf1bb5a052a55486",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_mapa_nacional",
+       "target": "Cidades.cidades.ouro.ouro_rural_mapa_nacional.nivel",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 134,
+     "titulo": "Mapa de UHs por UF",
+     "viz": "country_map",
+     "dashboards": [
+      6
+     ],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=134"
+    },
+    "reference_sql": "SELECT iso_3166_2, SUM(total_uhs) AS \"SUM(total_uhs)\" FROM ouro.ouro_rural_mapa_nacional WHERE nivel = 'uf' GROUP BY iso_3166_2 ORDER BY iso_3166_2",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-rural-135",
+   "question": "Quantas unidades habitacionais do Rural existem em cada região do país?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "rural",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "geo"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_rural_mapa_nacional": 3,
+    "Cidades.cidades.ouro.ouro_rural_mapa_nacional.total_uhs": 3,
+    "Cidades.cidades.ouro.ouro_rural_mapa_nacional.nivel": 2,
+    "Cidades.cidades.ouro.ouro_rural_mapa_nacional.regiao_nome": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-135",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_mapa_nacional",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_mapa_nacional.total_uhs",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_mapa_nacional.nivel",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_mapa_nacional.regiao_nome",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "149b7875db10bc530289fb4174040756d6491eefa575448d300eeebd17a951e3",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_mapa_nacional",
+       "target": "Cidades.cidades.ouro.ouro_rural_mapa_nacional.total_uhs",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "82cf65c67e13777c282ccc94430644f58467653980ade723cf1bb5a052a55486",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_mapa_nacional",
+       "target": "Cidades.cidades.ouro.ouro_rural_mapa_nacional.nivel",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "e628f63bc190aee8b338d2fb60825d62316aefc320db2b2458e3aa65b4bcd611",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_mapa_nacional",
+       "target": "Cidades.cidades.ouro.ouro_rural_mapa_nacional.regiao_nome",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 135,
+     "titulo": "UHs por Região",
+     "viz": "echarts_timeseries_bar",
+     "dashboards": [
+      6
+     ],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=135"
+    },
+    "reference_sql": "SELECT regiao_nome, SUM(total_uhs) AS \"Total UHs\" FROM ouro.ouro_rural_mapa_nacional WHERE nivel = 'regiao' GROUP BY regiao_nome ORDER BY regiao_nome",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-rural-417",
+   "question": "Em que estágio estão as obras do Novo Rural, e quantas unidades contratadas há em cada estágio?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "rural",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_rural_obra_andamento": 3,
+    "Cidades.cidades.ouro.ouro_rural_obra_andamento.quantidade_uh_contratadas": 3,
+    "Cidades.cidades.ouro.ouro_rural_obra_andamento.estagio_obra": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-417",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_obra_andamento",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_obra_andamento.quantidade_uh_contratadas",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_obra_andamento.estagio_obra",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "be674d4527e523d391332b67fda4b4f49c96a9b003d53276aede12cf7ba91be8",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_obra_andamento",
+       "target": "Cidades.cidades.ouro.ouro_rural_obra_andamento.quantidade_uh_contratadas",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "701c98e76483aa873f4123891288d6351668718cd04a2759d8a0fef783c5f88e",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_obra_andamento",
+       "target": "Cidades.cidades.ouro.ouro_rural_obra_andamento.estagio_obra",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 417,
+     "titulo": "Rural · Obras do Novo Rural por estágio atual",
+     "viz": "echarts_timeseries_bar",
+     "dashboards": [
+      27
+     ],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=417"
+    },
+    "reference_sql": "SELECT estagio_obra, COUNT(*) AS \"Obras\", SUM(quantidade_uh_contratadas) AS \"UH contratadas\" FROM ouro.ouro_rural_obra_andamento GROUP BY estagio_obra ORDER BY estagio_obra",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Descrição do chart: Estágio de cada obra do Novo Rural no retrato mais recente da CAIXA (situação decodificada pelo layout).",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-rural-506",
+   "question": "Quantos contratos (APF) o Rural tem?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "rural",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "single_value"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_rural_painel_operacao": 3,
+    "Cidades.cidades.ouro.ouro_rural_painel_operacao.APF": 3,
+    "Cidades.cidades.ouro.ouro_rural_painel_operacao.apf": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-506",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_painel_operacao",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_painel_operacao.APF",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_painel_operacao.apf",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "3f1a11ca6f3a1f99ab9cd26687cefd6f68671d1085c5637c4756e96197527d1c",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_painel_operacao",
+       "target": "Cidades.cidades.ouro.ouro_rural_painel_operacao.APF",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "7798be861e659b1920d2b64e0d67e39900cc85864344da4739a92f1df7d443cd",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_painel_operacao",
+       "target": "Cidades.cidades.ouro.ouro_rural_painel_operacao.apf",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 506,
+     "titulo": "Rural ▸ Contratos (APF)",
+     "viz": "big_number_total",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=506"
+    },
+    "reference_sql": "SELECT COUNT(DISTINCT apf) AS \"Contratos (APF)\" FROM ouro.ouro_rural_painel_operacao",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Descrição do chart: COUNT(DISTINCT apf) na ouro_rural_painel_operacao.",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-rural-507",
+   "question": "Quantas entidades organizadoras distintas atuam no Rural?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "rural",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "single_value"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_rural_painel_operacao": 3,
+    "Cidades.cidades.ouro.ouro_rural_painel_operacao.eo_cnpj": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-507",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_painel_operacao",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_painel_operacao.eo_cnpj",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "e7748daf11aebc5e3e6c2b5cf0bc8f4f3f3c93568ff5d07a0fc9b45245530ec4",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_painel_operacao",
+       "target": "Cidades.cidades.ouro.ouro_rural_painel_operacao.eo_cnpj",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 507,
+     "titulo": "Rural ▸ Entidades organizadoras",
+     "viz": "big_number_total",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=507"
+    },
+    "reference_sql": "SELECT COUNT(DISTINCT eo_cnpj) AS \"Entidades organizadoras\" FROM ouro.ouro_rural_painel_operacao",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Descrição do chart: COUNT(DISTINCT eo_cnpj). Operações sem EO ou com CNPJ inválido não entram.",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-rural-128",
+   "question": "Quantas unidades habitacionais do Rural foram selecionadas por cada método de seleção?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "rural",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_rural_panorama_estadual": 3,
+    "Cidades.cidades.ouro.ouro_rural_panorama_estadual.qtd_uhs": 3,
+    "Cidades.cidades.ouro.ouro_rural_panorama_estadual.dimensao": 2,
+    "Cidades.cidades.ouro.ouro_rural_panorama_estadual.secao": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-128",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_panorama_estadual",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_panorama_estadual.qtd_uhs",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_panorama_estadual.dimensao",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_panorama_estadual.secao",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "57988b7378379f8d5e12003ccea1f0e333175cde248e56cdde6b4d670f81c16b",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_panorama_estadual",
+       "target": "Cidades.cidades.ouro.ouro_rural_panorama_estadual.qtd_uhs",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "1d120b8a2a095f9ef8b1cab0e63818be06e7e298a9321c1e9bb3d12f1048c5bb",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_panorama_estadual",
+       "target": "Cidades.cidades.ouro.ouro_rural_panorama_estadual.dimensao",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "e4c9300eec3c29ef9bb320610043d2b6163ca713a90c4dfecb9c0914715eca30",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_panorama_estadual",
+       "target": "Cidades.cidades.ouro.ouro_rural_panorama_estadual.secao",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 128,
+     "titulo": "Seleção",
+     "viz": "echarts_timeseries_bar",
+     "dashboards": [
+      6
+     ],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=128"
+    },
+    "reference_sql": "SELECT dimensao, SUM(qtd_uhs) AS \"UHs\" FROM ouro.ouro_rural_panorama_estadual WHERE secao = 'metodo' GROUP BY dimensao ORDER BY dimensao",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-rural-129",
+   "question": "Quantas unidades habitacionais do Rural existem por portaria de seleção e enquadramento?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "rural",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_rural_panorama_estadual": 3,
+    "Cidades.cidades.ouro.ouro_rural_panorama_estadual.qtd_uhs": 3,
+    "Cidades.cidades.ouro.ouro_rural_panorama_estadual.dimensao": 2,
+    "Cidades.cidades.ouro.ouro_rural_panorama_estadual.secao": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-129",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_panorama_estadual",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_panorama_estadual.qtd_uhs",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_panorama_estadual.dimensao",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_panorama_estadual.secao",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "57988b7378379f8d5e12003ccea1f0e333175cde248e56cdde6b4d670f81c16b",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_panorama_estadual",
+       "target": "Cidades.cidades.ouro.ouro_rural_panorama_estadual.qtd_uhs",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "1d120b8a2a095f9ef8b1cab0e63818be06e7e298a9321c1e9bb3d12f1048c5bb",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_panorama_estadual",
+       "target": "Cidades.cidades.ouro.ouro_rural_panorama_estadual.dimensao",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "e4c9300eec3c29ef9bb320610043d2b6163ca713a90c4dfecb9c0914715eca30",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_panorama_estadual",
+       "target": "Cidades.cidades.ouro.ouro_rural_panorama_estadual.secao",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 129,
+     "titulo": "Seleção e Enquadramento - Referência",
+     "viz": "echarts_timeseries_bar",
+     "dashboards": [
+      6
+     ],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=129"
+    },
+    "reference_sql": "SELECT dimensao, SUM(qtd_uhs) AS \"UHs\" FROM ouro.ouro_rural_panorama_estadual WHERE secao = 'portaria' GROUP BY dimensao ORDER BY dimensao",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-rural-161",
+   "question": "Qual a renda familiar média dos beneficiários do Rural em cada UF?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "rural",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "geo"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_rural_perfil_beneficiarios": 3,
+    "Cidades.cidades.ouro.ouro_rural_perfil_beneficiarios.renda_familiar_media": 3,
+    "Cidades.cidades.ouro.ouro_rural_perfil_beneficiarios.uf": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-161",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_perfil_beneficiarios",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_perfil_beneficiarios.renda_familiar_media",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_perfil_beneficiarios.uf",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "c9b8c313a097d34c30812813f6532c93c7386b8dcd5b457480526453177a04ef",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_perfil_beneficiarios",
+       "target": "Cidades.cidades.ouro.ouro_rural_perfil_beneficiarios.renda_familiar_media",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "f6dc12558e1a368d5414dcb4608aba0c40664b11750d61dc4ded3095719a1e1d",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_perfil_beneficiarios",
+       "target": "Cidades.cidades.ouro.ouro_rural_perfil_beneficiarios.uf",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 161,
+     "titulo": "Média de Renda Familiar por Estado",
+     "viz": "echarts_timeseries_bar",
+     "dashboards": [
+      6
+     ],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=161"
+    },
+    "reference_sql": "SELECT uf, AVG(renda_familiar_media) AS \"Média de Renda Familiar por Estado\" FROM ouro.ouro_rural_perfil_beneficiarios GROUP BY uf ORDER BY uf",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-rural-414",
+   "question": "O que aconteceu com os empreendimentos do Rural selecionados pela Portaria 162/2018? Quantos em cada situação?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "rural",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_rural_selecao_portaria_162": 3,
+    "Cidades.cidades.ouro.ouro_rural_selecao_portaria_162.status_operacao": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-414",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_selecao_portaria_162",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_selecao_portaria_162.status_operacao",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "3f16d8457fa957637af66522ddc5a5cd096fc214cd7518d2604c2bdd83b270b4",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_selecao_portaria_162",
+       "target": "Cidades.cidades.ouro.ouro_rural_selecao_portaria_162.status_operacao",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 414,
+     "titulo": "Rural · Portaria 162/2018: o que aconteceu com os selecionados",
+     "viz": "pie",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=414"
+    },
+    "reference_sql": "SELECT status_operacao, COUNT(*) AS \"Empreendimentos selecionados\" FROM ouro.ouro_rural_selecao_portaria_162 GROUP BY status_operacao ORDER BY status_operacao",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Descrição do chart: Destino dos 1.287 empreendimentos selecionados pela Portaria MCidades nº 162/2018: viraram contrato? estão concluídos, em obra, paralisados?",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-rural-415",
+   "question": "Quantos selecionados da Portaria 162/2018 do Rural existem por UF e situação atual?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "rural",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "geo"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_rural_selecao_portaria_162": 3,
+    "Cidades.cidades.ouro.ouro_rural_selecao_portaria_162.status_operacao": 2,
+    "Cidades.cidades.ouro.ouro_rural_selecao_portaria_162.uf": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-415",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_selecao_portaria_162",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_selecao_portaria_162.status_operacao",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_rural_selecao_portaria_162.uf",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "3f16d8457fa957637af66522ddc5a5cd096fc214cd7518d2604c2bdd83b270b4",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_selecao_portaria_162",
+       "target": "Cidades.cidades.ouro.ouro_rural_selecao_portaria_162.status_operacao",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "28a0cee8de3e9bf1b5c0ee5b2d95db800742ea8446a42abb4feee219b71d9664",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_rural_selecao_portaria_162",
+       "target": "Cidades.cidades.ouro.ouro_rural_selecao_portaria_162.uf",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 415,
+     "titulo": "Rural · Portaria 162/2018: selecionados por UF e situação",
+     "viz": "echarts_timeseries_bar",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=415"
+    },
+    "reference_sql": "SELECT uf, status_operacao, COUNT(*) AS \"Selecionados\" FROM ouro.ouro_rural_selecao_portaria_162 GROUP BY uf, status_operacao ORDER BY uf, status_operacao",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Descrição do chart: Selecionados da Portaria 162/2018 por UF, coloridos pela situação atual.",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-trabalho-social-597",
+   "question": "Na lista de empreendimentos sem indicação de demanda do Trabalho Social, quantos estão em cada situação da demanda e do dossiê?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "trabalho_social",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_ts_demanda_dossie": 3,
+    "Cidades.cidades.ouro.ouro_ts_demanda_dossie.situacao_demanda": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-597",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_ts_demanda_dossie",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_ts_demanda_dossie.situacao_demanda",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "587f6bf99b560af6831c85cec204d9ad03b3f40364e6f968b392a0a21214b311",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_ts_demanda_dossie",
+       "target": "Cidades.cidades.ouro.ouro_ts_demanda_dossie.situacao_demanda",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 597,
+     "titulo": "TS ▸ Situação da demanda e dos dossiês",
+     "viz": "echarts_timeseries_bar",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=597"
+    },
+    "reference_sql": "SELECT situacao_demanda, COUNT(*) AS \"Empreendimentos\" FROM ouro.ouro_ts_demanda_dossie GROUP BY situacao_demanda ORDER BY situacao_demanda",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Descrição do chart: Empreendimentos da lista por situação, do mais grave ao menos grave. Clique numa barra para filtrar a tabela.",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-trabalho-social-596",
+   "question": "Quantos empreendimentos do FAR estão na lista da SNH sem indicação de demanda para o Trabalho Social?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "trabalho_social",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "single_value"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_ts_demanda_dossie": 3
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-596",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_ts_demanda_dossie",
+       "type": "Table"
+      }
+     ],
+     "relationships": []
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 596,
+     "titulo": "TS ▸ Empreendimentos na lista sem indicação de demanda",
+     "viz": "big_number_total",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=596"
+    },
+    "reference_sql": "SELECT COUNT(*) AS \"Empreendimentos\" FROM ouro.ouro_ts_demanda_dossie",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Descrição do chart: Empreendimentos FAR na lista da SNH de empreendimentos sem indicação de demanda (remessa mais recente).",
+    "contains_row_values": false
+   }
+  },
+  {
+   "id": "superset-trabalho-social-606",
+   "question": "Quantos contratos com Trabalho Social existem por linha do programa e tipo de edificação?",
+   "critical": false,
+   "slices": [
+    "pt_br",
+    "trabalho_social",
+    "mono_table",
+    "superset",
+    "tier_a",
+    "by_dimension",
+    "needs_review"
+   ],
+   "seed_relevance": {
+    "Cidades.cidades.ouro.ouro_ts_empreendimento_mapa": 3,
+    "Cidades.cidades.ouro.ouro_ts_empreendimento_mapa.linha": 2,
+    "Cidades.cidades.ouro.ouro_ts_empreendimento_mapa.tipo_edificacao": 2
+   },
+   "gold_subgraphs": [
+    {
+     "id": "chart-606",
+     "nodes": [
+      {
+       "id": "Cidades.cidades.ouro.ouro_ts_empreendimento_mapa",
+       "type": "Table"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_ts_empreendimento_mapa.linha",
+       "type": "Column"
+      },
+      {
+       "id": "Cidades.cidades.ouro.ouro_ts_empreendimento_mapa.tipo_edificacao",
+       "type": "Column"
+      }
+     ],
+     "relationships": [
+      {
+       "id": "b062335dae81a1ce4278b7bfb213735759ca6cd69d892a49b4c815537fd50067",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_ts_empreendimento_mapa",
+       "target": "Cidades.cidades.ouro.ouro_ts_empreendimento_mapa.linha",
+       "direction": "forward",
+       "sql_join_eligible": false
+      },
+      {
+       "id": "4b52894ed3a6b313ebd327af75b692bbd6882e90b505117f628675d4a59f13ca",
+       "type": "HAS_COLUMN",
+       "source": "Cidades.cidades.ouro.ouro_ts_empreendimento_mapa",
+       "target": "Cidades.cidades.ouro.ouro_ts_empreendimento_mapa.tipo_edificacao",
+       "direction": "forward",
+       "sql_join_eligible": false
+      }
+     ]
+    }
+   ],
+   "metadata": {
+    "annotation_status": "draft",
+    "reviewer": null,
+    "origem": {
+     "superset_chart_id": 606,
+     "titulo": "TS ▸ Tipo de edificação por linha",
+     "viz": "echarts_timeseries_bar",
+     "dashboards": [],
+     "url": "https://govhub.mcid.lablivre.rocks/explore/?slice_id=606"
+    },
+    "reference_sql": "SELECT linha, tipo_edificacao, COUNT(*) AS \"Contratos\" FROM ouro.ouro_ts_empreendimento_mapa GROUP BY linha, tipo_edificacao ORDER BY linha, tipo_edificacao",
+    "evidence": "SQL montado deterministicamente do form_data do chart (métricas, dimensões e filtros simples).",
+    "review_notes": "Outros charts desta tabela filtram por ['linha', 'publico_tradicional_estimado']: pode haver linhas de total ou formato longo; conferir se o SQL de referência precisa do mesmo filtro (no Superset ele pode vir do filtro do dashboard, que o chart não guarda). Descrição do chart: Contratos com TS por tipo de edificação (casa, apartamento, casa sobreposta, misto). FAR pelo INT040, FDS pelo INT059; no Rural é sempre casa.",
+    "contains_row_values": false
+   }
+  }
+ ]
+}

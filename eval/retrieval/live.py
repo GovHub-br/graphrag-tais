@@ -40,7 +40,9 @@ from .models import (
 )
 
 
-SELECTED_TOP_K = 5
+# Sementes da produção. Sobreponível por env só para experimento (a produção
+# usa o `top_k` do wrapper); o diagnóstico continua em 10.
+SELECTED_TOP_K = int(os.environ.get("RETRIEVAL_SELECTED_TOP_K", "5"))
 DIAGNOSTIC_TOP_K = 10
 TRACE_SCHEMA_VERSION = "1"
 FINGERPRINT_SCHEMA_VERSION = "live-retrieval-v1"
@@ -290,6 +292,51 @@ def _timed(call: Callable[[], Any]) -> tuple[Any, float]:
     return result, _elapsed_ms(started_at)
 
 
+def _hybrid_kwargs(runtime: LiveRetrievalRuntime, question: str) -> dict[str, Any]:
+    """O roteamento por produto lê a PERGUNTA, além dos embeddings."""
+    if getattr(runtime.hybrid_retriever, "accepts_question", False):
+        return {"question": question}
+    return {}
+
+
+class RoutedHybridRetriever:
+    """Híbrido de produção + roteamento por produto + reranker, na ordem da
+    pipeline (cada etapa opcional).
+
+    Existe para o coletor medir o que a produção roda com
+    `SEED_PRODUCT_ROUTING` / `RERANK_ENABLED`: sem ele, o eval chamaria o
+    híbrido cru e mediria outra coisa. Sementes e diagnóstico saem da MESMA
+    cadeia, então o top-5 é sempre prefixo do top-10."""
+
+    accepts_question = True
+
+    def __init__(self, inner: Any, router: Any = None, reranker: Any = None) -> None:
+        self.inner = inner
+        self.router = router
+        self.reranker = reranker
+
+    def run(
+        self,
+        query_embedding: Any,
+        query_sparse_embedding: Any,
+        top_k: int | None = None,
+        question: str = "",
+    ) -> dict[str, Any]:
+        pool = self.inner.run(
+            query_embedding=query_embedding,
+            query_sparse_embedding=query_sparse_embedding,
+            top_k=top_k,
+        )["documents"]
+        k = top_k or self.inner.top_k
+        documents = pool[:k]
+        if self.router is not None:
+            routed = self.router.run(documents=pool, query=question, top_k=k)
+            pool, documents = routed["pool"], routed["documents"]
+        if self.reranker is not None:
+            documents = self.reranker.run(documents=list(pool), query=question, top_k=k)["documents"]
+        return {"documents": documents, "pool": pool}
+
+
 def _run_retriever(
     runtime: LiveRetrievalRuntime,
     *,
@@ -297,12 +344,14 @@ def _run_retriever(
     dense_embedding: Any,
     sparse_embedding: Any,
     top_k: int,
+    question: str = "",
 ) -> dict[str, Any]:
     if channel == "hybrid":
         return runtime.hybrid_retriever.run(
             query_embedding=dense_embedding,
             query_sparse_embedding=sparse_embedding,
             top_k=top_k,
+            **_hybrid_kwargs(runtime, question),
         )
     if channel == "dense":
         return runtime.dense_retriever.run(
@@ -372,6 +421,7 @@ def build_default_runtime(
     from haystack.dataclasses import ChatMessage
 
     resolved_collection = collection or settings.QDRANT_COLLECTION
+    hybrid_retriever: Any
     qdrant_store = QdrantStoreFactory(index=resolved_collection).build()
     graph_store = Neo4jGraphStoreFactory().build()
     sparse_embedder = FastembedSparseTextEmbedderFactory().build()
@@ -403,13 +453,27 @@ def build_default_runtime(
             for index, message in enumerate(messages)
         }
 
+    hybrid_retriever = QdrantHybridRetrieverFactory(
+        qdrant_store,
+        top_k=DIAGNOSTIC_TOP_K,
+        route_pool=settings.SEED_PRODUCT_ROUTING,
+    ).build()
+    if settings.SEED_PRODUCT_ROUTING or settings.RERANK_ENABLED:
+        router = reranker = None
+        if settings.SEED_PRODUCT_ROUTING:
+            from rag.components.retrievers.product_router import ProductSeedRouter
+
+            router = ProductSeedRouter(top_k=DIAGNOSTIC_TOP_K)
+        if settings.RERANK_ENABLED:
+            from rag.components.retrievers.reranker import FastembedReranker
+
+            reranker = FastembedReranker(top_k=DIAGNOSTIC_TOP_K)
+        hybrid_retriever = RoutedHybridRetriever(hybrid_retriever, router, reranker)
+
     return LiveRetrievalRuntime(
         dense_embedder=OllamaTextEmbedderFactory().build(),
         sparse_embedder=sparse_embedder,
-        hybrid_retriever=QdrantHybridRetrieverFactory(
-            qdrant_store,
-            top_k=DIAGNOSTIC_TOP_K,
-        ).build(),
+        hybrid_retriever=hybrid_retriever,
         dense_retriever=QdrantEmbeddingRetriever(
             document_store=qdrant_store,
             top_k=DIAGNOSTIC_TOP_K,
@@ -430,6 +494,21 @@ def build_default_runtime(
             "similarity": settings.QDRANT_SIMILARITY,
             "card_schema_version": settings.OM_CARD_SCHEMA_VERSION,
             "qdrant_grpc": settings.QDRANT_GRPC,
+            "seed_product_routing": settings.SEED_PRODUCT_ROUTING,
+            "seed_product_boost": settings.SEED_PRODUCT_BOOST,
+            "seed_schema_boost": settings.SEED_SCHEMA_BOOST,
+            "seed_distinct_tables": settings.SEED_DISTINCT_TABLES,
+            "hybrid_dense_weight": settings.HYBRID_DENSE_WEIGHT,
+            "rerank_enabled": settings.RERANK_ENABLED,
+            "rerank_model": settings.RERANK_MODEL if settings.RERANK_ENABLED else None,
+            "selected_top_k": SELECTED_TOP_K,
+            "expansion_mode": settings.EXPANSION_MODE,
+            "expansion_budget": settings.EXPANSION_BUDGET,
+            "prune_mode": settings.PRUNE_MODE,
+            "prune_max_cols": [
+                settings.PRUNE_SEED_TABLE_MAX_COLS,
+                settings.PRUNE_EXPANSION_TABLE_MAX_COLS,
+            ],
             "scope_filter": None,
         },
         prompt_renderer=render_prompt,
@@ -1031,9 +1110,11 @@ def _collect_trace(
                 dense_embedding=dense_embedding,
                 sparse_embedding=sparse_embedding,
                 top_k=SELECTED_TOP_K,
+                question=question,
             )
         )
         selected_documents = list(selected_result.get("documents") or [])
+        selected_pool = selected_result.get("pool")
 
         stage = "selected_document_validation"
         _validate_retrieved_documents(
@@ -1047,6 +1128,7 @@ def _collect_trace(
             lambda: runtime.subgraph_retriever.run(
                 documents=selected_documents,
                 query=question,
+                **({"pool": selected_pool} if selected_pool is not None else {}),
             )
         )
         context_documents = list(subgraph_result.get("documents") or [])
@@ -1059,6 +1141,7 @@ def _collect_trace(
                 query_embedding=dense_embedding,
                 query_sparse_embedding=sparse_embedding,
                 top_k=DIAGNOSTIC_TOP_K,
+                **_hybrid_kwargs(runtime, question),
             )
         )
         hybrid_documents = list(

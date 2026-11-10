@@ -17,7 +17,11 @@ from typing import List, Optional
 
 from haystack import Document, component
 from haystack.dataclasses import SparseEmbedding
-from haystack_integrations.components.retrievers.qdrant import QdrantHybridRetriever
+from haystack_integrations.components.retrievers.qdrant import (
+    QdrantEmbeddingRetriever,
+    QdrantHybridRetriever,
+    QdrantSparseEmbeddingRetriever,
+)
 from haystack_integrations.document_stores.qdrant import QdrantDocumentStore
 
 from rag.components.base import ComponentFactory
@@ -39,14 +43,27 @@ class DeterministicHybridRetriever:
         document_store: QdrantDocumentStore,
         top_k: int = 5,
         pool_size: int | None = None,
+        route_pool: bool = False,
     ):
         self.top_k = top_k
+        # True quando um roteador (por produto) reordena o pool depois daqui.
+        # Parâmetro, não setting global: a P1 e a P2 dividem este componente.
+        self.route_pool = route_pool
         self.pool_size = pool_size or settings.RETRIEVAL_POOL_SIZE
         self._inner = QdrantHybridRetriever(
             document_store=document_store,
             filters=_scope_filter(),
             top_k=self.pool_size,
         )
+        # Fusão ponderada (EXPERIMENTAL, `HYBRID_DENSE_WEIGHT`): os dois canais
+        # consultados em separado e somados por RRF com peso. Vazio = a RRF do
+        # próprio Qdrant, com peso igual. Com 0,5 a ordem é a mesma da RRF.
+        self.dense_weight = settings.HYBRID_DENSE_WEIGHT
+        if self.dense_weight is not None:
+            self._dense = QdrantEmbeddingRetriever(
+                document_store=document_store, filters=_scope_filter(), top_k=self.pool_size)
+            self._sparse = QdrantSparseEmbeddingRetriever(
+                document_store=document_store, filters=_scope_filter(), top_k=self.pool_size)
 
     @component.output_types(documents=List[Document])
     def run(
@@ -58,17 +75,42 @@ class DeterministicHybridRetriever:
         # Com rerank ligado o corte deixa de ser aqui: o pool inteiro segue para
         # o cross-encoder, que é quem sabe comparar pergunta e card. Cortar antes
         # jogaria fora justamente os candidatos que o rerank existe para resgatar.
-        k = self.pool_size if settings.RERANK_ENABLED else (top_k or self.top_k)
+        # Idem com o roteamento por produto: ele reordena o pool inteiro.
+        widen = settings.RERANK_ENABLED or self.route_pool
+        k = self.pool_size if widen else (top_k or self.top_k)
         pool = max(self.pool_size, k)
-        docs = self._inner.run(
-            query_embedding=query_embedding,
-            query_sparse_embedding=query_sparse_embedding,
-            top_k=pool,
-        )["documents"]
+        if self.dense_weight is None:
+            docs = self._inner.run(
+                query_embedding=query_embedding,
+                query_sparse_embedding=query_sparse_embedding,
+                top_k=pool,
+            )["documents"]
+        else:
+            docs = self._weighted_rrf(query_embedding, query_sparse_embedding, pool)
         # Desempate estável: score desc, depois node_id asc (determinístico).
         docs.sort(key=lambda d: (-(d.score if d.score is not None else 0.0),
                                  (d.meta or {}).get("node_id", d.id or "")))
         return {"documents": docs[:k]}
+
+    def _weighted_rrf(self, dense_q, sparse_q, pool: int) -> List[Document]:
+        """RRF com peso por canal: score = w/(1+rank_denso) + (1−w)/(1+rank_esparso).
+
+        Cada canal traz o dobro do pool, para que um card forte só num canal
+        ainda concorra; o corte no pool é depois da soma."""
+        w = float(self.dense_weight)
+        dense = self._dense.run(query_embedding=dense_q, top_k=2 * pool)["documents"]
+        sparse = self._sparse.run(query_sparse_embedding=sparse_q, top_k=2 * pool)["documents"]
+        fused: dict = {}
+        for weight, ranked in ((w, dense), (1.0 - w, sparse)):
+            for rank, doc in enumerate(ranked, start=1):
+                entry = fused.setdefault(doc.id, [doc, 0.0])
+                entry[1] += weight / (1 + rank)
+        out = []
+        for doc, score in fused.values():
+            doc.score = score
+            out.append(doc)
+        out.sort(key=lambda d: (-d.score, (d.meta or {}).get("node_id", d.id or "")))
+        return out[:pool]
 
 
 class QdrantHybridRetrieverFactory(ComponentFactory):
@@ -81,12 +123,15 @@ class QdrantHybridRetrieverFactory(ComponentFactory):
       - query_sparse_embedding (esparso, do FastembedSparseTextEmbedder)
     """
 
-    def __init__(self, document_store: QdrantDocumentStore, top_k: int = 5):
+    def __init__(self, document_store: QdrantDocumentStore, top_k: int = 5,
+                 route_pool: bool = False):
         self.document_store = document_store
         self.top_k = top_k
+        self.route_pool = route_pool
 
     def build(self) -> DeterministicHybridRetriever:
         return DeterministicHybridRetriever(
             document_store=self.document_store,
             top_k=self.top_k,
+            route_pool=self.route_pool,
         )
