@@ -144,6 +144,15 @@ def aggregate(cases: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
                for b, d in por_trilha.items()}
 
     primeiras = [s["first_latency_s"] for s in scores if s["route_observed"] in ("numero", "assunto")]
+    com_gabarito = [c for c in cases if c.get("truth_result")]
+    gabarito = {
+        "cases": len(com_gabarito),
+        "headline_matches_db": sum(1 for c in com_gabarito if c["truth_result"]["verdict"] == "ok"),
+        "verdicts": {c["id"]: c["truth_result"]["verdict"] for c in com_gabarito},
+        "owner": {c["id"]: c["truth_result"]["owner"] for c in com_gabarito},
+        "data_traps": {c["id"]: [d["name"] for d in c["truth_result"]["data_checks"] if not d["ok"]]
+                       for c in com_gabarito if any(not d["ok"] for d in c["truth_result"]["data_checks"])},
+    }
     return {
         "cases": len(cases),
         "route_accuracy": _rate(sum(s["route_ok"] for s in scores), len(scores)),
@@ -162,4 +171,5 @@ def aggregate(cases: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
         "needs_review": [c["id"] for c in cases if c["score"]["needs_review"]],
         "buttons_without_state": [c["id"] for c in cases if c["score"]["buttons_without_state"]],
         "tracks": trilhas,
+        "truth": gabarito,
     }

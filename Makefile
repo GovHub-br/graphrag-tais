@@ -9,7 +9,7 @@ EXPLORE_MARKDOWN ?= eval/reports/explore-report.md
 EXPLORE_POLICY ?= eval/config/explore-policy-v0.1.0.json
 
 # Jornada / Assistente (ADR-0020)
-JOURNEY_DATASET ?= eval/datasets/journey/cidades-journey-v0.1.0.json
+JOURNEY_DATASET ?= eval/datasets/journey/cidades-journey-v0.2.0.json
 JOURNEY_OUT ?= eval/reports/journey-$(shell date +%Y%m%d)
 
 .PHONY: up eval-quick eval-collect eval-live eval-score eval-full eval-answer \

@@ -1,6 +1,7 @@
 """Métricas do eval da jornada (`eval/journey/metrics.py`) — roda no host."""
 import unittest
 
+from eval.journey import truth
 from eval.journey.metrics import aggregate, phrase_numbers_outside, score_case
 
 
@@ -56,6 +57,56 @@ class TestScoreCase(unittest.TestCase):
         self.assertTrue(s["tracks"][0]["botao_repetido"])
         resumo = aggregate([{**case, "score": s}])
         self.assertEqual(resumo["tracks"]["Contar a história"]["botao_repetido"], 1)
+
+
+def _uf(texto):
+    return {"sigla": {"bahia": "BA", "ba": "BA", "sp": "SP"}.get(texto.lower())} \
+        if texto.lower() in ("bahia", "ba", "sp") else None
+
+
+class TestGabarito(unittest.TestCase):
+    """Comparação com o banco real (`eval/journey/truth.py`)."""
+
+    LINHAS = [{"chave": "BA", "valor": 101}, {"chave": "SP", "valor": 63}]
+
+    def test_total_que_bate_e_ok(self):
+        out = truth.compare({"headline": "total", "key": "uf"}, self.LINHAS,
+                            {"reached": True, "headline": 164.0, "values": [["Bahia", 101], ["SP", 63]]},
+                            uf_resolver=_uf)
+        self.assertEqual(out["verdict"], "ok")
+        self.assertEqual(out["keys"]["matched"], 2)
+
+    def test_total_dobrado_aponta_linha_de_total(self):
+        out = truth.compare({"headline": "total"}, [{"chave": "a", "valor": 19.5e9}],
+                            {"reached": True, "headline": 39.0e9})
+        self.assertEqual(out["verdict"], "diferente")
+        self.assertIn("dobrado", out["hint"])
+
+    def test_fracao_no_lugar_de_percentual(self):
+        self.assertIn("1/100", truth.hint(0.061, 6.1))
+
+    def test_leitura_alternativa_e_separada_de_erro(self):
+        out = truth.compare({"headline": "maior"}, [{"chave": "x", "valor": 3173}],
+                            {"reached": True, "headline": 10940.0}, alternatives=[("soma do top 10", 10940.0)])
+        self.assertEqual(out["verdict"], "leitura_alternativa")
+        self.assertEqual(truth.owner(out), "interpretação (outra leitura válida)")
+
+    def test_ultimo_usa_a_maior_chave(self):
+        linhas = [{"chave": "2025-12-01", "valor": 6.1}, {"chave": "2025-01-01", "valor": 6.85}]
+        self.assertEqual(truth.headline_from_rows(linhas, "ultimo"), 6.1)
+
+    def test_periodo_normaliza(self):
+        self.assertEqual(truth.norm_key("2025-03-01", "periodo"), "2025-03")
+
+    def test_sem_numero_e_dono_catalogo_quando_falta_tabela(self):
+        out = truth.compare({"headline": "total"}, self.LINHAS, {"reached": False})
+        out.update(data_checks=[], catalog_missing=["ouro_ts_resumo_uf"])
+        self.assertEqual(out["verdict"], "sem_numero")
+        self.assertTrue(truth.owner(out).startswith("catálogo"))
+
+    def test_checagem_de_dado(self):
+        self.assertFalse(truth.check_data({"expect": "zero", "means": "linha SOMA"}, [{"v": 1}])["ok"])
+        self.assertTrue(truth.check_data({"expect": ">1"}, [{"v": 7.5}])["ok"])
 
 
 if __name__ == "__main__":

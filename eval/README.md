@@ -155,6 +155,28 @@ A policy `retrieval-policy-v0.1.0.json` contém tolerâncias conservadoras de
 bootstrap para não regressão. Ela não define um piso absoluto de qualidade e
 deve ser revisada junto da primeira baseline real aceita.
 
+### Jornada (Assistente, ADR-0020) com gabarito do banco real
+
+```bash
+make eval-journey                       # no container `hayhooks` local; chama o LLM
+python -m eval.journey.truth eval/reports/journey-AAAAMMDD   # refaz gabarito.md/.csv de um run
+```
+
+Simula o Open WebUI (pergunta → botões → clique em cada trilha) e, nos casos de
+número, compara o destaque com o **gabarito**: um SQL escrito à mão no bloco
+`truth` do dataset, rodado **ao vivo** no banco real (`eval/journey/truth.py`).
+O veredito separa de quem é o defeito: `ok`, `leitura_alternativa` (outra
+leitura válida da pergunta), `diferente` (com a `pista` do padrão: dobrado,
+fator 100, escala) ou `sem_numero`. As `data_checks` testam o **dado** (linha
+de total, último mês vazio, unidade trocada), o catálogo é conferido no Neo4j do
+escopo, e tabela que o SQL do sistema usou e o banco não tem aparece como
+`tabela_fantasma`. Cada run grava `run.json`, uma transcrição por caso e
+`gabarito.md`/`gabarito.csv` (esperado × recebido), para comparar entre runs.
+
+Para rodar contra outro deploy, copie `eval/` para o container dele e chame
+`python -m eval.journey.live` com `PYTHONPATH=<cópia>:/app/src` — o collector
+usa as pipelines, o catálogo e o banco daquele container.
+
 ## Ciclo de uma mudança
 
 1. Registre a hipótese, a métrica primária, os guardrails e os slices afetados.
