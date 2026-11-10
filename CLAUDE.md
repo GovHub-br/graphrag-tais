@@ -74,6 +74,50 @@ baixar. `Indicador` e `Explorar` seguem no seletor, intactos.
 - ⚠️ **Tabela "mapa" com UF + região na mesma coluna** (`ouro_far_mapa_nacional`
   tem N/NE/CO/S/SE junto das UFs): linhas de região/total saem da soma e "SE"
   (Sergipe ou Sudeste?) sai junto — a resposta avisa.
+- **Número por extenso no texto** (10/11): frase, cartão e tabelas usam
+  `fmt.exact` ("1.300.452", "R$ 24.956.847.898"); o compacto ("1,3 mi") fica só
+  DENTRO do desenho (`render.chart_fmt`), onde não cabe. Todo gráfico de
+  recorte tem embaixo a **tabela com os valores** (`render.values_table`,
+  recolhida em `<details>` acima de 12 linhas): PNG não deixa passar o cursor.
+- **Gráfico interativo** (10/11): a resposta com mapa/série/ranking leva uma
+  linha escondida `[//]: # (tais:grafico /charts/<ref>/<tipo>?exp&sig)`
+  (`render.chart_marker`). A Function de filtro do Open WebUI
+  (`webui/functions/grafico_interativo.py`, instalada pelo
+  `setup_webui_models.sh` com `GRAFICO_RAG_URL`) busca o HTML na rota
+  `GET /charts/...` (`rag/server/charts.py`, mesma chave HMAC do download,
+  escopo próprio) e o grava na mensagem como embed. O HTML
+  (`journey/interactive.py`) é SVG + JS puro, sem CDN, e manda a altura por
+  `postMessage({type:"iframe:height"})`. ⚠️ O Open WebUI desenha embed ANTES
+  do texto: a seção 13 do `custom.css` o move para baixo e esconde o PNG
+  duplicado (âncora: o `alt` de `where_chart`/`gestor`; mudar esse texto
+  quebra o esconder). Só pelo navegador (o `outlet` é chamado pelo frontend).
+  Com o embed, o chat NÃO leva o PNG nem a tabela de valores
+  (`render.for_chat`); a seção guardada para o `.docx` leva os dois.
+- **Município** (10/11): coluna de município (nome ou código IBGE) é recorte
+  próprio (`facts.dimension_kind == "municipio"`, `mun_values` por código) e
+  vence a de UF. Malha e nomes do IBGE em `journey/data/municipios*`
+  (`scripts/fetch_ibge_municipios.py`, 2,2 MB); `journey/municipios.py` liga
+  nome → código DENTRO da UF (há 5 "Bom Jesus"). O mapa por UF tem, no toque,
+  o botão "Ver os municípios da Bahia", que manda a pergunta ao chat
+  (`postMessage` `input:prompt:submit`; o Open WebUI pede confirmação). Essa
+  pergunta é detalhada no MESMO SQL da resposta anterior (`journey/drill.py`:
+  UF → município + `WHERE uf = …`, sem LLM), para o total bater com o estado
+  tocado; sem tabela única com município, vai ao motor como pergunta nova.
+  Até 6 UFs há mapa municipal; acima, só ranking. Cor do mapa (`interactive.color_positions`, usada também
+  no PNG): linear, ou pelo RANKING quando o maior passa de 10× a mediana (capital
+  contra município pequeno deixava todo o resto quase branco); no municipal,
+  "sem dado" é cinza quase branco e quem tem dado começa num lilás visível.
+- **Sem tipografia de máquina** (10/11): `text.plain_typography` tira " · ",
+  " — " e "- item" da saída dos TRÊS modelos (item vira parágrafo), sem tocar
+  em código, tabela crua, imagem e marcador de estado.
+- **Contexto da conversa** (10/11, `rag/conversation.py`, os três wrappers):
+  com histórico, "e em SP?" é reescrita completa por um LLM leve
+  (`CHAT_CONTEXT_MODEL`, gpt-4o-mini) ANTES da pipeline, e a resposta abre com
+  "*Considerando a conversa, entendi a pergunta como: …*". A pipeline segue
+  recebendo uma pergunta só; sem histórico não há chamada extra. Vai para o LLM
+  só o texto das perguntas e a 1ª frase das respostas. ⚠️ `response_format`
+  JSON da OpenAI exige a palavra "JSON" no prompt (sem ela, 400 e a reescrita
+  cai em silêncio para a pergunta original).
 - ⚠️ **Stream em pedaços de 16 KB**: com vários PNG base64 a resposta passa de
   128 KB e o open-webui recusa a linha SSE (`Got more than 131072 bytes`).
 - Gráficos novos (PNG, desenhados para celular): `components/charts/infographics.py`.

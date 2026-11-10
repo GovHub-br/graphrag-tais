@@ -12,7 +12,10 @@ Decisões que o resumo toma, e por quê:
   IBGE, ano e `id` são numéricos e não são medida.
 - **Dimensão** = a primeira coluna que não é a métrica. Ela é classificada como
   `uf` (sigla, nome ou código que o IBGE reconhece), `tempo` ou `categoria` — é
-  isso que decide se há mapa, série ou ranking.
+  isso que decide se há mapa, série ou ranking. Coluna de **município** (nome ou
+  código IBGE que `journey.municipios` reconhece) tem prioridade sobre a de UF:
+  `SELECT uf, municipio, SUM(…)` é uma pergunta por município, e vira o mapa
+  municipal.
 - **Aditiva?** Soma de valor e contagem somam; média, taxa e percentual não. Para
   métrica não aditiva não existe "total": o destaque vira o maior valor.
 - **Dinheiro?** Pelo nome da coluna ou da coluna somada no SQL
@@ -43,7 +46,7 @@ class Facts:
     kinds: Dict[str, str]
     metric: Optional[str] = None
     dimension: Optional[str] = None
-    dimension_kind: str = ""          # uf | tempo | categoria | ""
+    dimension_kind: str = ""          # uf | municipio | tempo | categoria | ""
     money: bool = False
     additive: bool = True
     #: (rótulo, valor) por categoria da dimensão, na ordem do resultado.
@@ -52,6 +55,12 @@ class Facts:
     headline_kind: str = ""           # total | valor | ultimo | maior
     headline_label: str = ""
     uf_values: Dict[str, float] = field(default_factory=dict)
+    #: Recorte por município: valor por código IBGE (só os que a malha
+    #: reconhece) e as UFs que eles cobrem — o mapa desenha essas UFs.
+    mun_values: Dict[str, float] = field(default_factory=dict)
+    mun_ufs: List[str] = field(default_factory=list)
+    #: Rótulo exibido → código IBGE (o ranking mostra o nome; o mapa usa o código).
+    mun_label: Dict[str, str] = field(default_factory=dict)
     coverage: Dict[str, float] = field(default_factory=dict)
     truncated: bool = False
     #: Rótulos de região/total que vieram misturados às UFs e ficaram FORA das
@@ -175,9 +184,17 @@ def build(rows: Sequence[Dict[str, Any]], columns: Sequence[str] | None = None,
     elif unidade.kind == units.INDICE:
         # Nível de índice não se soma nem é dinheiro, diga o nome o que disser.
         facts.money, facts.additive, facts.unit = False, False, units.INDICE
+    municipio = None if prefer_time else _municipio_column(columns, rows, facts.metric, sql)
     facts.dimension = (_pick_time_dimension(columns, kinds, rows, facts.metric) if prefer_time
-                       else None) or _pick_dimension(columns, kinds, facts.metric)
-    if facts.dimension:
+                       else None) or (municipio and municipio[0]) \
+        or _pick_dimension(columns, kinds, facts.metric)
+    if municipio and facts.dimension == municipio[0]:
+        facts.dimension_kind = "municipio"
+        rows = _with_municipio_key(rows, *municipio)
+        facts.dimension = "_municipio"
+        facts.values = _aggregate(rows, "_municipio", facts.metric, facts.additive)
+        _municipio_labels(facts)
+    elif facts.dimension:
         facts.dimension_kind = _dimension_kind(facts.dimension, kinds, rows)
         sub = _subperiod(columns, rows, facts.dimension, facts.metric) \
             if facts.dimension_kind == "tempo" else None
@@ -214,6 +231,7 @@ def _scale(facts: Facts, factor: float) -> None:
     As linhas cruas ficam como vieram: são o dado da base, para a trilha técnica."""
     facts.values = [(r, v * factor) for r, v in facts.values]
     facts.uf_values = {k: v * factor for k, v in facts.uf_values.items()}
+    facts.mun_values = {k: v * factor for k, v in facts.mun_values.items()}
     if facts.headline is not None:
         facts.headline *= factor
 
@@ -315,6 +333,71 @@ def _pick_time_dimension(columns, kinds, rows, metric) -> Optional[str]:
                 _is_temporal_name(col) and col.lower() not in _SUBPERIODO):
             return col
     return None
+
+
+_MUNICIPIO = re.compile(
+    r"^(nome_|no_|nm_|ds_)?munic[ií]pio(_nome|_uf)?$"
+    r"|^(cod|codigo|co|cd)_?(ibge|mun|municipio)(_municipio|_mun)?$|^(ibge|geocodigo|cod_ibge_municipio)$")
+_UF_FILTRO = re.compile(r"\b(?:\w+\.)?(?:sg_|sigla_)?uf\w*\s*=\s*'([A-Za-z]{2})'", re.I)
+
+
+def _municipio_column(columns, rows, metric, sql) -> Optional[Tuple[str, Optional[str], str]]:
+    """(coluna do município, coluna da UF ou None, UF do filtro do SQL ou "").
+
+    Só vale se 70% dos rótulos resolvem para um município do IBGE — dentro da
+    UF da linha, ou da UF do `WHERE uf = 'SP'`, quando houver."""
+    from rag.journey import municipios
+
+    candidatas = [c for c in columns if c != metric and _MUNICIPIO.match(c.lower())]
+    if not candidatas or not rows:
+        return None
+    uf_col = next((c for c in columns if c not in candidatas and c != metric
+                   and re.search(r"(^|_)(uf|sg_uf|sigla_uf|estado)($|_)", c.lower())), None)
+    filtro = _UF_FILTRO.search(sql or "")
+    uf_sql = filtro.group(1).upper() if filtro else ""
+    for col in candidatas:
+        rotulos = [(r.get(col), r.get(uf_col) if uf_col else None) for r in rows
+                   if r.get(col) not in (None, "")]
+        if not rotulos:
+            continue
+        ok = sum(1 for v, u in rotulos if municipios.resolve(v, _sigla(u) or uf_sql or None))
+        if ok / len(rotulos) >= 0.7:
+            return col, uf_col, uf_sql
+    return None
+
+
+def _sigla(valor) -> str:
+    uf = ibge.resolve(valor) if valor not in (None, "") else None
+    return uf["sigla"] if uf else ""
+
+
+def _with_municipio_key(rows, col, uf_col, uf_sql):
+    """Cada linha ganha `_municipio`: o código IBGE, ou o rótulo cru se não resolve."""
+    from rag.journey import municipios
+
+    saida = []
+    for r in rows:
+        bruto = r.get(col)
+        cod = municipios.resolve(bruto, _sigla(r.get(uf_col)) if uf_col else (uf_sql or None))
+        saida.append({**r, "_municipio": cod or _label(bruto)})
+    return saida
+
+
+def _municipio_labels(facts: "Facts") -> None:
+    """Código → nome para exibir; com mais de uma UF, "Nome (UF)" (há "Bom
+    Jesus" em 5 estados). `mun_values` fica com o código, que é a chave da malha."""
+    from rag.journey import municipios
+
+    codigos = {k for k, _ in facts.values if municipios.name(k)}
+    facts.mun_values = {k: v for k, v in facts.values if k in codigos}
+    facts.mun_ufs = sorted({municipios.uf_of(k) for k in codigos})
+    varias = len(facts.mun_ufs) > 1
+    facts.values = [
+        ((f"{municipios.name(k)} ({municipios.uf_of(k)})" if varias else municipios.name(k))
+         if k in codigos else k, v)
+        for k, v in facts.values]
+    facts.mun_label = {(f"{municipios.name(k)} ({municipios.uf_of(k)})" if varias
+                        else municipios.name(k)): k for k in codigos}
 
 
 def _dimension_kind(col, kinds, rows) -> str:

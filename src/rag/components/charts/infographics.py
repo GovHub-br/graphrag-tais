@@ -111,6 +111,15 @@ def _png(fig, dpi: Optional[int]) -> bytes:
 # --------------------------------------------------------------------------- #
 # População geral / história
 # --------------------------------------------------------------------------- #
+def _fonte_que_cabe(texto: str, largura_pt: float, maximo: float, minimo: float = 12) -> float:
+    """Corpo da fonte para `texto` caber em `largura_pt` (negrito, ~0,62 em por
+    caractere). O número agora sai por extenso ("R$ 24.956.847.898"): com o
+    corpo fixo de antes ele passava da borda do cartão."""
+    if not texto:
+        return maximo
+    return max(minimo, min(maximo, largura_pt / (0.62 * len(texto))))
+
+
 def highlight(value: str, caption: str, detail: str = "", *, dpi: Optional[int] = None) -> Optional[bytes]:
     """Número em destaque: o valor grande, o que ele é e a escala humana."""
     if not value:
@@ -122,7 +131,8 @@ def highlight(value: str, caption: str, detail: str = "", *, dpi: Optional[int] 
                                 transform=ax.transAxes, facecolor=LILAS, edgecolor=BORDA, lw=1.2))
     ax.add_patch(FancyBboxPatch((0.05, 0.22), 0.009, 0.56, boxstyle="square,pad=0",
                                 transform=ax.transAxes, facecolor=ROXO, edgecolor="none"))
-    ax.text(0.09, 0.70 if detail else 0.64, value, fontsize=40, fontweight="bold", color=ROXO,
+    ax.text(0.09, 0.70 if detail else 0.64, value, fontsize=_fonte_que_cabe(value, 0.87 * _W * 72, 40),
+            fontweight="bold", color=ROXO,
             fontfamily=_FONT_FAMILY, va="center", transform=ax.transAxes)
     ax.text(0.09, 0.42 if detail else 0.28, _quebra(caption, 44), fontsize=14, color=INK,
             fontfamily=_FONT_FAMILY, va="center", transform=ax.transAxes, wrap=True)
@@ -222,6 +232,52 @@ def uf_map(values: Dict[str, float], fmt: Fmt, *, title: str = "", subtitle: str
     return _png(fig, dpi)
 
 
+def municipal_map(values: Dict[str, float], ufs: Sequence[str], fmt: Fmt, *, title: str = "",
+                  subtitle: str = "", source: str = "Malha: IBGE",
+                  dpi: Optional[int] = None) -> Optional[bytes]:
+    """Mapa coroplético por município (código IBGE) das UFs do resultado.
+    Município sem valor fica cinza; é a mesma rampa de cor do mapa por UF."""
+    import math
+
+    from rag.journey import municipios
+
+    if not values or not ufs or len(ufs) > municipios.MAX_UFS_MAPA:
+        return None
+    from rag.journey.interactive import color_positions
+
+    minimo, maximo = min(values.values()), max(values.values())
+    # Mesma escala do mapa interativo: ranking quando um município domina,
+    # tom mínimo visível para quem tem dado e cinza quase branco para o resto.
+    tons = color_positions(values, floor=0.18)
+    patches, cores = [], []
+    for uf in ufs:
+        for cod, aneis in municipios.geometry(uf).items():
+            cor = _MAPA_CORES(tons[cod]) if cod in tons else "#f3f2f7"
+            for anel in aneis:
+                patches.append(Polygon(anel, closed=True))
+                cores.append(cor)
+    if not patches:
+        return None
+    fig = _fig(_W, 6.6)
+    _titulo(fig, title, subtitle)
+    ax = fig.add_axes([0.02, 0.12, 0.96, 0.72])
+    # Correção de latitude: sem ela, estado do Sul sai achatado.
+    lat = sum(y for p in patches[:200] for _, y in p.get_xy()) / max(1, sum(len(p.get_xy()) for p in patches[:200]))
+    ax.set_aspect(1 / math.cos(math.radians(lat)))
+    ax.set_axis_off()
+    ax.add_collection(PatchCollection(patches, facecolor=cores, edgecolor="#dcd8e8", linewidth=0.2))
+    ax.autoscale_view()
+    cax = fig.add_axes([0.2, 0.075, 0.6, 0.022])
+    cax.imshow([[i / 255 for i in range(256)]], aspect="auto", cmap=_MAPA_CORES)
+    cax.set_axis_off()
+    fig.text(0.2, 0.05, fmt(minimo), fontsize=10, color=MUTED, ha="left", va="top", fontfamily=_FONT_FAMILY)
+    fig.text(0.8, 0.05, fmt(maximo), fontsize=10, color=MUTED, ha="right", va="top", fontfamily=_FONT_FAMILY)
+    fig.text(0.5, 0.05, "cinza = sem dado", fontsize=9.5, color=FAINT, ha="center", va="top",
+             fontfamily=_FONT_FAMILY)
+    _rodape(fig, source)
+    return _png(fig, dpi)
+
+
 def comparison(items: Sequence[Tuple[str, float]], reference: float, reference_label: str,
                fmt: Fmt, *, title: str = "", subtitle: str = "", max_items: int = 10,
                dpi: Optional[int] = None) -> Optional[bytes]:
@@ -275,12 +331,15 @@ def kpi_cards(kpis: Sequence[Tuple[str, str, str]], *, title: str = "",
         ax.add_patch(FancyBboxPatch((0, 0), 1, 1, boxstyle="round,pad=0,rounding_size=0.08",
                                     transform=ax.transAxes, facecolor=LILAS,
                                     edgecolor=BORDA, lw=1.2))
-        ax.text(0.07, 0.66, valor, fontsize=24, fontweight="bold", color=ROXO,
+        ax.text(0.07, 0.66, valor, fontsize=_fonte_que_cabe(valor, 0.40 * _W * 72, 24),
+                fontweight="bold", color=ROXO,
                 fontfamily=_FONT_FAMILY, transform=ax.transAxes, va="center")
         ax.text(0.07, 0.36, _quebra(rotulo, 24), fontsize=11.5, color=INK, fontfamily=_FONT_FAMILY,
                 transform=ax.transAxes, va="center", fontweight="semibold")
         if detalhe:
-            ax.text(0.07, 0.15, _curto(detalhe, 30), fontsize=10, color=MUTED, fontfamily=_FONT_FAMILY,
+            detalhe = _curto(detalhe, 34)
+            ax.text(0.07, 0.15, detalhe, fontsize=_fonte_que_cabe(detalhe, 0.64 * _W * 72, 10, 8),
+                    color=MUTED, fontfamily=_FONT_FAMILY,
                     transform=ax.transAxes, va="center")
     return _png(fig, dpi)
 

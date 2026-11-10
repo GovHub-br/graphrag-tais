@@ -61,6 +61,28 @@ def build_download_url(bucket: str, object_name: str, expires_in: int) -> str:
     return f"{base}{path}?exp={expires_at}&sig={signature}"
 
 
+# Gráfico interativo da jornada (`rag/server/charts.py`). Mesma chave e mesmo
+# HMAC dos downloads, com "charts" no lugar do bucket: um link de gráfico não
+# serve para baixar arquivo e vice-versa.
+CHART_PREFIX = "/charts"
+_CHART_SCOPE = "charts"
+
+
+def build_chart_path(ref: str, kind: str, expires_in: int) -> str:
+    """Caminho RELATIVO e assinado do gráfico interativo de um resultado.
+
+    Relativo de propósito: quem busca é a Function do Open WebUI, pela rede
+    interna dela até o RAG (`RAG_URL` da Function), não o navegador."""
+    expires_at = int(time.time()) + int(expires_in)
+    nome = f"{ref}/{kind}"
+    return (f"{CHART_PREFIX}/{quote(ref, safe='')}/{quote(kind, safe='')}"
+            f"?exp={expires_at}&sig={_signature(_CHART_SCOPE, nome, expires_at)}")
+
+
+def verify_chart(ref: str, kind: str, expires_at: int, signature: str) -> None:
+    verify(_CHART_SCOPE, f"{ref}/{kind}", expires_at, signature)
+
+
 def base_url_looks_local(base_url: str | None = None) -> bool:
     """`PUBLIC_BASE_URL` ainda aponta para a própria máquina?
 

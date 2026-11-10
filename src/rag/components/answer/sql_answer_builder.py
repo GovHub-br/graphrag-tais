@@ -242,7 +242,7 @@ def _render_data_dictionary(references: List[Dict[str, Any]], sql: str) -> str:
                 blocks.append(f"_{ref['description'].strip()}_")
             # Cabeçalho = nome da tabela (linha em destaque); colunas abaixo.
             lines = [
-                f"| 📋 `{ref['table']}` | Tipo · Chave |",
+                f"| 📋 `{ref['table']}` | Tipo e chave |",
                 "| :-- | :-- |",
             ]
             for col in shown:

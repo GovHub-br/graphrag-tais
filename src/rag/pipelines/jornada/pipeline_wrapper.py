@@ -26,7 +26,7 @@ from hayhooks import BasePipelineWrapper, get_last_user_message
 from haystack.dataclasses import ChatMessage
 from loguru import logger
 
-from rag import prompts
+from rag import conversation, prompts
 from rag.guardrails import guardrail_verdict
 from rag.journey import marker as marker_mod
 from rag.journey import openwebui_tasks, tracks
@@ -34,7 +34,7 @@ from rag.journey.catalog_probe import load_index
 from rag.journey.publish import Publisher
 from rag.journey.service import ABOUT, JourneyService
 from rag.journey.state import JourneyStore
-from rag.journey.text import strip_emoji
+from rag.journey.text import plain_typography, strip_emoji
 from rag.settings.configs import settings
 
 _MOTOR_OUTPUTS = ["answer_builder", "subgraph_retriever"]
@@ -200,18 +200,18 @@ class PipelineWrapper(BasePipelineWrapper):
             return {"status": "erro", "mensagem": str(e)}
 
     def run_chat_completion(self, model: str, messages: list, body: dict) -> Generator[str, None, None]:
-        # Sem emoji em nada que o Assistente devolve — inclusive recusa do
-        # guardrail e mensagens prontas, que não passam pelo `Reply`.
-        return _in_chunks(strip_emoji(self._chat(messages)))
-
-    def _chat(self, messages: list) -> str:
         text = get_last_user_message(messages) or ""
-
         # 1) Bastidor do OpenWebUI: título, tags e — o principal — os botões.
+        # Resposta é JSON para a máquina: não passa pela limpeza de texto.
         tarefa = openwebui_tasks.detect(text)
         if tarefa:
-            return self._answer_task(tarefa, text)
+            return _in_chunks(self._answer_task(tarefa, text))
+        # Sem emoji e sem tipografia de máquina (" · ", " — ", "- item") em
+        # nada que o Assistente devolve — inclusive recusa do guardrail e
+        # mensagens prontas, que não passam pelo `Reply`.
+        return _in_chunks(plain_typography(strip_emoji(self._chat(text, messages))))
 
+    def _chat(self, text: str, messages: list) -> str:
         logger.info(">>> [jornada/chat] '{}...'", text[:60])
         if not text.strip():
             return "Me faça uma pergunta sobre os dados — por exemplo, *\"quanto foi contratado por estado?\"*."
@@ -227,12 +227,25 @@ class PipelineWrapper(BasePipelineWrapper):
             if verdict:
                 logger.info("[jornada/chat] guardrail: {}", verdict.reason)
                 return ABOUT if verdict.reason == "about_system" else verdict.message
-            return self.service.answer(text).text()
+            # 4) Seguimento ("e em SP?"): completa com o histórico da conversa.
+            pergunta = self._with_context(text, messages)
+            if pergunta != text:
+                verdict = guardrail_verdict(pergunta)
+                if verdict:
+                    return ABOUT if verdict.reason == "about_system" else verdict.message
+            nota = conversation.interpreted_note(text, pergunta)
+            anterior = marker_mod.last_in_messages(messages)
+            resposta = self.service.answer(pergunta, previous_ref=anterior.ref if anterior else "").text()
+            return f"{nota}\n\n{resposta}" if nota else resposta
         except Exception as e:  # noqa: BLE001
             logger.error("!!! [jornada/chat] ERRO: {}", e)
             import traceback
             traceback.print_exc(file=sys.stderr)
             return f"**Erro ao processar a pergunta:** {e}"
+
+    def _with_context(self, text: str, messages: list) -> str:
+        return conversation.with_context(text, messages, tag="jornada",
+                                         skip=lambda t: bool(tracks.match_track(t)))
 
     def _answer_task(self, tarefa: str, text: str) -> str:
         if tarefa == openwebui_tasks.FOLLOW_UPS:

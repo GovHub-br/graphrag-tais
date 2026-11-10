@@ -93,7 +93,7 @@ def scale_for(facts: Facts, path: str | None = None) -> Optional[Scale]:
             populacao = sum(ibge.by_sigla(s)["populacao_2022"] for s in facts.uf_values)
             onde = f"das {len(facts.uf_values)} UFs do resultado"
         por_hab = valor / populacao
-        return Scale(text=f"Dá {fmt.compact(por_hab, money=True)} por habitante {onde}.",
+        return Scale(text=f"Dá {fmt.exact(por_hab, money=True)} por habitante {onde}.",
                      source=fonte_pop)
 
     for ref in references(path):
@@ -102,13 +102,13 @@ def scale_for(facts: Facts, path: str | None = None) -> Optional[Scale]:
         razao = valor / ref.valor
         if ref.min <= razao <= ref.max:
             # Comparação é ordem de grandeza: "40 Maracanãs", não "39,6".
-            quantos = (fmt.compact(round(razao)) if razao >= 10
+            quantos = (fmt.exact(round(razao)) if razao >= 10
                        else fmt.full(razao, decimals=1).replace(",0", ""))
             rotulo = ref.singular if razao < 1.95 else ref.plural
             return Scale(text=f"É como {quantos} {rotulo}.", source=ref.fonte)
 
     a_cada = ibge.population_brazil() / valor
     if 1 <= a_cada <= 1e7:
-        return Scale(text=f"É 1 para cada {fmt.compact(a_cada)} habitantes do Brasil.",
+        return Scale(text=f"É 1 para cada {fmt.exact(round(a_cada))} habitantes do Brasil.",
                      source=fonte_pop)
     return None

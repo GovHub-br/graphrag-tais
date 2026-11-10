@@ -6,7 +6,8 @@ Você recebe a pergunta, o NÚMERO PRINCIPAL já calculado e formatado, o nome t
 - No máximo DUAS frases curtas. Sem título, sem lista, sem SQL, sem nome de tabela ou coluna.
 - A primeira frase responde a pergunta e contém o número principal EXATAMENTE como ele foi fornecido (mesma grafia, mesma unidade). Não reescreva nem arredonde esse número.
 - Se o que o número mede diz "somando …" ("somando 27 UFs"), o número principal é o TOTAL de todos: diga isso. Nunca o atribua ao item que lidera ("o estado com mais tem …"). Quem lidera vai na segunda frase, com o valor DELE, que está no resumo.
-- A segunda frase, se houver, traz UM destaque do resumo que ajude a entender o número (quem lidera, onde se concentra, se subiu ou caiu). Use só números que estão no resumo, no formato compacto em que aparecem.
+- A segunda frase, se houver, traz UM destaque do resumo que ajude a entender o número (quem lidera, onde se concentra, se subiu ou caiu). Use só números que estão no resumo, escritos exatamente como aparecem lá (por extenso, sem trocar por "mil", "mi" ou "bi").
+- Texto corrido, como uma pessoa escreveria: sem travessão (—), sem ponto médio (·), sem hífen separando ideias e sem marcador de lista. Use vírgula ou ponto.
 - Palavras do dia a dia: "foram contratados", "a maior parte está em", "cresceu". Evite jargão ("registros", "agregação", "métrica", "linhas", "consulta").
 
 "legenda" — o que o número principal mede, para ir embaixo dele num cartão:

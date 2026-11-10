@@ -51,7 +51,7 @@ GROUP BY categoria;
 
 **Base `empreendimento_far`**
 
-| 📋 `empreendimento` | Tipo · Chave |
+| 📋 `empreendimento` | Tipo e chave |
 | :-- | :-- |
 | `apf` | text · 🔑 PK |
 | `valor` | numeric |
@@ -104,7 +104,7 @@ class ReportDocxTest(unittest.TestCase):
         self.assertIsNotNone(table)
         # normaliza espaços (os chips de código inserem thin-spaces de respiro)
         header = [" ".join(c.text.split()) for c in table.rows[0].cells]
-        self.assertEqual(header, ["📋 empreendimento", "Tipo · Chave"])
+        self.assertEqual(header, ["📋 empreendimento", "Tipo e chave"])
         self.assertEqual(len(table.rows), 3)  # header + 2 colunas
 
     def test_table_header_is_purple_filled(self) -> None:

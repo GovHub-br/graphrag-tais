@@ -92,6 +92,20 @@ class Settings(BaseSettings):
     OPENAI_MAX_TOKENS: int = Field(2048, description="Máx. de tokens na resposta do LLM")
     OPENAI_TIMEOUT: int = Field(60, description="Timeout (s) das chamadas à OpenAI")
 
+    # Contexto da conversa (`rag/conversation.py`): com histórico, a pergunta de
+    # seguimento ("e em SP?") é reescrita completa antes da pipeline. Sem
+    # histórico, nada muda e não há chamada extra. Vai para o LLM só o texto das
+    # perguntas e a 1ª frase de cada resposta — nenhuma linha de dado.
+    CHAT_CONTEXT_ENABLED: bool = Field(
+        True, description="Reescreve a pergunta de seguimento com o histórico do chat"
+    )
+    CHAT_CONTEXT_MODEL: str = Field(
+        "gpt-4o-mini", description="Modelo da reescrita (tarefa curta: o leve basta)"
+    )
+    CHAT_CONTEXT_TURNS: int = Field(
+        3, description="Quantos turnos anteriores entram na reescrita"
+    )
+
     # ------------------------------------------------------------------ #
     # Tuning do retrieval (Fase 1: scope + determinismo + poda de colunas)
     # ------------------------------------------------------------------ #
@@ -298,6 +312,9 @@ class Settings(BaseSettings):
     # chamada de LLM + uma execução a mais). Desligar mostra só o que já veio.
     JOURNEY_POLICY_SERIES: bool = Field(
         True, description="Na trilha de política, gera e executa a série histórica"
+    )
+    JOURNEY_INTERACTIVE_CHARTS: bool = Field(
+        True, description="Põe na resposta o caminho do gráfico interativo (Function do Open WebUI)"
     )
     JOURNEY_PLAIN_MAX_TOKENS: int = Field(
         160, description="Teto de tokens da frase em linguagem simples"

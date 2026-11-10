@@ -130,6 +130,54 @@ curl -sf --max-time 15 -o /dev/null -X POST "${WEBUI}/api/v1/tasks/config/update
 echo "  botoes:     follow-ups ligados (ENABLE_FOLLOW_UP_GENERATION)"
 
 # --------------------------------------------------------------------------- #
+# Gráfico interativo (valor no cursor/toque) embaixo da resposta do Assistente.
+# --------------------------------------------------------------------------- #
+# Function de FILTRO do Open WebUI (webui/functions/grafico_interativo.py): no
+# fim de cada resposta, lê a linha escondida `tais:grafico`, busca o HTML no RAG
+# e o grava na mensagem como "embed". Fica GLOBAL (vale para todo modelo) porque
+# só age quando a linha existe, e só a Jornada a escreve.
+# GRAFICO_RAG_URL = o RAG visto de DENTRO do container do Open WebUI: na rede
+# do compose, http://hayhooks:8000 (local) ou http://hayhooks-mcid:8000 (VM);
+# fora dela, a URL pública do RAG.
+GRAFICO_RAG_URL="${GRAFICO_RAG_URL:-http://hayhooks:8000}"
+python3 - "${WEBUI}" "${TOKEN}" "${RAIZ}/webui/functions/grafico_interativo.py" "${GRAFICO_RAG_URL}" <<'PY'
+import json, sys, urllib.request, urllib.error
+
+webui, token, arquivo, rag_url = sys.argv[1:5]
+fid = "grafico_interativo"
+cab = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
+
+def chamar(metodo, caminho, corpo=None):
+    dados = json.dumps(corpo).encode() if corpo is not None else None
+    req = urllib.request.Request(f"{webui}/api/v1/functions{caminho}", dados, cab, method=metodo)
+    with urllib.request.urlopen(req, timeout=20) as r:
+        return json.loads(r.read() or b"null")
+
+
+form = {"id": fid, "name": "Gráfico interativo (GovHub)", "content": open(arquivo, encoding="utf-8").read(),
+        "meta": {"description": "Valor exato no cursor/toque, embaixo da resposta do Assistente"}}
+try:
+    atual = chamar("GET", f"/id/{fid}")
+except urllib.error.HTTPError:
+    atual = None
+if atual:
+    chamar("POST", f"/id/{fid}/update", form)
+    print("  grafico:    function atualizada")
+else:
+    atual = chamar("POST", "/create", form)
+    print("  grafico:    function criada")
+atual = chamar("GET", f"/id/{fid}")
+# `toggle` INVERTE o estado: só chama quando ainda está desligado (idempotente).
+if not atual.get("is_active"):
+    chamar("POST", f"/id/{fid}/toggle")
+if not atual.get("is_global"):
+    chamar("POST", f"/id/{fid}/toggle/global")
+chamar("POST", f"/id/{fid}/valves/update", {"RAG_URL": rag_url, "TIMEOUT": 20})
+print(f"  grafico:    ativa e global, RAG_URL={rag_url}")
+PY
+
+# --------------------------------------------------------------------------- #
 # Perguntas sugeridas da tela inicial.
 # --------------------------------------------------------------------------- #
 # Mesma armadilha do Arena: `ui.prompt_suggestions` é PersistentConfig. Se o

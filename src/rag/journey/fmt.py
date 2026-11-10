@@ -1,14 +1,20 @@
 """Formatação de número para quem não é técnico (módulo puro).
 
-Duas formas, para dois usos:
+Quatro formas, para quatro usos:
 
-- `compact`  "R$ 10,2 bi", "1,3 mil", "R$ 48,20" — para frase, cartão e rótulo;
-- `full`     "R$ 10.234.567,89" — para tabela e trilha técnica, onde o número
-             exato importa;
+- `exact`    "1.300.452", "R$ 24.956.847.898", "0,061" — o número que a pessoa
+             LÊ: frase, cartão em destaque, tabela de valores. Inteiro por
+             extenso, sem "mi"/"bi" (pedido de produto, 10/11/2026: "1,3 mi"
+             esconde o número de verdade);
+- `compact`  "R$ 10,2 bi", "1,3 mil" — só DENTRO do desenho (eixo, rótulo de
+             barra, mínimo e máximo do mapa), onde o espaço é pouco. O valor
+             exato de cada barra vai na tabela embaixo do gráfico;
+- `full`     "R$ 10.234.567,89" — tabela crua e trilha técnica;
 - `plain`    "1.283" — para índice, que não se abrevia.
 """
 from __future__ import annotations
 
+import math
 import re
 from typing import Optional
 
@@ -27,6 +33,30 @@ def full(value: Optional[float], money: bool = False, decimals: Optional[int] = 
         decimals = 2 if (money or abs(v - round(v)) > 1e-9) else 0
     texto = _br(f"{v:,.{decimals}f}")
     return f"R$ {texto}" if money else texto
+
+
+def exact(value: Optional[float], money: bool = False) -> str:
+    """O número inteiro, com separador de milhar.
+
+    Dinheiro de mil reais para cima sai sem centavos ("R$ 24.956.847.898"):
+    centavo em bilhões é ruído. Abaixo disso, centavos só quando existem.
+    Fora de dinheiro, casas decimais só para número quebrado — duas de 1
+    para cima ("6,1", "12,35"), três abaixo de 1 ("0,061"), sem zero à
+    direita — para que uma taxa pequena não vire "0,1" nem "0"."""
+    if value is None:
+        return "—"
+    v = float(value)
+    inteiro = abs(v - round(v)) < 1e-9
+    if money:
+        casas = 0 if (abs(v) >= 1000 or inteiro) else 2
+        return "R$ " + _br(f"{v:,.{casas}f}")
+    if inteiro or abs(v) >= 1000:
+        return _br(f"{v:,.0f}")
+    # De 1 para cima, duas casas; abaixo, três algarismos que contam
+    # (0,061 e 0,000412, nunca "0").
+    casas = 2 if abs(v) >= 1 else max(3, 2 - math.floor(math.log10(abs(v))))
+    texto = _br(f"{v:,.{casas}f}").rstrip("0").rstrip(",")
+    return texto if texto not in ("", "-", "-0") else "0"
 
 
 def compact(value: Optional[float], money: bool = False) -> str:

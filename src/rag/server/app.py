@@ -16,6 +16,7 @@ from hayhooks import create_app as create_hayhooks_app
 from loguru import logger
 
 from rag.components.storage import download_links
+from rag.server.charts import router as charts_router
 from rag.server.downloads import router as downloads_router
 from rag.settings.configs import settings
 
@@ -43,5 +44,6 @@ def _check_public_base_url() -> None:
 def create_app() -> FastAPI:
     app = create_hayhooks_app()
     app.include_router(downloads_router)
+    app.include_router(charts_router)
     _check_public_base_url()
     return app
