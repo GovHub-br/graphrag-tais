@@ -44,6 +44,53 @@ _MOTOR_OUTPUTS = ["answer_builder", "subgraph_retriever"]
 # com um gráfico, ficava logo abaixo do limite.
 _CHUNK = 16_000
 _EXPLORE_OUTPUTS = ["answer_builder", "catalog_retriever"]
+_MOTOR_TOP_K = 5
+
+
+# --------------------------------------------------------------------------- #
+# Inputs das pipelines reusadas
+# --------------------------------------------------------------------------- #
+# Os componentes OPCIONAIS (reranker, product_router) só existem no grafo quando
+# a flag deles está ligada, e cada um exige `query`. Aqui se monta o mesmo dict
+# que os wrappers do Indicador e do Explorar montam, olhando o grafo construído:
+# antes a Jornada tinha a sua cópia, e o `product_router` que entrou depois
+# derrubava a pipeline com "Missing mandatory input 'query'" — só com a flag
+# ligada, então a suíte (que roda nos defaults) não via.
+# `tests/test_journey_inputs.py` constrói as pipelines com TODAS as flags e cobra
+# que nenhum input obrigatório fique de fora.
+def motor_inputs(pipeline: Any, query: str, top_k: int = _MOTOR_TOP_K) -> Dict[str, Dict[str, Any]]:
+    nodes = pipeline.graph.nodes
+    inputs: Dict[str, Dict[str, Any]] = {
+        "dense_text_embedder": {"text": query},
+        "sparse_text_embedder": {"text": query},
+        "hybrid_retriever": {"top_k": top_k},
+        "subgraph_retriever": {"query": query},
+        "prompt_builder": {"query": query},
+    }
+    # Com rerank, o corte do top-k migra do híbrido para o reranker; com o
+    # roteamento e sem rerank depois dele, o corte é do roteador.
+    if "reranker" in nodes:
+        inputs["reranker"] = {"query": query, "top_k": top_k}
+    if "product_router" in nodes:
+        inputs["product_router"] = {"query": query}
+        if "reranker" not in nodes:
+            inputs["product_router"]["top_k"] = top_k
+    return inputs
+
+
+def explore_inputs(pipeline: Any, query: str, top_k: int | None = None) -> Dict[str, Dict[str, Any]]:
+    k = top_k or settings.EXPLORE_TOP_K
+    inputs: Dict[str, Dict[str, Any]] = {
+        "dense_text_embedder": {"text": query},
+        "sparse_text_embedder": {"text": query},
+        "hybrid_retriever": {"top_k": k},
+        "catalog_retriever": {"query": query},
+        "prompt_builder": {"query": query},
+        "answer_builder": {"query": query},
+    }
+    if "product_router" in pipeline.graph.nodes:
+        inputs["product_router"] = {"query": query, "top_k": k}
+    return inputs
 
 
 class PipelineWrapper(BasePipelineWrapper):
@@ -68,16 +115,8 @@ class PipelineWrapper(BasePipelineWrapper):
     # Colaboradores injetados no serviço
     # ------------------------------------------------------------------ #
     def _run_motor(self, query: str) -> Tuple[Dict[str, Any], List[Any]]:
-        inputs = {
-            "dense_text_embedder": {"text": query},
-            "sparse_text_embedder": {"text": query},
-            "hybrid_retriever": {"top_k": 5},
-            "subgraph_retriever": {"query": query},
-            "prompt_builder": {"query": query},
-        }
-        if "reranker" in self.motor.graph.nodes:
-            inputs["reranker"] = {"query": query, "top_k": 5}
-        out = self.motor.run(inputs, include_outputs_from=_MOTOR_OUTPUTS)
+        out = self.motor.run(motor_inputs(self.motor, query),
+                             include_outputs_from=_MOTOR_OUTPUTS)
         return (out["answer_builder"]["answer"],
                 out.get("subgraph_retriever", {}).get("documents", []))
 
@@ -85,14 +124,8 @@ class PipelineWrapper(BasePipelineWrapper):
         return self.executor.run(sql=sql, query=query, schema_context=schema_context)
 
     def _run_explore(self, query: str) -> Tuple[str, Dict[str, Any]]:
-        out = self.explore.run({
-            "dense_text_embedder": {"text": query},
-            "sparse_text_embedder": {"text": query},
-            "hybrid_retriever": {"top_k": settings.EXPLORE_TOP_K},
-            "catalog_retriever": {"query": query},
-            "prompt_builder": {"query": query},
-            "answer_builder": {"query": query},
-        }, include_outputs_from=_EXPLORE_OUTPUTS)
+        out = self.explore.run(explore_inputs(self.explore, query),
+                               include_outputs_from=_EXPLORE_OUTPUTS)
         answer = out["answer_builder"]["answer"]
         self._attach_sample(answer)
         # O Explorar fecha mandando trocar para o modelo Indicador; aqui quem
