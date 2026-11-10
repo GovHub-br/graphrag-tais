@@ -674,3 +674,102 @@ class TestPersonaIsolation(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FakeProductStore(FakeGraphStore):
+    """Mesmo store, com o panorama por produto (uma linha por tabela)."""
+
+    def __init__(self, product_rows=None, **kw):
+        super().__init__(**kw)
+        self.product_rows = product_rows or []
+
+    def execute_read(self, cypher: str, params: dict | None = None):
+        if "t.data_product AS product" in cypher:
+            self.calls.append(cypher)
+            return self.product_rows
+        return super().execute_read(cypher, params)
+
+
+@unittest.skipUnless(HAYSTACK, "Haystack indisponível no host — rode no container")
+class TestGroupByProduct(unittest.TestCase):
+    """Layout medalhão: o schema é a CAMADA. "Quais bases vocês têm?" respondia
+    "camada ouro e camada prata"; com EXPLORE_GROUP_BY=product, o panorama e a
+    tabela-resumo agrupam pelo Data Product."""
+
+    def _store(self):
+        def row(fqn, name, schema, product, label):
+            r = _table_row(fqn, name, schema, _cols("id"))
+            r.update(product=product, product_label=label)
+            return r
+
+        return FakeProductStore(
+            product_rows=[
+                {"schema_fqn": "Cidades.cidades.ouro", "name": "ouro_far_ficha",
+                 "product": "empreendimento_far", "product_label": "Empreendimento FAR"},
+                {"schema_fqn": "Cidades.cidades.prata", "name": "prata_far_base",
+                 "product": "empreendimento_far", "product_label": "Empreendimento FAR"},
+                {"schema_fqn": "Cidades.cidades.ouro", "name": "ouro_pro_moradia_painel",
+                 "product": "pro_moradia", "product_label": "Pró-Moradia"},
+                {"schema_fqn": "Cidades.cidades.ouro", "name": "ouro_sem_produto",
+                 "product": None, "product_label": None},
+            ],
+            seeds=[{"tid": "C.c.ouro.ouro_far_ficha", "rank": 0},
+                   {"tid": "C.c.ouro.ouro_pro_moradia_painel", "rank": 1}],
+            tables=[
+                row("C.c.ouro.ouro_far_ficha", "ouro_far_ficha", "ouro",
+                    "empreendimento_far", "Empreendimento FAR"),
+                row("C.c.ouro.ouro_pro_moradia_painel", "ouro_pro_moradia_painel", "ouro",
+                    "pro_moradia", "Pró-Moradia"),
+            ],
+        )
+
+    def _seeds(self):
+        return [Document(content="", meta={"node_id": "C.c.ouro.ouro_far_ficha"}),
+                Document(content="", meta={"node_id": "C.c.ouro.ouro_pro_moradia_painel"})]
+
+    def test_panorama_groups_by_product_across_layers(self):
+        out = Neo4jCatalogRetriever(graph_store=self._store(), group_by="product").run(
+            documents=self._seeds(), query="q")
+        by_label = {d["domain"]: d for d in out["domains"]}
+        # FAR junta prata e ouro; a camada não vira "base".
+        self.assertEqual(by_label["Empreendimento FAR"]["table_count"], 2)
+        self.assertEqual(sorted(by_label["Empreendimento FAR"]["tables"]),
+                         ["ouro.ouro_far_ficha", "prata.prata_far_base"])
+        self.assertIn("Pró-Moradia", by_label)
+        # Sem produto: fica no grupo do schema, não some do panorama.
+        by_group = {d["group"]: d for d in out["domains"]}
+        self.assertEqual(by_group["ouro"]["tables"], ["ouro.ouro_sem_produto"])
+        self.assertEqual(len(out["catalog"]), 4)
+
+    def test_cards_carry_the_product_as_domain(self):
+        out = Neo4jCatalogRetriever(graph_store=self._store(), group_by="product").run(
+            documents=self._seeds(), query="q")
+        meta = {d.meta["sql_name"]: d.meta for d in out["documents"]}
+        self.assertEqual(meta["ouro.ouro_far_ficha"]["domain"], "Empreendimento FAR")
+        self.assertEqual(meta["ouro.ouro_far_ficha"]["schema"], "ouro")  # nome físico intacto
+        self.assertIn("Domínio: Pró-Moradia",
+                      next(d.content for d in out["documents"]
+                           if d.meta["sql_name"] == "ouro.ouro_pro_moradia_painel"))
+
+    def test_schema_mode_is_the_default_and_unchanged(self):
+        store = self._store()
+        store.domains = [{"schema_fqn": "Cidades.cidades.ouro", "table_count": 3,
+                          "names": ["ouro_far_ficha", "ouro_pro_moradia_painel", "ouro_sem_produto"]}]
+        out = Neo4jCatalogRetriever(graph_store=store).run(documents=self._seeds(), query="q")
+        self.assertEqual([d["schema"] for d in out["domains"]], ["ouro"])
+        self.assertFalse(any("t.data_product AS product" in c for c in store.calls))
+        self.assertEqual({d.meta["group"] for d in out["documents"]}, {"ouro"})
+
+    def test_overview_table_groups_two_products_of_the_same_layer(self):
+        out = Neo4jCatalogRetriever(graph_store=self._store(), group_by="product").run(
+            documents=self._seeds(), query="q")
+        from haystack.dataclasses import ChatMessage
+
+        md = ExploreAnswerBuilder().run(
+            replies=[ChatMessage.from_assistant(json.dumps({"summary": "s", "tables": []}))],
+            documents=out["documents"], domains=out["domains"],
+            catalog=out["catalog"], query="que dados existem sobre habitação?",
+        )["markdown"]
+        self.assertIn("**Empreendimento FAR** · 1 de 2 tabelas", md)
+        self.assertIn("**Pró-Moradia** · 1 de 1 tabelas", md)
+        self.assertNotIn("**ouro**", md)

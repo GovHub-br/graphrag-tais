@@ -435,3 +435,116 @@ class TestGraficos(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# --------------------------------------------------------------------------- #
+# Conferência de 10/11: fonte do SQL que rodou, recorte do programa e "Contexto
+# da política" restrito ao produto.
+# --------------------------------------------------------------------------- #
+def _product_catalog():
+    return CatalogIndex.from_rows(
+        tables=[
+            {"schema": "Cidades.cidades.ouro", "name": "ouro_pro_moradia_panorama",
+             # Como no MCid: o Data Product junta programas ("Reloginho MCMV");
+             # quem diz o programa é a descrição da tabela.
+             "description": "Grandes números do Pró-Moradia por UF: contratos, UH e valores. "
+                            "Uma linha por UF.", "product": "Reloginho MCMV"},
+            {"schema": "Cidades.cidades.ouro", "name": "ouro_pro_moradia_portaria",
+             "description": "portaria de seleção", "product": "Reloginho MCMV"},
+            {"schema": "Cidades.cidades.ouro", "name": "ouro_far_ficha",
+             "description": "Uma linha por empreendimento FAR, com localização e execução.",
+             "product": "Empreendimento FAR"},
+            {"schema": "Cidades.cidades.ouro", "name": "lei", "description": "lei geral",
+             "product": "Empreendimento FAR"},
+            {"schema": "Cidades.cidades.ouro", "name": "ogu", "description": "dotação orçamentária",
+             "product": "Empreendimento FAR"},
+        ],
+        columns=[],
+    )
+
+
+PM_SQL = ("SELECT uf, SUM(valor_contratado) AS total FROM ouro.ouro_pro_moradia_panorama "
+          "GROUP BY uf")
+PM_ANSWER = {**ANSWER, "sql": PM_SQL, "references": [
+    # O LLM marcou uma tabela prata; o SQL que rodou lê a ouro.
+    {"base": "prata", "table": "prata.prata_pro_moradia", "used": True, "columns": []},
+    {"base": "ouro", "table": "ouro.ouro_pro_moradia_panorama", "used": False, "columns": []},
+]}
+
+
+@unittest.skipUnless(OK, "precisa do Haystack (rode no container)")
+class FonteEProgramaTest(unittest.TestCase):
+
+    def test_used_tables_come_from_the_executed_sql(self):
+        from rag.journey.service import _used_tables
+
+        state = {"answer": PM_ANSWER, "exec": {"exec_ok": True, "sql_final": PM_SQL}}
+        self.assertEqual(_used_tables(state), ["ouro.ouro_pro_moradia_panorama"])
+
+    def test_used_tables_fall_back_to_the_llm_mark_without_execution(self):
+        from rag.journey.service import _used_tables
+
+        state = {"answer": PM_ANSWER, "exec": {"exec_ok": False, "sql_final": PM_SQL}}
+        self.assertEqual(_used_tables(state), ["prata.prata_pro_moradia"])
+        # SQL que não parseia também cai na marcação.
+        state = {"answer": PM_ANSWER, "exec": {"exec_ok": True, "sql_final": "SELEC lixo"}}
+        self.assertEqual(_used_tables(state), ["prata.prata_pro_moradia"])
+
+    def test_source_line_matches_the_sql_shown(self):
+        svc, _, _ = _service(answer=PM_ANSWER, sql=PM_SQL)
+        md = svc.answer("Qual o total contratado por UF?").markdown
+        self.assertIn("`ouro.ouro_pro_moradia_panorama`", md)
+        self.assertNotIn("prata.prata_pro_moradia", md)
+
+    def test_phrase_says_the_program_when_the_question_does_not(self):
+        svc, _, _ = _service(answer=PM_ANSWER, sql=PM_SQL)
+        svc.catalog = _product_catalog
+        md = svc.answer("Qual o total contratado por UF?").markdown
+        self.assertIn("*Recorte: Grandes números do Pró-Moradia por UF "
+                      "(`ouro.ouro_pro_moradia_panorama`).", md)
+        self.assertNotIn("Reloginho", md)
+
+    def test_phrase_untouched_when_the_question_names_the_program(self):
+        from rag.journey.catalog_probe import scope_of
+        from rag.journey.service import with_scope
+
+        idx = _product_catalog()
+        pm = scope_of(idx, ["ouro.ouro_pro_moradia_panorama"])
+        far = scope_of(idx, ["ouro.ouro_far_ficha"])
+        frase = "Foram contratados R$ 5,8 bi."
+        # Pelo nome da tabela ("pro moradia"), com ou sem acento.
+        for pergunta in ("Quanto o Pró-Moradia contratou por UF?",
+                         "quanto o pro moradia contratou por uf?"):
+            self.assertEqual(with_scope(frase, pergunta, pm), frase)
+        # Pela sigla da descrição, e pelo rótulo do produto sem a palavra comum.
+        self.assertEqual(with_scope(frase, "Quanto o FAR contratou?", far), frase)
+        self.assertEqual(with_scope(frase, "e o far?", far, ["Empreendimento FAR"],
+                                    stopwords="empreendimento"), frase)
+        # A frase do LLM já nomeia o programa.
+        self.assertEqual(with_scope("O Pró-Moradia contratou R$ 5,8 bi.", "total por UF?", pm),
+                         "O Pró-Moradia contratou R$ 5,8 bi.")
+        # Sem catálogo (ou tabela sem descrição nem produto): nada muda.
+        self.assertEqual(with_scope(frase, "total por UF?", None), frase)
+        self.assertIsNone(scope_of(None, ["ouro.x"]))
+
+    def test_scope_text_is_the_first_clause_of_the_description(self):
+        from rag.journey.catalog_probe import scope_of
+
+        idx = _product_catalog()
+        self.assertEqual(scope_of(idx, ["ouro.ouro_far_ficha"]).text,
+                         "Uma linha por empreendimento FAR")
+        # Sem descrição, fica o rótulo do produto.
+        idx.descriptions.pop("ouro.ogu")
+        self.assertEqual(scope_of(idx, ["ouro.ogu"]).text, "Empreendimento FAR")
+
+    def test_policy_stages_stay_in_the_product_of_the_answer(self):
+        etapas = {s.name: s for s in policy_stages(_product_catalog(),
+                                                  ["ouro.ouro_pro_moradia_panorama"])}
+        # "Lei" vinha da tabela `lei` do FAR (nome mais curto do catálogo); agora
+        # só o que é do Pró-Moradia entra.
+        self.assertEqual(etapas["Lei"].tables, ["ouro.ouro_pro_moradia_portaria"])
+        self.assertEqual(etapas["Orçamento"].state, "lacuna")
+
+    def test_policy_stages_without_products_scan_the_whole_catalog(self):
+        etapas = {s.name: s for s in policy_stages(_catalog(), ["ouro.far"])}
+        self.assertEqual(etapas["Orçamento"].tables, ["ouro.ogu"])

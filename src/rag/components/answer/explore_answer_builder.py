@@ -75,6 +75,11 @@ def _parse(text: str) -> GeneratedExploration:
         return GeneratedExploration(summary=text.strip())
 
 
+def _group(item: Dict[str, Any]) -> str:
+    """Chave de agrupamento de uma tabela ou de um domínio (schema de reserva)."""
+    return item.get("group") or item.get("schema") or ""
+
+
 def _fold(text: str) -> str:
     """Minúsculas sem acento — para casar 'execução' com 'execucao'."""
     norm = unicodedata.normalize("NFKD", (text or "").lower())
@@ -268,6 +273,9 @@ class ExploreAnswerBuilder:
             "fqn": meta.get("fqn", ""),
             "domain": meta.get("domain", ""),
             "schema": meta.get("schema", ""),
+            # Chave do agrupamento (EXPLORE_GROUP_BY): o schema, ou o produto
+            # de dados no layout medalhão. Card antigo sem ela agrupa por schema.
+            "group": meta.get("group") or meta.get("schema", ""),
             "description": meta.get("description", ""),
             "grain": meta.get("grain", ""),
             "is_seed": bool(meta.get("is_seed")),
@@ -299,15 +307,16 @@ class ExploreAnswerBuilder:
         o contraste "3 de 12 tabelas deste domínio" é informação de exploração."""
         counts: Dict[str, int] = {}
         for table in tables:
-            schema = table.get("schema") or ""
-            counts[schema] = counts.get(schema, 0) + 1
-        by_schema = {d["schema"]: d for d in domains}
+            group = _group(table)
+            counts[group] = counts.get(group, 0) + 1
+        by_group = {_group(d): d for d in domains}
         out = []
-        for schema, hits in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])):
-            info = by_schema.get(schema, {})
+        for group, hits in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])):
+            info = by_group.get(group, {})
             out.append({
-                "schema": schema,
-                "domain": info.get("domain", schema),
+                "schema": info.get("schema", group),
+                "group": group,
+                "domain": info.get("domain", group),
                 "matched": hits,
                 "table_count": info.get("table_count", 0),
             })
@@ -372,7 +381,7 @@ class ExploreAnswerBuilder:
             if with_grain else
             ["| Tabela | Para que serve |", "| :-- | :-- |"]
         )
-        totals = {d["schema"]: d.get("table_count", 0) for d in domains}
+        totals = {_group(d): d.get("table_count", 0) for d in domains}
 
         lines = ["### Tabelas que podem servir"]
         by_domain: Dict[str, List[dict]] = {}
@@ -380,7 +389,7 @@ class ExploreAnswerBuilder:
             by_domain.setdefault(table["domain"] or "—", []).append(table)
 
         for domain, group in by_domain.items():
-            total = totals.get(group[0]["schema"], 0)
+            total = totals.get(_group(group[0]), 0)
             count = f"{len(group)} de {total} tabelas" if total else f"{len(group)} tabelas"
             lines.append(f"\n**{domain}** · {count}")
             lines.extend(header)

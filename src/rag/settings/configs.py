@@ -199,6 +199,15 @@ class Settings(BaseSettings):
     EXPLORE_TOP_K: int = Field(
         15, description="Sementes do híbrido no modo Explorar (cobertura > precisão)"
     )
+    # Como o panorama agrupa as tabelas. `schema` serve quando o schema É o
+    # assunto (MinC, MCid antigo: `empreendimento_far`, `entidades_fds`). No
+    # layout medalhão o schema é a CAMADA, e "quais bases vocês têm?" respondia
+    # "camada ouro e camada prata"; `product` agrupa pelo Data Product do
+    # OpenMetadata (`data_product_label`), com o schema de reserva para tabela
+    # sem produto.
+    EXPLORE_GROUP_BY: str = Field(
+        "schema", description="Agrupamento do panorama do Explorar: schema | product"
+    )
     EXPLORE_MAX_TABLES: int = Field(
         25, description="Teto de tabelas no panorama (sementes + expansão)"
     )

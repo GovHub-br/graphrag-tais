@@ -29,7 +29,8 @@ from loguru import logger
 
 from rag.journey import facts as facts_mod
 from rag.journey import fmt, ibge, render, routing, tracks
-from rag.journey.catalog_probe import CatalogIndex, complementary, policy_stages
+from rag.journey.catalog_probe import (CatalogIndex, Scope, complementary, policy_stages,
+                                       products_of, scope_of)
 from rag.journey.human_scale import scale_for
 from rag.journey.marker import Marker
 from rag.journey.state import JourneyStore, new_ref
@@ -166,6 +167,9 @@ class JourneyService:
         f = self._facts(state)
         escala = scale_for(f)
         frase, legenda = self._phrase(question, f)
+        index, usadas = self.catalog(), _used_tables(state)
+        frase = with_scope(frase, question, scope_of(index, usadas), products_of(index, usadas),
+                           getattr(self.settings, "SEED_PRODUCT_LABEL_STOPWORDS", ""))
         state["phrase"], state["label"] = frase, legenda
         f.label = legenda
         state["scale"] = escala.text if escala else ""
@@ -413,9 +417,62 @@ def _keep_section(state: Dict[str, Any], track_id: str, markdown: str) -> None:
 
 
 def _used_tables(state: Dict[str, Any]) -> List[str]:
+    """Tabelas de onde o número saiu — as do SQL que RODOU.
+
+    Antes vinham das tabelas que o LLM marcou como usadas (`references.used`),
+    e o "De onde veio" podia citar uma tabela prata enquanto o SQL de "Como foi
+    calculado" lia outra, ouro (a autocorreção troca a tabela; o LLM também
+    marca uma e escreve outra). A marcação do LLM fica de reserva para quando
+    não há SQL executado ou ele não parseia."""
+    execu = state.get("exec") or {}
+    if execu.get("exec_ok"):
+        tabelas = _sql_tables(execu.get("sql_final") or "")
+        if tabelas:
+            return tabelas
     refs = (state.get("answer") or {}).get("references") or []
     usadas = [r.get("table", "") for r in refs if r.get("used")]
     return [t for t in (usadas or [r.get("table", "") for r in refs]) if t]
+
+
+def _sql_tables(sql: str) -> List[str]:
+    """`schema.tabela` lidas pelo SQL (sem CTE: CTE não tem schema)."""
+    if not sql.strip():
+        return []
+    try:
+        from rag.sensitivity.resolver import source_tables
+        from rag.settings.configs import settings
+
+        return [t for t in source_tables(sql, dialect=settings.SQL_DIALECT) if "." in t]
+    except Exception as exc:  # noqa: BLE001 — sem parse, fica a marcação do LLM
+        logger.warning("[jornada] não consegui ler as tabelas do SQL ({})", exc)
+        return []
+
+
+def with_scope(phrase: str, question: str, scope: Optional[Scope],
+               products: Sequence[str] = (), stopwords: str = "") -> str:
+    """Diz de onde é o número quando a pergunta não disse.
+
+    "Qual o total contratado por UF?" não cita programa, e a busca escolhe a
+    base de UM (no MCid, o Pró-Moradia): a frase dava "R$ 5,8 bi" como se fosse
+    o total de tudo. O recorte é a primeira oração da descrição da tabela que
+    rodou ("Grandes números do Pró-Moradia por UF") — ver `scope_of`.
+
+    Nada muda quando a pergunta (ou a frase do LLM) já cita a base: pelas formas
+    do roteamento por produto (rótulo, sigla, rótulo sem as palavras de
+    `SEED_PRODUCT_LABEL_STOPWORDS`) ou pelas da própria tabela (pares de
+    palavras do nome — "pro moradia" — e siglas da descrição — "FAR")."""
+    if not phrase or scope is None:
+        return phrase
+    from rag.components.retrievers.product_router import (_stopwords, aliases_from_label,
+                                                          products_in_question)
+
+    sw = _stopwords(stopwords)
+    formas = {p: aliases_from_label(p, sw) for p in products}
+    formas["_tabela"] = set(scope.forms)
+    if products_in_question(question, formas) or products_in_question(phrase, formas):
+        return phrase
+    return (f"{phrase.rstrip()}\n\n*Recorte: {scope.text} (`{scope.table}`). A pergunta "
+            f"não disse de qual programa ou base, então a resposta usa esta.*")
 
 
 def render_motor(state: Dict[str, Any]) -> str:
