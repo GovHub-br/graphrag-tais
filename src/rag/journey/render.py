@@ -183,29 +183,50 @@ def chart_marker(path: str) -> str:
     return f"[//]: # ({CHART_TAG} {path})" if path else ""
 
 
-# `alt` dos gráficos que têm versão interativa (`interactive.page`). É também a
-# âncora da seção 13 do `webui/custom.css`, que esconde o PNG nas conversas
-# antigas: mudar um destes textos pede mudar lá também.
-INTERACTIVE_ALTS = ("Mapa do Brasil", "Mapa dos municípios", "Série:", "Barras:", "Ranking de",
-                    "Tendência de")
-_IMAGEM_INTERATIVA = re.compile(
-    r"^!\[(?:" + "|".join(re.escape(a) for a in INTERACTIVE_ALTS) + r")[^\]]*\]\(data:[^)]*\)[ \t]*$",
-    re.M)
-_TABELA_DE_VALORES = re.compile(
-    r"<details>\n<summary>Os valores d[^<]*</summary>.*?</details>"
-    r"|\*\*Os valores d[^*\n]*\*\*\n\n(?:\|[^\n]*(?:\n|$))+", re.S)
+# Cada gráfico interativo (`interactive.page_for`) substitui, no chat, o PNG e
+# a tabela de valores do mesmo desenho. Chave = o tipo do gráfico (o mesmo nome
+# da rota `/charts/<ref>/<tipo>`); valor = (início do `alt` do PNG, título da
+# tabela). O `alt` de "onde" e "ranking" é também a âncora da seção 13 do
+# `webui/custom.css`, que esconde o PNG nas conversas antigas: mudar um destes
+# textos pede mudar lá também. Os dos tipos novos ficam FORA do CSS de
+# propósito: numa conversa antiga a mensagem tem o embed do ranking e não o
+# deles, e o CSS esconderia o único desenho que ela tem.
+EMBED_PARTS: Dict[str, Tuple[Tuple[str, ...], Tuple[str, ...]]] = {
+    "onde": (("Mapa do Brasil", "Mapa dos municípios", "Série:", "Barras:"),
+             ("Os valores do gráfico",)),
+    "ranking": (("Ranking de", "Tendência de"), ("Os valores do gráfico", "Os valores do ranking")),
+    "fora": (("Pontos fora da curva",), ("Os valores fora da curva",)),
+    "distribuicao": (("Histograma dos valores",), ("Os valores da distribuição",)),
+    "regioes": (("Barras empilhadas por região",), ("Os valores por região",)),
+    "serie": (("Série histórica",), ("Os valores da série",)),
+}
+INTERACTIVE_ALTS = EMBED_PARTS["onde"][0] + EMBED_PARTS["ranking"][0]
 
 
-def for_chat(markdown: str, placeholder: str = "") -> str:
+def _image_re(alts: Sequence[str]):
+    return re.compile(r"^!\[(?:" + "|".join(re.escape(a) for a in alts)
+                      + r")[^\]]*\]\(data:[^)]*\)[ \t]*$", re.M)
+
+
+def _table_re(titles: Sequence[str]):
+    nomes = "|".join(re.escape(t) for t in titles)
+    return re.compile(rf"<details>\n<summary>(?:{nomes})[^<]*</summary>.*?</details>"
+                      rf"|\*\*(?:{nomes})[^*\n]*\*\*\n\n(?:\|[^\n]*(?:\n|$))+", re.S)
+
+
+def for_chat(markdown: str, placeholder: str = "", kinds: Sequence[str] = ("onde", "ranking")) -> str:
     """A versão de CHAT de uma trilha que tem gráfico interativo.
 
-    No chat, quem mostra o mapa/série/ranking é o embed da Function (com o
-    valor no cursor e a aba de ranking): o PNG e a tabela de valores ali seriam
-    o mesmo dado três vezes (pedido de produto, 10/11/2026). O Markdown
-    COMPLETO, com o PNG e a tabela, é o que fica guardado em
-    `state["sections"]` e vai para o relatório .docx, onde não há cursor."""
-    texto = _IMAGEM_INTERATIVA.sub(placeholder, markdown or "")
-    texto = _TABELA_DE_VALORES.sub("", texto)
+    No chat, quem mostra o gráfico é o embed da Function (com o valor no
+    cursor): o PNG e a tabela de valores ali seriam o mesmo dado três vezes
+    (pedido de produto, 10/11/2026). Só saem os dos `kinds` que têm embed
+    nesta resposta. O Markdown COMPLETO, com o PNG e a tabela, é o que fica
+    guardado em `state["sections"]` e vai para o relatório .docx, onde não há
+    cursor: lá vale "o desenho e, embaixo, os valores"."""
+    alts = [a for k in kinds for a in EMBED_PARTS[k][0]]
+    titulos = [t for k in kinds for t in EMBED_PARTS[k][1]]
+    texto = _image_re(alts).sub(placeholder, markdown or "") if alts else (markdown or "")
+    texto = _table_re(titulos).sub("", texto) if titulos else texto
     return re.sub(r"\n{3,}", "\n\n", texto).strip()
 
 
@@ -248,6 +269,102 @@ def values_table(facts: Facts, title: str = "Os valores do gráfico") -> str:
     if len(itens) <= _TABELA_ABERTA_ATE:
         return f"**{title}**\n\n{tabela}"
     return f"<details>\n<summary>{title} ({len(itens)})</summary>\n\n{tabela}\n\n</details>"
+
+
+def _tabela(title: str, linhas: List[str], n: int) -> str:
+    """Tabela com título: à mostra até 12 linhas, recolhida acima disso."""
+    tabela = "\n".join(linhas)
+    if n <= _TABELA_ABERTA_ATE:
+        return f"**{title}**\n\n{tabela}"
+    return f"<details>\n<summary>{title} ({n})</summary>\n\n{tabela}\n\n</details>"
+
+
+def _names(facts: Facts, itens: Sequence[Tuple[str, float]], limite: int = 4) -> str:
+    nomes = [str(_display(facts, r)).replace("|", "/") for r, _ in itens[:limite]]
+    resto = len(itens) - limite
+    return ", ".join(nomes) + (f" e mais {resto}" if resto > 0 else "")
+
+
+def expected_range(facts: Facts) -> str:
+    """A faixa esperada da regra do IQR, em palavras: "de A a B", ou "até B"
+    quando o limite de baixo fica abaixo do menor valor possível (negativo
+    para quem não tem valor negativo)."""
+    cercas = facts.fences()
+    if not cercas:
+        return ""
+    f = money_fmt(facts)
+    baixo, alto = cercas
+    if baixo < 0 <= min(v for _, v in facts.values):
+        return f"até {f(alto)}"
+    return f"de {f(baixo)} a {f(alto)}"
+
+
+def outliers_text(facts: Facts) -> str:
+    """A frase do "fora da curva", que fica no chat e no relatório."""
+    fora = facts.outliers()
+    if not fora:
+        return "**Fora da curva:** nenhum valor destoa dos demais (regra do IQR)."
+    f = money_fmt(facts)
+    itens = sorted(fora, key=lambda kv: kv[1], reverse=True)
+    nomes = [f"{_display(facts, r)} ({f(v)})" for r, v in itens]
+    lista = nomes[0] if len(nomes) == 1 else ", ".join(nomes[:-1]) + " e " + nomes[-1]
+    return (f"**Fora da curva:** {lista}. Pela regra do IQR, o esperado para estes dados é "
+            f"um valor {expected_range(facts)}; fora disso, o valor destoa dos demais.")
+
+
+def outliers_table(facts: Facts, title: str = "Os valores fora da curva") -> str:
+    """Quem está fora da faixa esperada e por quanto."""
+    fora, cercas = facts.outliers(), facts.fences()
+    if not fora or not cercas:
+        return ""
+    f = money_fmt(facts)
+    baixo, alto = cercas
+    cabeca = {"uf": "UF", "municipio": "Município", "tempo": "Período"}.get(facts.dimension_kind) or cap(
+        fmt.humanize(facts.dimension or "")) or "Item"
+    linhas = [f"| {cabeca} | {cap(facts.metric_label or 'valor')} | Comparado à faixa esperada |",
+              "| :-- | --: | :-- |"]
+    for rotulo, valor in sorted(fora, key=lambda kv: kv[1], reverse=True):
+        nome = fmt.period(rotulo) if facts.dimension_kind == "tempo" else _display(facts, rotulo)
+        quanto = (f"{f(valor - alto)} acima do limite de {f(alto)}" if valor > alto
+                  else f"{f(baixo - valor)} abaixo do limite de {f(baixo)}")
+        linhas.append(f"| {str(nome).replace('|', '/')} | {f(valor)} | {quanto} |")
+    return _tabela(title, linhas, len(fora))
+
+
+def distribution_text(facts: Facts) -> str:
+    """Como ler o histograma, com a mediana por extenso."""
+    mediana = facts.median()
+    if mediana is None or not facts.bins():
+        return ""
+    return (f"Cada barra junta os itens com valor naquela faixa, e a altura diz quantos são. "
+            f"A mediana é {money_fmt(facts)(mediana)}: metade dos {facts.n} valores fica abaixo dela.")
+
+
+def distribution_table(facts: Facts, title: str = "Os valores da distribuição") -> str:
+    """As faixas do histograma, quantos itens há em cada uma e quais são."""
+    faixas = facts.bins()
+    if not faixas:
+        return ""
+    f = money_fmt(facts)
+    linhas = ["| Faixa | Quantidade | Quem está nela |", "| :-- | --: | :-- |"]
+    for de, ate, dentro in faixas:
+        linhas.append(f"| {f(de)} a {f(ate)} | {len(dentro)} | {_names(facts, dentro) or '—'} |")
+    return _tabela(title, linhas, len(faixas))
+
+
+def regions_table(facts: Facts, title: str = "Os valores por região") -> str:
+    """Total de cada região e o de cada UF dentro dela (o gráfico empilhado)."""
+    regioes = facts.region_values()
+    if len(regioes) < 2:
+        return ""
+    f = money_fmt(facts)
+    total = sum(sum(u.values()) for u in regioes.values()) or 1
+    linhas = ["| Região | Total | % do total | UFs |", "| :-- | --: | --: | :-- |"]
+    for regiao, ufs in sorted(regioes.items(), key=lambda kv: -sum(kv[1].values())):
+        soma = sum(ufs.values())
+        detalhe = "; ".join(f"{s} {f(v)}" for s, v in sorted(ufs.items(), key=lambda kv: -kv[1]))
+        linhas.append(f"| {regiao} | {f(soma)} | {fmt.percent(soma / total, 1)} | {detalhe} |")
+    return _tabela(title, linhas, len(regioes))
 
 
 def where_chart(facts: Facts, charts, line_renderer=None) -> Tuple[Optional[bytes], str]:
@@ -337,6 +454,8 @@ def tecnica(facts: Facts, motor_markdown: str, *, charts, steps, preview_table: 
                       subtitle=f"{len(valores)} valores de {facts.metric_label}")
     if hist:
         partes.append(image(hist, "Histograma dos valores"))
+        partes.append(distribution_text(facts))
+        partes.append(distribution_table(facts))
     partes.append(image(safe_chart(charts.coverage, facts.coverage, title="O que falta no dado?",
                                    subtitle="% de linhas preenchidas por coluna"),
                         "Cobertura: porcentagem preenchida por coluna"))
@@ -353,7 +472,6 @@ def tecnica(facts: Facts, motor_markdown: str, *, charts, steps, preview_table: 
 
 def gestor(facts: Facts, *, charts, kpis, region_table: str, planned_text: str) -> str:
     f = chart_fmt(facts)
-    texto = money_fmt(facts)
     metrica = facts.metric_label
     partes = ["## Números para decisão"]
     partes.append(image(safe_chart(charts.kpi_cards, kpis, title="Como estamos?"),
@@ -379,10 +497,8 @@ def gestor(facts: Facts, *, charts, kpis, region_table: str, planned_text: str) 
                                            title="Tem algo fora da curva?",
                                            subtitle="Valores muito acima ou abaixo dos demais"),
                                 "Pontos fora da curva"))
-            partes.append("**Fora da curva:** "
-                          + ", ".join(f"{r} ({texto(v)})" for r, v in fora) + ".")
-        else:
-            partes.append("**Fora da curva:** nenhum valor destoa dos demais (regra do IQR).")
+            partes.append(outliers_table(facts))
+        partes.append(outliers_text(facts))
     if region_table:
         partes.append("### Comparação com regiões parecidas\n\n" + region_table)
     partes.append("### Executado vs. previsto\n\n" + planned_text)
@@ -441,7 +557,7 @@ _ESTADO_TEXTO = {"usado": "usado nesta resposta", "catalogo": "existe no catálo
 
 def politica(facts: Facts, *, charts, stages: Sequence[Stage], complementary: Sequence[Item],
              series_png: Optional[bytes], series_text: str, series_sql: str,
-             methodology: Sequence[str]) -> str:
+             methodology: Sequence[str], series_table: str = "") -> str:
     f = chart_fmt(facts)
     partes = ["## Contexto da política"]
     if stages:
@@ -459,6 +575,7 @@ def politica(facts: Facts, *, charts, stages: Sequence[Stage], complementary: Se
     partes.append("### Série histórica")
     if series_png:
         partes.append(image(series_png, "Série histórica"))
+        partes.append(series_table)
     partes.append(series_text)
     if facts.dimension_kind == "uf" and facts.additive and len(facts.region_values()) >= 2:
         partes.append("### Comparação entre regiões")
@@ -466,6 +583,7 @@ def politica(facts: Facts, *, charts, stages: Sequence[Stage], complementary: Se
                                        title="Comparação entre regiões",
                                        subtitle="Total de cada região, dividido pelas suas UFs"),
                             "Barras empilhadas por região"))
+        partes.append(regions_table(facts))
     partes.append("### Para quem? Indicadores complementares")
     partes.append(_paragraphs([_complementary_line(i) for i in complementary])
                   or "_Catálogo indisponível agora._")

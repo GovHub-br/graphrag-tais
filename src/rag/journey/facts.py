@@ -23,6 +23,7 @@ Decisões que o resumo toma, e por quê:
 """
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -111,17 +112,38 @@ class Facts:
             return None
         return sum(v for _, v in self.values) / len(self.values)
 
-    def outliers(self) -> List[Tuple[str, float]]:
-        """Pontos fora da curva pela regra do IQR (Tukey), com 6+ valores."""
+    def fences(self) -> Optional[Tuple[float, float]]:
+        """(limite de baixo, limite de cima) da faixa esperada pela regra do
+        IQR (Tukey), com 6+ valores. Fora dela, o valor está fora da curva."""
         if self.n < 6:
-            return []
+            return None
         ordenados = sorted(v for _, v in self.values)
         q1, q3 = _quantile(ordenados, 0.25), _quantile(ordenados, 0.75)
         iqr = q3 - q1
         # IQR zero (metade ou mais dos valores iguais) não é "sem dispersão": as
         # cercas de Tukey colapsam em q1 = q3 e tudo que difere delas destoa.
-        baixo, alto = q1 - 1.5 * iqr, q3 + 1.5 * iqr
+        return q1 - 1.5 * iqr, q3 + 1.5 * iqr
+
+    def outliers(self) -> List[Tuple[str, float]]:
+        """Pontos fora da curva pela regra do IQR (Tukey), com 6+ valores."""
+        cercas = self.fences()
+        if not cercas:
+            return []
+        baixo, alto = cercas
         return [(r, v) for r, v in self.values if v < baixo or v > alto]
+
+    def median(self) -> Optional[float]:
+        if not self.values:
+            return None
+        return _quantile(sorted(v for _, v in self.values), 0.5)
+
+    def bins(self) -> List[Tuple[float, float, List[Tuple[str, float]]]]:
+        """Faixas do histograma: (de, até, itens com valor na faixa).
+
+        Uma conta só para o PNG (`infographics.histogram`), a tabela embaixo
+        dele e o gráfico interativo: a faixa que a pessoa lê na tabela é a
+        barra que ela vê."""
+        return histogram_bins(self.values)
 
     def region_values(self) -> Dict[str, Dict[str, float]]:
         """{região: {sigla: valor}} — só para dimensão UF."""
@@ -485,6 +507,33 @@ def _headline(facts: Facts) -> None:
         return
     rotulo, valor = facts.top(1)[0]
     facts.headline, facts.headline_label, facts.headline_kind = valor, rotulo, "maior"
+
+
+#: Abaixo disto, um histograma não diz nada que a lista de valores não diga.
+HISTOGRAM_MIN = 8
+
+
+def histogram_bins(items: Sequence[Tuple[str, float]]
+                   ) -> List[Tuple[float, float, List[Tuple[str, float]]]]:
+    """Faixas de mesma largura entre o menor e o maior valor (regra de
+    Sturges, de 5 a 20), com os itens de cada uma. A última faixa fecha nos
+    dois lados, como no `numpy.histogram`, para o maior valor caber nela."""
+    itens = [(r, v) for r, v in items if v is not None]
+    if len(itens) < HISTOGRAM_MIN:
+        return []
+    k = min(20, max(5, int(math.log2(len(itens)) + 1)))
+    lo, hi = min(v for _, v in itens), max(v for _, v in itens)
+    if hi == lo:
+        lo, hi = lo - 0.5, hi + 0.5
+    largura = (hi - lo) / k
+    faixas: List[Tuple[float, float, List[Tuple[str, float]]]] = [
+        (lo + i * largura, hi if i == k - 1 else lo + (i + 1) * largura, []) for i in range(k)]
+    for rotulo, valor in itens:
+        i = min(k - 1, int((valor - lo) / largura))
+        faixas[i][2].append((rotulo, valor))
+    for _, _, dentro in faixas:
+        dentro.sort(key=lambda kv: kv[1], reverse=True)
+    return faixas
 
 
 def _quantile(ordenados: List[float], q: float) -> float:

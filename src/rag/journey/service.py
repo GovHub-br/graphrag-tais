@@ -203,14 +203,33 @@ class JourneyService:
 
     def _chart_line(self, state: Dict[str, Any], f: facts_mod.Facts, ref: str, kind: str) -> str:
         """Linha escondida com o caminho do gráfico interativo deste resultado,
-        para a Function do Open WebUI (`render.chart_marker`). Só quando há
-        gráfico (2+ itens) e o recurso está ligado."""
-        if not getattr(self.settings, "JOURNEY_INTERACTIVE_CHARTS", False) or f.n < 2:
+        para a Function do Open WebUI (`render.chart_marker`). Só quando o
+        resultado tem esse gráfico (`interactive.available`) e o recurso está
+        ligado."""
+        if not getattr(self.settings, "JOURNEY_INTERACTIVE_CHARTS", False):
+            return ""
+        if kind == interactive.SERIE:
+            fonte = facts_of(state["series"], prefer_time=True) if state.get("series") else f
+            if not interactive.available(fonte, kind):
+                return ""
+        elif not interactive.available(f, kind):
             return ""
         from rag.components.storage.download_links import build_chart_path
 
         ttl = getattr(self.settings, "JOURNEY_STATE_TTL", 7 * 24 * 3600)
         return render.chart_marker(build_chart_path(ref, kind, ttl))
+
+    def _with_embeds(self, markdown: str, state: Dict[str, Any], f: facts_mod.Facts, ref: str,
+                     kinds: Sequence[str], placeholder: str = "") -> str:
+        """A versão de chat de uma trilha com gráficos interativos: tira o PNG e
+        a tabela de valores de cada gráfico que ganhou embed e põe, no fim, uma
+        linha escondida por gráfico (a Function busca todas, na ordem)."""
+        linhas = {k: self._chart_line(state, f, ref, k) for k in kinds}
+        com_embed = [k for k, linha in linhas.items() if linha]
+        if not com_embed:
+            return markdown
+        return (render.for_chat(markdown, placeholder, com_embed) + "\n\n"
+                + "\n".join(linhas[k] for k in com_embed))
 
     def _populacao_reply(self, state: Dict[str, Any]) -> Reply:
         ref = new_ref()
@@ -240,9 +259,7 @@ class JourneyService:
         _keep_section(state, tracks.POPULACAO, markdown)
         self.store.save(ref, state)
         buttons = tracks.buttons(tracks.suggest_order(question))
-        grafico = self._chart_line(state, f, ref, interactive.ONDE)
-        if grafico:
-            markdown = f"{render.for_chat(markdown)}\n\n{grafico}"
+        markdown = self._with_embeds(markdown, state, f, ref, (interactive.ONDE,))
         return Reply(markdown, marker, follow_ups=buttons)
 
     def _phrase(self, question: str, f: facts_mod.Facts) -> Tuple[str, str]:
@@ -312,15 +329,12 @@ class JourneyService:
             self.store.save(marker.ref, state)
         if track.id == tracks.GESTOR.id:
             corpo += "\n\n" + render.report_link(self._ensure_report(state, marker.ref))
-        if track.id in (tracks.GESTOR.id, tracks.HISTORIA.id):
-            tipo = interactive.RANKING if track.id == tracks.GESTOR.id else interactive.ONDE
-            grafico = self._chart_line(state, f, marker.ref, tipo)
-            if grafico:
-                # Chat sem o PNG e sem a tabela (o embed os substitui); a seção
-                # guardada para o .docx, acima, fica completa.
-                aviso_onde = ("_No gráfico interativo, no fim desta resposta._"
-                              if track.id == tracks.HISTORIA.id else "")
-                corpo = f"{render.for_chat(corpo, aviso_onde)}\n\n{grafico}"
+        if track.id in _EMBEDS:
+            # Chat sem o PNG e sem a tabela de cada gráfico que tem embed; a
+            # seção guardada para o .docx, acima, fica completa (o desenho e,
+            # embaixo, os valores).
+            no_fim = "" if track.id == tracks.GESTOR.id else "_No gráfico interativo, no fim desta resposta._"
+            corpo = self._with_embeds(corpo, state, f, marker.ref, _EMBEDS[track.id], no_fim)
         if aviso:
             corpo = aviso + "\n\n" + corpo
         botoes = tracks.buttons(tracks.suggest_order(state["question"], vistas))
@@ -349,20 +363,24 @@ class JourneyService:
         index = self.catalog()
         stages = policy_stages(index, _used_tables(state)) if index else []
         comp = complementary(index) if index else []
-        png, texto, sql = self._series(state, f)
+        png, texto, sql, fs = self._series(state, f)
         metodologia = limitations(state, f)
         if sql and png:
             metodologia = metodologia + ["A série histórica vem de uma consulta própria, gerada "
                                          "pelo motor a partir da sua pergunta (SQL no fim)."]
         return render.politica(f, charts=self.charts, stages=stages, complementary=comp,
                                series_png=png, series_text=texto, series_sql=sql,
-                               methodology=metodologia)
+                               methodology=metodologia,
+                               series_table=render.values_table(fs, "Os valores da série") if png and fs else "")
 
-    def _series(self, state, f) -> Tuple[Optional[bytes], str, str]:
+    def _series(self, state, f) -> Tuple[Optional[bytes], str, str, Optional[facts_mod.Facts]]:
+        """(PNG, frase, SQL, números) da série histórica. A consulta de série
+        que deu certo fica em `state["series"]`, de onde a rota do gráfico
+        interativo desenha a mesma série sem rodar SQL de novo."""
         if f.dimension_kind == "tempo" and f.n >= 2:
-            return (render.safe_chart(self.line_renderer, f), series_sentence(f), "")
+            return (render.safe_chart(self.line_renderer, f), series_sentence(f), "", f)
         if not self.settings.JOURNEY_POLICY_SERIES:
-            return None, "_Série histórica desligada neste ambiente._", ""
+            return None, "_Série histórica desligada neste ambiente._", "", None
         tentado = ""
         for pergunta in series_questions(state["question"], f):
             try:
@@ -380,17 +398,19 @@ class JourneyService:
             fs = self._facts(derivado, prefer_time=True)
             fs.label = f.label
             if fs.dimension_kind == "tempo" and fs.n >= 2:
+                state["series"] = {"exec": execu, "answer": {
+                    "references": (derivado.get("answer") or {}).get("references") or []}}
                 return (render.safe_chart(self.line_renderer, fs), series_sentence(fs),
-                        execu.get("sql_final", ""))
+                        execu.get("sql_final", ""), fs)
         if tentado:
             # O catálogo apontou uma tabela com data, mas o banco não a executou:
             # dizer "não há coluna de tempo" seria falso. Diz o que houve e
             # mostra a consulta, que é o que alguém técnico precisa para seguir.
             return (None, "Tentei montar a série histórica, mas a consulta não rodou no banco: "
                           "a tabela com datas que o catálogo indica não respondeu. A consulta "
-                          "tentada está no fim desta resposta.", tentado)
+                          "tentada está no fim desta resposta.", tentado, None)
         return (None, "Não encontrei, nas tabelas do catálogo, uma coluna de tempo que permita "
-                      "montar a série histórica deste número.", "")
+                      "montar a série histórica deste número.", "", None)
 
     # --- história ------------------------------------------------------- #
     def _track_historia(self, state, f, ref) -> str:
@@ -451,6 +471,15 @@ class JourneyService:
 # --------------------------------------------------------------------------- #
 # Peças determinísticas (funções de módulo: testáveis sem serviço)
 # --------------------------------------------------------------------------- #
+#: Os gráficos interativos de cada trilha, na ordem em que aparecem nela.
+_EMBEDS = {
+    tracks.GESTOR.id: (interactive.RANKING, interactive.FORA),
+    tracks.HISTORIA.id: (interactive.ONDE,),
+    tracks.TECNICA.id: (interactive.DISTRIBUICAO,),
+    tracks.POLITICA.id: (interactive.SERIE, interactive.REGIOES),
+}
+
+
 def facts_of(state: Dict[str, Any], prefer_time: bool = False) -> facts_mod.Facts:
     """Os números de um estado guardado — o mesmo cálculo em toda trilha e na
     rota do gráfico interativo (`rag/server/charts.py`)."""
