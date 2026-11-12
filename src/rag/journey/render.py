@@ -126,6 +126,28 @@ def fallback_phrase(facts: Facts) -> str:
     return f"{cap(metrica)}: {numero}."
 
 
+def misnamed_message(misnamed, tables: Sequence[str] = ()) -> str:
+    """Por que a resposta NÃO mostra o número (ver `measure`).
+
+    O número calculado é de outra coisa; mostrá-lo com o nome da pergunta é o
+    erro mais caro que a resposta pode cometer, porque ninguém desconfia de um
+    número bem formatado. O texto diz o que foi somado, para quem quiser
+    conferir, e como seguir."""
+    coluna = f"`{misnamed.column}`"
+    if tables:
+        coluna += f", da tabela `{tables[0]}`"
+    promessa = fmt.humanize(misnamed.alias)
+    return (
+        "Não vou mostrar um número para essa pergunta, porque o que foi calculado não "
+        f"responde a ela. A consulta somou a coluna {coluna}, e chamou o resultado de "
+        f"*{promessa}*. Essa coluna não mede isso: nas tabelas que o sistema encontrou, "
+        "não há uma medida com esse nome.\n\n"
+        "Dá para reformular a pergunta dizendo a medida com outras palavras, ou perguntar "
+        "*\"o que vocês têm sobre …?\"* para ver quais bases têm essa informação. "
+        "Abaixo está o que o sistema tentou."
+    )
+
+
 def _display(facts: Facts, rotulo: str) -> str:
     """Nome por extenso quando a dimensão é UF ("BA" → "Bahia")."""
     if facts.dimension_kind == "uf":

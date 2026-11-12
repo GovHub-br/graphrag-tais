@@ -243,6 +243,25 @@ class TestPopulacaoGeral(unittest.TestCase):
         self.assertEqual(reply.follow_ups, [])
         self.assertEqual(svc.follow_ups(reply.marker), [])
 
+    def test_metrica_renomeada_nao_vira_numero(self):
+        """`SUM(renda_familiar) AS total_contratado` (caso real, 10/11/2026): o
+        número existe e não responde à pergunta. Sem cartão, sem botões, e a
+        resposta diz o que foi somado."""
+        sql = "SELECT uf, SUM(renda_familiar) AS total_contratado FROM ouro.far GROUP BY uf"
+        rows = [{"uf": r["uf"], "total_contratado": r["total"]} for r in UF_ROWS]
+        svc, _, _ = _service(rows=rows, sql=sql, answer={**ANSWER, "sql": sql})
+        reply = svc.answer("Quanto foi contratado no FAR por estado?")
+        md = reply.markdown
+        self.assertTrue(md.startswith("Não vou mostrar um número"), md[:120])
+        self.assertIn("`renda_familiar`", md)
+        self.assertIn("*contratado*", md)
+        self.assertNotIn("R$ 820", md.split("Abaixo está")[0])
+        self.assertEqual(_pngs(md), [])
+        self.assertNotIn("tais:grafico", md)
+        self.assertEqual(reply.follow_ups, [])
+        self.assertEqual(svc.follow_ups(reply.marker), [])
+        self.assertEqual(svc.store.load(reply.marker.ref)["status"], "metrica_divergente")
+
     def test_recusa_do_motor(self):
         svc, calls, _ = _service(answer={**ANSWER, "refusal": "pii", "sql": "",
                                          "explanation": "Não posso identificar pessoas."})

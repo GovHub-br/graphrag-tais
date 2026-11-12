@@ -62,6 +62,15 @@ baixar. `Indicador` e `Explorar` seguem no seletor, intactos.
   unidade. Sem descrição, vale o nome da coluna.
 - **Guarda do total mal atribuído** (`render.misreads_total`): resultado somado
   + superlativo na frase do total ("o estado com mais tem 878") → frase determinística.
+- **Guarda da métrica renomeada** (`journey/measure.py`, 11/11): sem coluna que
+  meça o perguntado, o LLM somou outra e lhe deu o nome da pergunta
+  (`SUM(renda_familiar) AS total_contratado`, "o FAR contratou 899 mi"). Se
+  NENHUMA palavra de conteúdo do apelido aparece (por radical) no nome ou na
+  descrição da coluna somada, o estado vira `metrica_divergente`: sem número,
+  sem cartão, sem botão, e a resposta diz o que foi somado. Conservadora: só
+  `SUM/AVG/MAX/MIN(coluna) AS apelido`; `COUNT`, expressão, apelido genérico e
+  coluna muda (`qt_uh` sem descrição) não são julgados. 🔴 A Persona 2
+  (`Indicador`) segue mostrando o número: corrigir lá é prompt calibrado (ADR-0012).
 - **Relatório = o que a pessoa VIU** (03/11): cada trilha guarda seu Markdown em
   `state["sections"]`, e o `.docx` é montado delas, na ordem em que foram abertas
   (`render.report_markdown` → `ReportBuilder.build`). É refeito quando entra trilha

@@ -395,5 +395,74 @@ class TestUnidade(unittest.TestCase):
         self.assertEqual((f.unit, f.unit_note, f.headline), ("", "", 15.0))
 
 
+class TestMetricaRenomeada(unittest.TestCase):
+    """O apelido da métrica promete o que a coluna somada não é.
+
+    Caso real (MCid, 10/11/2026): "Quanto foi contratado no FAR por estado?"
+    rodou `SUM(renda_familiar) AS total_contratado` e a resposta disse que o
+    FAR contratou 899 milhões, que era a soma da renda das famílias. Os dois
+    lados importam: acusar demais esconde resposta certa."""
+
+    def setUp(self):
+        from rag.journey import measure
+        self.m = measure
+
+    def test_caso_real_renda_somada_como_contratado(self):
+        sql = ("SELECT uf, SUM(renda_familiar) AS total_contratado FROM (SELECT DISTINCT "
+               "nu_contrato, uf, renda_familiar FROM ouro.ouro_far_beneficiario_contrato) d "
+               "GROUP BY uf")
+        achado = self.m.misnamed("total_contratado", sql)
+        self.assertIsNotNone(achado)
+        self.assertEqual((achado.column, achado.alias, achado.missing),
+                         ("renda_familiar", "total_contratado", ["contratado"]))
+
+    def test_via_build(self):
+        rows = [{"uf": "SP", "total_contratado": 174.0}, {"uf": "BA", "total_contratado": 90.0}]
+        f = build(rows, sql="SELECT uf, SUM(renda_familiar) AS total_contratado FROM t GROUP BY uf",
+                  kinds=_k(uf="text", total_contratado="numeric"))
+        self.assertTrue(f.ok)                 # o número existe…
+        self.assertEqual(f.misnamed.column, "renda_familiar")   # …mas é de outra coisa
+
+    def test_nao_acusa_o_que_bate(self):
+        casos = {
+            "total_valor_contratado": "SELECT municipio, SUM(valor_contratado) AS total_valor_contratado "
+                                      "FROM ouro.ouro_far_empreendimento_perguntas WHERE uf = 'SP' "
+                                      "GROUP BY municipio",
+            "desembolso_total": "SELECT uf, SUM(valor_desembolsado) AS desembolso_total FROM t GROUP BY uf",
+            "contratacoes": "SELECT ano, SUM(valor_contratacao) contratacoes FROM t GROUP BY ano",
+            "familias_atendidas": "SELECT uf, SUM(qt_familias) AS familias_atendidas FROM t",
+            "unidades_habitacionais_entregues":
+                "SELECT uf, SUM(qt_uh_entregues) AS unidades_habitacionais_entregues FROM t",
+            "total": "SELECT uf, SUM(renda_familiar) AS total FROM t GROUP BY uf",
+            "valor_contratado": "SELECT uf, SUM(t.valor_contratado) AS valor_contratado FROM t",
+        }
+        for alias, sql in casos.items():
+            self.assertIsNone(self.m.misnamed(alias, sql), alias)
+
+    def test_nao_julga_o_que_nao_da_para_julgar(self):
+        casos = {
+            # contagem: o apelido nomeia a coisa contada, não a coluna
+            "qt_contratos": "SELECT uf, COUNT(DISTINCT nu_contrato) AS qt_contratos FROM t",
+            # coluna abreviada demais para comparar
+            "unidades_contratadas": "SELECT uf, SUM(qt_uh) AS unidades_contratadas FROM t",
+            # expressão, não coluna
+            "investimento": "SELECT uf, SUM(vr_far + vr_terreno) AS investimento FROM t",
+            # métrica sem agregação
+            "renda_familiar": "SELECT uf, renda_familiar FROM t",
+        }
+        for alias, sql in casos.items():
+            self.assertIsNone(self.m.misnamed(alias, sql), alias)
+
+    def test_descricao_do_catalogo_conta_como_nome(self):
+        sql = "SELECT uf, SUM(vl_ted) AS total_repassado FROM t GROUP BY uf"
+        refs = [{"columns": [{"name": "vl_ted", "description": "Valor repassado por TED, em reais."}]}]
+        # `vl_ted` sozinho é abreviado demais para julgar; a descrição decide.
+        self.assertIsNone(self.m.misnamed("total_repassado", sql))
+        self.assertIsNone(self.m.misnamed("total_repassado", sql, refs))
+        contratado = sql.replace("total_repassado", "total_contratado")
+        self.assertIsNotNone(self.m.misnamed("total_contratado", contratado, refs))
+        self.assertIsNotNone(self.m.misnamed("total_repassado", sql.replace("vl_ted", "vl_saldo_conta")))
+
+
 if __name__ == "__main__":
     unittest.main()

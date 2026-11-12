@@ -57,6 +57,9 @@ Depois da resposta aparecem botões para ir além, conforme o que você precisa.
 
 Se quiser saber o que existe sobre um assunto, pergunte *"o que vocês têm sobre …?"*."""
 
+#: O SQL rodou, mas somou uma coluna que não mede o que o apelido promete.
+METRICA_DIVERGENTE = "metrica_divergente"
+
 _SEM_RESULTADO = (
     "Não consegui chegar a um número para essa pergunta com as bases disponíveis. "
     "Abaixo está o que o sistema tentou. Dá para reformular a pergunta com outro recorte "
@@ -196,6 +199,12 @@ class JourneyService:
         f = self._facts(state)
         if not f.ok:
             state["status"] = "sem_resultado"
+        elif f.misnamed:
+            # O número existe, mas é de outra coisa (`SUM(renda_familiar) AS
+            # total_contratado`): não vira resposta, nem cartão, nem botão.
+            logger.warning("[jornada] métrica renomeada: SUM({}) AS {} (falta {!r}); sem número",
+                           f.misnamed.column, f.misnamed.alias, f.misnamed.missing)
+            state["status"] = METRICA_DIVERGENTE
         return state
 
     def _facts(self, state: Dict[str, Any], prefer_time: bool = False) -> facts_mod.Facts:
@@ -219,6 +228,11 @@ class JourneyService:
         if state["status"] == "recusa":
             self.store.save(ref, state)
             return Reply(render_motor(state), marker)
+        if state["status"] == METRICA_DIVERGENTE:
+            self.store.save(ref, state)
+            f = self._facts(state)
+            return Reply(render.misnamed_message(f.misnamed, _used_tables(state))
+                         + "\n\n" + render_motor(state), marker)
         if state["status"] != "ok":
             self.store.save(ref, state)
             return Reply(_SEM_RESULTADO + "\n\n" + render_motor(state), marker)
