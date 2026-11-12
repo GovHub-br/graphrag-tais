@@ -27,7 +27,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from rag.journey import ibge, units
+from rag.journey import ibge, measure, units
 
 _ID = re.compile(r"^(id|cod|codigo|co|cd|nu|num|seq|cnpj|cpf|ibge|geocod)(_|$)|(_id|_cod|_codigo|_ibge)$")
 _TEMPORAL = ("ano", "mes", "periodo", "data", "dt_", "trimestre", "competencia",
@@ -74,6 +74,9 @@ class Facts:
     unit: str = ""
     #: Nota sobre a escala da base ("em milhões de reais"), para a trilha técnica.
     unit_note: str = ""
+    #: O apelido da métrica promete o que a coluna somada não é
+    #: (`SUM(renda_familiar) AS total_contratado`) — ver `measure`.
+    misnamed: Optional[measure.Misnamed] = None
 
     @property
     def metric_label(self) -> str:
@@ -176,6 +179,7 @@ def build(rows: Sequence[Dict[str, Any]], columns: Sequence[str] | None = None,
     facts.metric = _pick_metric(columns, kinds, rows)
     if facts.metric is None:
         return facts
+    facts.misnamed = measure.misnamed(facts.metric, sql, references)
     facts.additive = _is_additive(facts.metric, sql)
     facts.money = _is_money(facts.metric, sql)
     unidade = units.resolve(facts.metric, _alias_source(facts.metric, sql), references)
