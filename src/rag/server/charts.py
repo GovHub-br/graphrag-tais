@@ -5,7 +5,8 @@ logo depois de cada resposta: ela lê o caminho assinado na linha escondida
 `tais:grafico` e põe o HTML devolvido aqui como "embed" embaixo da mensagem.
 
 O HTML é montado na hora, do MESMO resultado guardado que as trilhas usam
-(`journey.state`, chave `ref`): nenhum SQL novo, e o gráfico sempre bate com o
+(`journey.state`, chave `ref`; para a série histórica da política, a
+consulta de série que a trilha guardou em `state["series"]`): nenhum SQL novo, e o gráfico sempre bate com o
 número da resposta. Depois que o Open WebUI grava o embed na conversa, o
 gráfico não depende mais desta rota (nem do prazo do resultado no Redis).
 
@@ -51,7 +52,14 @@ def journey_chart(
     state = JourneyStore().load(ref)
     if not state or state.get("status") != "ok":
         raise HTTPException(status_code=404, detail="Resultado não encontrado.")
-    pagina = interactive.page(facts_of(state), kind, question=state.get("question", ""))
+    if kind == interactive.SERIE:
+        # A série histórica da política: o resultado da consulta de série que
+        # a trilha guardou, ou o próprio resultado quando ele já é no tempo.
+        fs = facts_of(state.get("series") or state, prefer_time=True)
+        fs.label = state.get("label", "")
+        pagina = interactive.page(fs, interactive.ONDE, title="Série histórica")
+    else:
+        pagina = interactive.page_for(facts_of(state), kind, question=state.get("question", ""))
     if not pagina:
         raise HTTPException(status_code=404, detail="Este resultado não tem gráfico.")
     logger.info("[grafico] servindo ref={} tipo={} ({} KB)", ref, kind, len(pagina) // 1024)

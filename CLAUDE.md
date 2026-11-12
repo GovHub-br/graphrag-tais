@@ -102,6 +102,21 @@ baixar. `Indicador` e `Explorar` seguem no seletor, intactos.
   quebra o esconder). Só pelo navegador (o `outlet` é chamado pelo frontend).
   Com o embed, o chat NÃO leva o PNG nem a tabela de valores
   (`render.for_chat`); a seção guardada para o `.docx` leva os dois.
+  **Um embed por gráfico** (11/11, Function v0.2.0): cada trilha tem os seus
+  (`service._EMBEDS`): gestor = ranking + **fora da curva** (pontos com a
+  faixa esperada do IQR e um botão por ponto fora; a série do gestor marca os
+  pontos fora em laranja), técnica = **distribuição** (histograma; toque na
+  barra lista quem está na faixa), política = **série histórica** (a consulta
+  de série fica em `state["series"]`) + **regiões** empilhadas por UF. Só sai
+  a linha do gráfico que existe (`interactive.available`), e `for_chat` tira
+  só o PNG/tabela de quem ganhou embed (`render.EMBED_PARTS`). ⚠️ Os `alt`
+  dos tipos novos NÃO entram na seção 13 do CSS: numa conversa antiga a
+  mensagem tem o embed do ranking e não o deles, e o CSS esconderia o único
+  desenho. No `.docx`, embaixo de cada PNG, a tabela de referência
+  (`outliers_table`, `distribution_table`, `regions_table`, valores da série).
+  Faixas do histograma = `facts.histogram_bins` (PNG, tabela e interativo
+  usam a mesma conta). Diagramas, cartões, pictograma e cobertura seguem só PNG.
+  Mudou a Function → rodar `scripts/setup_webui_models.sh` no ambiente.
 - **Município** (10/11): coluna de município (nome ou código IBGE) é recorte
   próprio (`facts.dimension_kind == "municipio"`, `mun_values` por código) e
   vence a de UF. Malha e nomes do IBGE em `journey/data/municipios*`

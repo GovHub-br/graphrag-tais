@@ -411,12 +411,15 @@ def alerts(items: Sequence[Tuple[str, float]], flagged: Sequence[str], fmt: Fmt,
         ax.scatter(xs, ys, s=60, color=[LARANJA if r in marcados else ROXO_CLARO for r, _ in dados],
                    zorder=3, edgecolor="white", linewidth=0.8)
         ax.set_xticks([])
-    for x, (rotulo, valor) in zip(xs, dados):
-        if rotulo in marcados:
-            ax.scatter([x], [valor], s=140, facecolor="none", edgecolor=LARANJA, lw=2.2, zorder=4)
-            ax.annotate(f"{_curto(_periodo(rotulo), 14)}\n{fmt(valor)}", (x, valor), textcoords="offset points",
-                        xytext=(8, 6), fontsize=10, color=LARANJA, fontfamily=_FONT_FAMILY,
-                        fontweight="bold")
+    pontos = [(x, rotulo, valor) for x, (rotulo, valor) in zip(xs, dados) if rotulo in marcados]
+    for x, _, valor in pontos:
+        ax.scatter([x], [valor], s=140, facecolor="none", edgecolor=LARANJA, lw=2.2, zorder=4)
+    if not temporal and pontos:
+        # Folga em cima e embaixo para o rótulo do ponto extremo não subir no
+        # subtítulo nem descer abaixo do eixo.
+        lo, hi = min(ys), max(ys)
+        folga = (hi - lo) * 0.12 or abs(hi) * 0.1 or 1
+        ax.set_ylim(min(0, lo - folga) if lo >= 0 else lo - folga, hi + folga)
     # Poucas marcas: o formato compacto tem uma casa ("2,9 mi"), e com marcas
     # demais num intervalo estreito o eixo repetia "3 mi, 3 mi, 3 mi".
     ax.yaxis.set_major_locator(mticker.MaxNLocator(nbins=4))
@@ -424,7 +427,71 @@ def alerts(items: Sequence[Tuple[str, float]], flagged: Sequence[str], fmt: Fmt,
     ax.grid(axis="y", color=GRID)
     ax.set_axisbelow(True)
     _eixo_limpo(ax)
+    _rotulos_sem_colisao(fig, ax, [(x, valor, f"{_curto(_periodo(rotulo), 22)}  {fmt(valor)}")
+                                   for x, rotulo, valor in pontos], len(dados),
+                         sorted(ys)[len(ys) // 2],
+                         [valor for rotulo, valor in dados if rotulo not in marcados])
     return _png(fig, dpi)
+
+
+#: Mais que isto, os rótulos viram uma coluna de texto sobre o gráfico: os
+#: demais pontos laranja seguem marcados, e a tabela embaixo lista todos.
+_MAX_ROTULOS = 8
+
+
+def _rotulos_sem_colisao(fig, ax, pontos: Sequence[Tuple[float, float, str]], n: int,
+                         centro: float, outros: Sequence[float] = ()) -> None:
+    """Rótulo de cada ponto marcado, sem um cair em cima do outro.
+
+    Antes cada rótulo saía num deslocamento fixo do seu ponto, e dois pontos
+    fora da curva vizinhos (os dois maiores, quase sempre) se sobrepunham até
+    ficar ilegíveis. Agora os rótulos de cada grupo (os de cima e os de baixo)
+    — acima e abaixo da mediana de TODOS os valores — formam uma COLUNA ao lado do grupo, do lado em que há espaço, uma linha
+    por ponto e na ordem do valor, com um fio até o ponto."""
+    if not pontos:
+        return
+    ordem = sorted(pontos, key=lambda p: -p[1])[:_MAX_ROTULOS]
+    fig.canvas.draw()
+    eixo = ax.get_window_extent(fig.canvas.get_renderer())
+    linha = 15 * fig.dpi / 72                      # 10 pt de letra + entrelinha
+    para_tela = ax.transData.transform
+    for grupo, desce in (([p for p in ordem if p[1] >= centro], True),
+                         ([p for p in ordem if p[1] < centro][::-1], False)):
+        if not grupo:
+            continue
+        tela = [para_tela((x, y)) for x, y, _ in grupo]
+        direita = sum(x for x, _, _ in grupo) / len(grupo) <= (n - 1) / 2
+        coluna = (max(t[0] for t in tela) + 22 * fig.dpi / 72 if direita
+                  else min(t[0] for t in tela) - 22 * fig.dpi / 72)
+        ys, anterior = [], None
+        for _, ty in tela:
+            y = ty if anterior is None else (min(ty, anterior - linha) if desce
+                                             else max(ty, anterior + linha))
+            ys.append(y)
+            anterior = y
+        # A coluna não invade a fileira dos pontos normais: os de cima param
+        # uma linha acima do maior deles (os de baixo, uma abaixo do menor), e
+        # quem está acima sobe junto.
+        if outros:
+            limite = para_tela((0, max(outros) if desce else min(outros)))[1]
+            ys[-1] = max(ys[-1], limite + linha) if desce else min(ys[-1], limite - linha)
+            for i in range(len(ys) - 2, -1, -1):
+                ys[i] = max(ys[i], ys[i + 1] + linha) if desce else min(ys[i], ys[i + 1] - linha)
+        # A coluna inteira cabe no quadro (o de cima não sobe no subtítulo).
+        if desce and ys[0] > eixo.y1 + linha:
+            ys = [y - (ys[0] - eixo.y1 - linha) for y in ys]
+        if not desce and ys[0] < eixo.y0:
+            ys = [y + (eixo.y0 - ys[0]) for y in ys]
+        # Deslocamento em pontos a partir do próprio ponto: não depende do dpi
+        # de saída nem do recorte do `bbox_inches="tight"`.
+        pt = 72 / fig.dpi
+        for (x, y, texto), (tx, ty), yy in zip(grupo, tela, ys):
+            ax.annotate(texto, (x, y), xycoords="data", textcoords="offset points",
+                        xytext=((coluna - tx) * pt, (yy - ty) * pt), ha="left" if direita else "right",
+                        va="center", fontsize=10, color=LARANJA, fontfamily=_FONT_FAMILY,
+                        fontweight="bold", zorder=5, annotation_clip=False,
+                        arrowprops=dict(arrowstyle="-", color=LARANJA, lw=0.9, alpha=0.7, connectionstyle="angle,angleA=0,angleB=90,rad=0",
+                                        shrinkA=3, shrinkB=7))
 
 
 # --------------------------------------------------------------------------- #
@@ -432,14 +499,30 @@ def alerts(items: Sequence[Tuple[str, float]], flagged: Sequence[str], fmt: Fmt,
 # --------------------------------------------------------------------------- #
 def histogram(values: Sequence[float], fmt: Fmt, *, title: str = "", subtitle: str = "",
               dpi: Optional[int] = None) -> Optional[bytes]:
+    from rag.journey.facts import histogram_bins
+
     vals = [v for v in values if v is not None]
-    if len(vals) < 8:
+    # As faixas são as de `histogram_bins`, as mesmas da tabela embaixo do
+    # gráfico e do gráfico interativo.
+    faixas = histogram_bins([("", v) for v in vals])
+    if not faixas:
         return None
-    caixas = min(20, max(5, int(math.log2(len(vals)) + 1)))
     fig = _fig(_W, 4.2)
     _titulo(fig, title, subtitle)
     ax = fig.add_axes([0.1, 0.17, 0.85, 0.58])
-    ax.hist(vals, bins=caixas, color=ROXO, edgecolor="white", linewidth=1.2)
+    ax.bar([de for de, _, _ in faixas], [len(d) for _, _, d in faixas],
+           width=[ate - de for de, ate, _ in faixas], align="edge", color=ROXO,
+           edgecolor="white", linewidth=1.2)
+    mediana = sorted(vals)[len(vals) // 2] if len(vals) % 2 else \
+        sum(sorted(vals)[len(vals) // 2 - 1: len(vals) // 2 + 1]) / 2
+    ax.axvline(mediana, color=LARANJA, lw=1.6, ls=(0, (4, 3)))
+    ax.annotate(f"mediana {fmt(mediana)}", (mediana, 1), xycoords=("data", "axes fraction"),
+                xytext=(4, 2), textcoords="offset points", fontsize=10, color=LARANJA,
+                fontfamily=_FONT_FAMILY, fontweight="bold", va="bottom")
+    ax.yaxis.set_major_locator(mticker.MaxNLocator(integer=True, nbins=4))
+    # Poucas marcas no eixo do valor: "R$ 150 mi" é largo e, com o passo
+    # automático, um rótulo encostava no outro.
+    ax.xaxis.set_major_locator(mticker.MaxNLocator(nbins=4))
     ax.xaxis.set_major_formatter(mticker.FuncFormatter(lambda v, _p: fmt(v)))
     ax.set_ylabel("quantidade", color=MUTED, fontsize=11, fontfamily=_FONT_FAMILY)
     ax.grid(axis="y", color=GRID)

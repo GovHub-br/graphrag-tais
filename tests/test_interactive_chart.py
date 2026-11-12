@@ -84,6 +84,95 @@ class TestPagina(unittest.TestCase):
         self.assertIsNone(interactive.page(f))
 
 
+def _mun_facts():
+    """43 municípios, os dois maiores fora da curva (o caso da tela de 11/11)."""
+    valores = ([("Santo André", 141e6), ("Sorocaba", 138e6), ("Campinas", 116e6), ("Santos", 102e6),
+                ("Osasco", 93e6), ("Bauru", 91e6)]
+               + [(f"Município {i}", 80e6 - i * 1.9e6) for i in range(36)] + [("Ilhabela", 6e6)])
+    rows = [{"municipio_nome": n, "valor_contratado": v} for n, v in valores]
+    return build(rows, sql="SELECT municipio_nome, SUM(valor_contratado) AS valor_contratado FROM t GROUP BY 1",
+                 kinds={"municipio_nome": "text", "valor_contratado": "numeric"})
+
+
+class TestForaDaCurva(unittest.TestCase):
+    def test_um_ponto_por_valor_e_os_de_fora_em_laranja_com_botao(self):
+        f = _mun_facts()
+        self.assertEqual([r for r, _ in f.outliers()], ["Santo André", "Sorocaba"])
+        pagina = interactive.page_for(f, interactive.FORA)
+        self.assertEqual(pagina.count('class="pt'), 43)
+        self.assertEqual(pagina.count('class="pt fora"'), 2)
+        # O nome vai num botão embaixo, não num rótulo ao lado do ponto.
+        self.assertEqual(pagina.count('class="chip"'), 2)
+        self.assertIn("Santo André <b>R$ 141.000.000</b>", pagina)
+        self.assertIn("acima do limite de", _dados(pagina))
+        self.assertIn("Dentro da faixa esperada", _dados(pagina))
+
+    def test_sem_ponto_fora_nao_ha_grafico(self):
+        rows = [{"eo": f"E{i}", "v": float(100 + i)} for i in range(10)]
+        f = build(rows, sql="SELECT eo, SUM(v) AS v FROM t GROUP BY eo", kinds={"eo": "text", "v": "numeric"})
+        self.assertFalse(interactive.available(f, interactive.FORA))
+        self.assertIsNone(interactive.page_for(f, interactive.FORA))
+
+    def test_serie_do_gestor_marca_o_ponto_fora(self):
+        rows = [{"mes": f"2025-{m:02d}-01", "v": float(100 + m * (9 if m == 7 else 1))} for m in range(1, 13)]
+        f = build(rows, sql="SELECT mes, SUM(v) AS v FROM t GROUP BY mes", kinds={"mes": "date", "v": "numeric"})
+        self.assertEqual(interactive.page(f, interactive.RANKING).count('class="alerta"'), 1)
+        self.assertEqual(interactive.page(f, interactive.ONDE).count('class="alerta"'), 0)
+        self.assertFalse(interactive.available(f, interactive.FORA))   # a série já mostra
+
+
+class TestDistribuicao(unittest.TestCase):
+    def test_uma_barra_por_faixa_e_a_lista_de_quem_esta_nela(self):
+        f = _mun_facts()
+        faixas = f.bins()
+        self.assertEqual(sum(len(d) for _, _, d in faixas), 43)       # ninguém fica de fora
+        pagina = interactive.page_for(f, interactive.DISTRIBUICAO)
+        self.assertEqual(pagina.count('class="bin"'), len(faixas))
+        self.assertIn("mediana", pagina)
+        self.assertIn("Santo André", _dados(pagina))
+
+    def test_poucos_valores_nao_tem_histograma(self):
+        rows = [{"eo": f"E{i}", "v": float(i)} for i in range(5)]
+        f = build(rows, sql="SELECT eo, SUM(v) AS v FROM t GROUP BY eo", kinds={"eo": "text", "v": "numeric"})
+        self.assertIsNone(interactive.page_for(f, interactive.DISTRIBUICAO))
+        self.assertEqual(render.distribution_table(f), "")
+
+
+class TestRegioes(unittest.TestCase):
+    def test_um_segmento_por_uf_e_uma_linha_por_regiao(self):
+        pagina = interactive.page_for(_uf_facts(), interactive.REGIOES)
+        self.assertEqual(pagina.count('class="seg'), 27)
+        self.assertEqual(pagina.count('class="reg"'), 5)
+        self.assertIn("da região", _dados(pagina))
+
+    def test_categoria_nao_tem_regioes(self):
+        self.assertIsNone(interactive.page_for(_mun_facts(), interactive.REGIOES))
+
+
+class TestValoresDeReferencia(unittest.TestCase):
+    """No .docx não há cursor: embaixo de cada gráfico, os valores dele."""
+
+    def test_tabela_e_frase_do_fora_da_curva(self):
+        f = _mun_facts()
+        tabela = render.outliers_table(f)
+        self.assertIn("**Os valores fora da curva**", tabela)
+        self.assertIn("| Santo André | R$ 141.000.000 | R$ 9.700.000 acima do limite de R$ 131.300.000 |", tabela)
+        frase = render.outliers_text(f)
+        self.assertIn("Santo André (R$ 141.000.000) e Sorocaba (R$ 138.000.000)", frase)
+        self.assertIn("até R$ 131.300.000", frase)          # limite de baixo negativo não aparece
+
+    def test_tabela_da_distribuicao_bate_com_as_faixas(self):
+        f = _mun_facts()
+        tabela = render.distribution_table(f)
+        self.assertEqual(tabela.count("\n| R$ "), len(f.bins()))
+        self.assertIn("e mais", tabela)
+
+    def test_tabela_das_regioes(self):
+        tabela = render.regions_table(_uf_facts())
+        self.assertIn("| Nordeste |", tabela)
+        self.assertIn("% do total", tabela)
+
+
 class TestChatSemPngDuplicado(unittest.TestCase):
     """No chat o embed substitui o PNG e a tabela; o relatório guarda os dois."""
 
@@ -115,6 +204,20 @@ class TestChatSemPngDuplicado(unittest.TestCase):
     def test_marcador_no_lugar_do_grafico(self):
         md = "### 3. Onde?\n\n![Mapa do Brasil: x](data:image/png;base64,AA)\n\n### 4. Para quem?"
         self.assertEqual(render.for_chat(md, "_abaixo_"), "### 3. Onde?\n\n_abaixo_\n\n### 4. Para quem?")
+
+
+    def test_so_sai_o_que_tem_embed(self):
+        md = ("![Ranking de x](data:image/png;base64,AA)\n\n**Os valores do ranking**\n\n| a | b |\n| -- | -- |\n\n"
+              "![Pontos fora da curva](data:image/png;base64,BB)\n\n**Os valores fora da curva**\n\n| c | d |\n\n"
+              "**Fora da curva:** X.")
+        so_ranking = render.for_chat(md, kinds=("ranking",))
+        self.assertNotIn("Ranking de", so_ranking)
+        self.assertIn("Pontos fora da curva", so_ranking)
+        self.assertIn("Os valores fora da curva", so_ranking)
+        os_dois = render.for_chat(md, kinds=("ranking", "fora"))
+        self.assertNotIn("data:image", os_dois)
+        self.assertNotIn("| c | d |", os_dois)
+        self.assertIn("**Fora da curva:** X.", os_dois)          # a frase fica no chat
 
 
 class TestLinkAssinado(unittest.TestCase):
@@ -194,6 +297,28 @@ class TestFunction(unittest.TestCase):
         self.assertEqual(eventos, [{"type": "embeds",
                                     "data": {"embeds": ["<html>/charts/r1/onde?exp=1&sig=ab</html>"]}}])
 
+    def test_emite_todos_os_graficos_da_resposta_na_ordem(self):
+        mod = _function()
+        filtro = mod.Filter()
+        eventos = []
+
+        async def emitir(e):
+            eventos.append(e)
+
+        async def busca(caminho):
+            return None if "falha" in caminho else f"<html>{caminho.split('?')[0]}</html>"
+
+        filtro._fetch = busca
+        corpo = {"messages": [{"role": "assistant", "content": (
+            "x\n\n[//]: # (tais:grafico /charts/r1/ranking?exp=1&sig=a)\n"
+            "[//]: # (tais:grafico /charts/r1/falha?exp=1&sig=b)\n"
+            "[//]: # (tais:grafico /charts/r1/fora?exp=1&sig=c)")}]}
+        asyncio.run(filtro.outlet(corpo, __event_emitter__=emitir))
+        # O que falhou não derruba os outros.
+        self.assertEqual(eventos, [{"type": "embeds", "data": {"embeds": [
+            "<html>/charts/r1/ranking</html>", "<html>/charts/r1/fora</html>"]}}])
+
+
     def test_so_olha_a_ultima_resposta(self):
         corpo = {"messages": [
             {"role": "assistant", "content": "[//]: # (tais:grafico /charts/velho/onde?exp=1&sig=a)"},
@@ -215,9 +340,12 @@ class TestRota(unittest.TestCase):
         settings.DOWNLOAD_SIGNING_KEY = "chave-de-teste"
         self._load = state_mod.JourneyStore.load
         rows = [{"uf": u["sigla"], "valor": float(100 + i)} for i, u in enumerate(ibge.ufs())]
+        serie = [{"ano": a, "valor": float(v)} for a, v in ((2021, 10), (2022, 30), (2023, 45))]
         guardado = {"ref1": {"status": "ok", "exec": {
             "rows": rows, "columns": ["uf", "valor"],
-            "sql_final": "SELECT uf, SUM(valor) AS valor FROM t GROUP BY uf"}}}
+            "sql_final": "SELECT uf, SUM(valor) AS valor FROM t GROUP BY uf"},
+            "series": {"exec": {"rows": serie, "columns": ["ano", "valor"],
+                                "sql_final": "SELECT ano, SUM(valor) AS valor FROM t GROUP BY ano"}}}}
         state_mod.JourneyStore.load = lambda self, ref: guardado.get(ref)
         app = FastAPI()
         app.include_router(router)
@@ -241,6 +369,21 @@ class TestRota(unittest.TestCase):
         self.assertEqual(self.client.get(download_links.build_chart_path("ref1", "onde", -10)).status_code, 410)
         self.assertEqual(self.client.get(download_links.build_chart_path("zzz", "onde", 60)).status_code, 404)
         self.assertEqual(self.client.get(download_links.build_chart_path("ref1", "pizza", 60)).status_code, 404)
+
+
+    def test_tipos_novos(self):
+        r = self.client.get(download_links.build_chart_path("ref1", "regioes", 60))
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.text.count('class="reg"'), 5)
+        # 27 valores em fila, sem ponto fora da curva: o gráfico não existe.
+        self.assertEqual(self.client.get(download_links.build_chart_path("ref1", "fora", 60)).status_code, 404)
+        self.assertEqual(self.client.get(download_links.build_chart_path("ref1", "distribuicao", 60)).status_code, 200)
+
+    def test_serie_historica_guardada_pela_politica(self):
+        r = self.client.get(download_links.build_chart_path("ref1", "serie", 60))
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("Série histórica", r.text)
+        self.assertEqual(r.text.count('class="alvo"'), 3)          # os 3 anos, não as 27 UFs
 
 
 if __name__ == "__main__":

@@ -295,7 +295,15 @@ class TestTrilhas(unittest.TestCase):
         self.assertIn(UF_SQL, t.markdown)
         self.assertIn("Baixar o resultado completo (CSV)", t.markdown)
         self.assertIn("Mostrando 10 de 10 linhas", t.markdown)
-        self.assertGreaterEqual(len(_pngs(t.markdown)), 3)  # linhagem, histograma, cobertura
+        # No chat o histograma é o interativo (linha `tais:grafico …/distribuicao`);
+        # o PNG e a tabela das faixas ficam na seção que vai para o .docx.
+        self.assertEqual(len(_pngs(t.markdown)), 2)  # linhagem, cobertura
+        self.assertIn("/distribuicao?", t.markdown)
+        self.assertNotIn("Os valores da distribuição", t.markdown)
+        secao = svc.store.load(r.marker.ref)["sections"]["tecnica"]
+        self.assertEqual(len(_pngs(secao)), 3)       # + o histograma
+        self.assertIn("**Os valores da distribuição**", secao)
+        self.assertIn("A mediana é", secao)
         self.assertEqual(t.marker.vistas, ["tecnica"])
         self.assertNotIn(tracks.TECNICA.button, t.follow_ups)
 
@@ -363,6 +371,30 @@ class TestTrilhas(unittest.TestCase):
         self.assertIn("SQL da série histórica", p)
         self.assertIn("Raça/cor", p)
         self.assertIn("O que o sistema não tem", p)
+        # A série que rodou fica guardada para o gráfico interativo; no chat,
+        # série e regiões são embeds, e o .docx leva PNG + valores dos dois.
+        estado = svc.store.load(r.marker.ref)
+        self.assertEqual(len(estado["series"]["exec"]["rows"]), 3)
+        self.assertIn("/serie?", p)
+        self.assertIn("/regioes?", p)
+        self.assertNotIn("Os valores da série", p)
+        secao = estado["sections"]["politica"]
+        self.assertIn("**Os valores da série**", secao)
+        self.assertIn("| 2023 |", secao)
+        self.assertIn("**Os valores por região**", secao)
+
+    def test_gestor_tem_ranking_e_fora_da_curva_interativos(self):
+        valores = [("SP", 141.0), ("RJ", 138.0)] + [(u, float(40 - i)) for i, u in enumerate(
+            ["MG", "BA", "PR", "RS", "PE", "CE", "PA", "SC", "GO", "MA"])]
+        svc, _, _, r = self._primeira(rows=[{"uf": u, "total": v} for u, v in valores])
+        g = svc.track(tracks.GESTOR, r.marker, "").markdown
+        linhas = re.findall(r"tais:grafico /charts/\w+/(\w+)\?", g)
+        self.assertEqual(linhas, ["ranking", "fora"])
+        self.assertNotIn("Pontos fora da curva](data:", g)
+        self.assertIn("**Fora da curva:** São Paulo", g)
+        secao = svc.store.load(r.marker.ref)["sections"]["gestor"]
+        self.assertIn("![Pontos fora da curva](data:image/png", secao)
+        self.assertIn("**Os valores fora da curva**", secao)
 
     def test_politica_quando_a_serie_nao_roda(self):
         svc, calls, _, r = self._primeira()
