@@ -130,7 +130,7 @@ class TestCores(unittest.TestCase):
 
     def test_municipio_sem_dado_quase_branco(self):
         pagina = interactive.page(_sp_facts())
-        self.assertIn('fill="#f3f2f7"', pagina)
+        self.assertIn(f'fill="{interactive._SEM_DADO_MUNICIPAL}"', pagina)
         self.assertIn('class="mapa municipal"', pagina)
 
 

@@ -10,7 +10,7 @@ recorte — as mesmas do PNG (`render.where_chart`):
 
 - UF     → mapa do Brasil (malha do IBGE) + aba de ranking;
 - tempo  → linha, com o ponto mais perto do cursor destacado (no ranking do
-  gestor, os pontos fora da curva em laranja);
+  gestor, os pontos fora da curva no acento #BE006E);
 - resto  → barras ordenadas.
 
 E as versões interativas dos outros gráficos de dado das trilhas (11/11):
@@ -50,11 +50,12 @@ SERIE = "serie"        # "Contexto da política": a série histórica
 KINDS = (ONDE, RANKING, FORA, DISTRIBUICAO, REGIOES, SERIE)
 
 _MAPA_W = 560
-# Mesma rampa do mapa PNG (`infographics._MAPA_CORES`): lilás → roxo → roxo escuro.
-_RAMPA = ((0.0, (0xF2, 0xEE, 0xFE)), (0.33, (0xB9, 0xA3, 0xF6)),
-          (0.66, (0x7C, 0x3A, 0xED)), (1.0, (0x4C, 0x1D, 0x95)))
-_SEM_DADO = "#e7e5ee"
-_SEM_DADO_MUNICIPAL = "#f3f2f7"
+# Mesma rampa do mapa PNG (`infographics._MAPA_CORES`): claro → roxo → navy,
+# a rampa do modo sóbrio da IDV.
+_RAMPA = ((0.0, (0xF2, 0xF1, 0xF6)), (0.33, (0xB3, 0xA5, 0xFF)),
+          (0.66, (0x61, 0x3E, 0xFF)), (1.0, (0x0A, 0x00, 0x5A)))
+_SEM_DADO = "#E6E4EE"
+_SEM_DADO_MUNICIPAL = "#F8F7FB"
 
 
 def color(t: float) -> str:
@@ -63,7 +64,7 @@ def color(t: float) -> str:
         if t <= b:
             u = (t - a) / (b - a) if b > a else 0
             return "#%02x%02x%02x" % tuple(round(ca[i] + (cb[i] - ca[i]) * u) for i in range(3))
-    return "#4c1d95"
+    return "#0a005a"
 
 
 def _project(aneis: Dict[str, List[List[Tuple[float, float]]]]) -> Tuple[Dict[str, str], int]:
@@ -248,10 +249,32 @@ def _line_svg(itens: Sequence[Dict[str, Any]], fmt_eixo, flagged: Sequence[str] 
 # --------------------------------------------------------------------------- #
 # Página
 # --------------------------------------------------------------------------- #
+@lru_cache(maxsize=1)
+def _font_css() -> str:
+    """A Reddit Sans da IDV, embutida em base64.
+
+    O iframe não tem rede própria nem `allow-same-origin`: buscar a fonte do
+    Open WebUI (`/static/fonts`) seria um pedido de origem opaca, e o StaticFiles
+    dele não manda CORS. Embutir é a única forma de o gráfico ter a mesma letra
+    do chat. É um recorte (Latin básico + Latin-1 + pontuação, eixo de peso
+    inteiro): 34 KB, ~45 KB em base64 por página. Sem o arquivo, a pilha cai na
+    fonte do sistema — cosmético, nunca derruba o gráfico."""
+    import base64
+    from pathlib import Path
+
+    arquivo = Path(__file__).resolve().parent / "data" / "reddit-sans-subset.woff2"
+    try:
+        b64 = base64.b64encode(arquivo.read_bytes()).decode("ascii")
+    except OSError:
+        return ""
+    return ('@font-face{font-family:"Reddit Sans";font-weight:200 900;font-display:block;'
+            f'src:url(data:font/woff2;base64,{b64}) format("woff2")}}')
+
+
 _CSS = """
-:root{--roxo:#7c3aed;--ink:#221f33;--muted:#5b596f;--borda:#e2ddf1;--lilas:#f2eefe}
+:root{--roxo:#613EFF;--roxo2:#3F28A6;--ink:#0A005A;--muted:#5E5B72;--borda:#E6E4EE;--lilas:#F2F1F6;--acento:#BE006E;--acento-claro:#FBE7F1}
 *{box-sizing:border-box}html,body{margin:0;background:transparent;overflow:hidden}
-body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink)}
+body{font-family:"Reddit Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink)}
 .card{position:relative;background:#fff;border:1px solid var(--borda);border-radius:16px;padding:14px 14px 10px}
 h1{font-size:15px;margin:0 0 2px;font-weight:700}.sub{color:var(--muted);font-size:12.5px;margin:0 0 10px}
 .abas{display:flex;gap:6px;margin-bottom:8px}
@@ -259,11 +282,11 @@ h1{font-size:15px;margin:0 0 2px;font-weight:700}.sub{color:var(--muted);font-si
 .abas button.on{background:var(--roxo);color:#fff;border-color:var(--roxo)}
 svg{width:100%;height:auto;display:block;touch-action:manipulation}
 .mapa path{stroke:#fff;stroke-width:.8;cursor:pointer}
-.mapa.municipal path{stroke:#dcd8e8;stroke-width:.35}
+.mapa.municipal path{stroke:#D6D3E2;stroke-width:.35}
 .mapa path:hover,.mapa path.sel{stroke:var(--ink);stroke-width:1.6;filter:brightness(1.06)}
 #mapa{max-width:520px;margin:0 auto}
 .legenda{display:flex;justify-content:space-between;color:var(--muted);font-size:11.5px;margin-top:4px}
-.rampa{height:7px;border-radius:4px;margin-top:6px;background:linear-gradient(90deg,#f2eefe,#b9a3f6,#7c3aed,#4c1d95)}
+.rampa{height:7px;border-radius:4px;margin-top:6px;background:linear-gradient(90deg,#F2F1F6,#B3A5FF,#613EFF,#0A005A)}
 .barras{max-height:520px;overflow:auto}
 .linha{display:flex;align-items:center;gap:8px;padding:2px 4px;border-radius:6px;cursor:pointer}
 .linha:hover,.linha.sel{background:var(--lilas)}
@@ -271,7 +294,7 @@ svg{width:100%;height:auto;display:block;touch-action:manipulation}
 .trilho{flex:1;height:13px;min-width:40px}.barra{display:block;height:100%;background:var(--roxo);border-radius:0 4px 4px 0}
 .val{flex:0 0 auto;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
 .serie polyline{fill:none;stroke:var(--roxo);stroke-width:2.4}
-.eixo{display:flex;flex-wrap:wrap;gap:0 12px;justify-content:space-between;color:var(--muted);font-size:11.5px;margin-top:2px}.serie .grade{stroke:#eceaf5}
+.eixo{display:flex;flex-wrap:wrap;gap:0 12px;justify-content:space-between;color:var(--muted);font-size:11.5px;margin-top:2px}.serie .grade{stroke:#E6E4EE}
 .serie .guia{stroke:var(--ink);stroke-dasharray:3 3}.serie circle{fill:var(--roxo);stroke:#fff;stroke-width:2}
 .serie .alvo{fill:transparent;cursor:pointer}
 #tip{position:absolute;pointer-events:none;background:var(--ink);color:#fff;border-radius:8px;padding:7px 9px;font-size:12.5px;line-height:1.35;display:none;box-shadow:0 4px 14px #0003;z-index:2;max-width:240px}
@@ -280,32 +303,32 @@ svg{width:100%;height:auto;display:block;touch-action:manipulation}
 #painel{margin-top:10px;padding:10px 12px;border:1px solid var(--borda);border-radius:12px;background:var(--lilas);display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
 #painel .pinfo{font-size:13px}#painel .pdet{color:var(--muted);font-size:12px}
 #painel button{border:0;background:var(--roxo);color:#fff;border-radius:99px;padding:7px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
-#painel button:disabled{background:#b9a3f6;cursor:default}
-.serie .alerta{fill:#f97316;stroke:#fff;stroke-width:2;pointer-events:none}
+#painel button:disabled{background:#B3A5FF;cursor:default}
+.serie .alerta{fill:var(--acento);stroke:#fff;stroke-width:2;pointer-events:none}
 .plot{position:relative}.plot .yl{position:absolute;left:0;transform:translateY(-50%);color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;pointer-events:none}
-.plot .fl{position:absolute;right:2px;transform:translateY(-110%);color:#b45309;font-size:11px;font-weight:600;pointer-events:none;background:#fffc;padding:0 3px;border-radius:4px}
-.plot .ml{position:absolute;top:0;transform:translateX(4px);color:#c2410c;font-size:11px;font-weight:700;white-space:nowrap;pointer-events:none}
+.plot .fl{position:absolute;right:2px;transform:translateY(-110%);color:var(--acento);font-size:11px;font-weight:600;pointer-events:none;background:#fffc;padding:0 3px;border-radius:4px}
+.plot .ml{position:absolute;top:0;transform:translateX(4px);color:var(--acento);font-size:11px;font-weight:700;white-space:nowrap;pointer-events:none}
 .plot .ml.esq{transform:translateX(calc(-100% - 4px))}.hplot .ml{top:-17px}.hplot .yl{left:-34px}
 .pontos{position:relative;height:240px}.pontos>span{position:absolute;display:block}
-.pontos .gl{left:0;right:0;border-top:1px solid #eceaf5}
-.pontos .faixa{left:0;right:0;background:#f2eefe}.pontos .cerca{left:0;right:0;border-top:1.5px dashed #f59e0b}
-.pontos .col{top:0;bottom:0;cursor:pointer}.pontos .col:hover,.pontos .col.sel{background:#7c3aed14}
-.pontos .pt{width:calc(var(--r)*2);height:calc(var(--r)*2);margin:calc(var(--r)*-1) 0 0 calc(var(--r)*-1);border-radius:50%;background:#c4b5fd;border:1.5px solid #fff;pointer-events:none;box-sizing:border-box}
-.pontos .pt.fora{background:#f97316}.pontos .pt.sel{border:2.5px solid var(--ink);transform:scale(1.25)}
-svg.hist{height:200px}.hist line{vector-effect:non-scaling-stroke}.hist .grade{stroke:#eceaf5}.hist rect.bin{fill:var(--roxo);cursor:pointer}.hist rect.bin:hover,.hist rect.bin.sel{fill:#5b21b6}
-.hist .mediana{stroke:#f97316;stroke-width:2;stroke-dasharray:5 4}
+.pontos .gl{left:0;right:0;border-top:1px solid #E6E4EE}
+.pontos .faixa{left:0;right:0;background:var(--lilas)}.pontos .cerca{left:0;right:0;border-top:1.5px dashed var(--acento)}
+.pontos .col{top:0;bottom:0;cursor:pointer}.pontos .col:hover,.pontos .col.sel{background:#613EFF14}
+.pontos .pt{width:calc(var(--r)*2);height:calc(var(--r)*2);margin:calc(var(--r)*-1) 0 0 calc(var(--r)*-1);border-radius:50%;background:#B3A5FF;border:1.5px solid #fff;pointer-events:none;box-sizing:border-box}
+.pontos .pt.fora{background:var(--acento)}.pontos .pt.sel{border:2.5px solid var(--ink);transform:scale(1.25)}
+svg.hist{height:200px}.hist line{vector-effect:non-scaling-stroke}.hist .grade{stroke:#E6E4EE}.hist rect.bin{fill:var(--roxo);cursor:pointer}.hist rect.bin:hover,.hist rect.bin.sel{fill:var(--roxo2)}
+.hist .mediana{stroke:var(--acento);stroke-width:2;stroke-dasharray:5 4}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-.chip{border:1px solid #fed7aa;background:#fff7ed;color:#9a3412;border-radius:99px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer}
-.chip.sel,.chip:hover{background:#f97316;color:#fff;border-color:#f97316}
+.chip{border:1px solid #F2C2DA;background:var(--acento-claro);color:var(--acento);border-radius:99px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer}
+.chip.sel,.chip:hover{background:var(--acento);color:#fff;border-color:var(--acento)}
 .chip b{font-weight:700}
 .leg{display:flex;flex-wrap:wrap;gap:4px 14px;color:var(--muted);font-size:11.5px;margin-top:6px;align-items:center}
 .leg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
-.leg i.faixa{border-radius:2px;background:#f2eefe;border:1px dashed #f59e0b}
+.leg i.faixa{border-radius:2px;background:var(--lilas);border:1px dashed var(--acento)}
 .eixox{position:relative;height:16px;color:var(--muted);font-size:11px;margin-top:2px}
 .eixox span{position:absolute;transform:translateX(-50%);white-space:nowrap}
 .eixox span:first-child{transform:none}.eixox span:last-child{transform:translateX(-100%)}
 #lista{margin-top:10px;border:1px solid var(--borda);border-radius:12px;padding:8px 10px;background:var(--lilas)}
-#lista h2{font-size:13px;margin:0 0 6px}#lista .lrow{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:2px 0;border-top:1px solid #e2ddf1}
+#lista h2{font-size:13px;margin:0 0 6px}#lista .lrow{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:2px 0;border-top:1px solid var(--borda)}
 #lista .lrow:first-of-type{border-top:0}#lista .lrow span:last-child{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 #lista .lbox{max-height:220px;overflow:auto}
 .reg{display:flex;align-items:center;gap:8px;padding:3px 0}
@@ -468,7 +491,7 @@ def page(facts: Facts, kind: str = ONDE, title: str = "", question: str = "") ->
             for i in itens:
                 if i["k"] in fora:
                     i["det"] = "Fora da curva (regra do IQR)"
-            toque = "Pontos fora da curva em laranja. " + toque
+            toque = "Pontos fora da curva em rosa. " + toque
         corpo = _line_svg(itens, render.money_fmt(facts), fora)
     else:
         corpo = _bars_html(itens)
@@ -484,7 +507,7 @@ def _html(titulo: str, sub: str, corpo: str, itens: Sequence[Dict[str, Any]], **
              "drill": {}, "nomes": {}, **extra}
     return ("<!doctype html><html lang=\"pt-BR\"><head><meta charset=\"utf-8\">"
             "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-            f"<title>{html.escape(titulo)}</title><style>{_CSS}</style></head><body>"
+            f"<title>{html.escape(titulo)}</title><style>{_font_css()}{_CSS}</style></head><body>"
             f'<div class="card"><h1>{html.escape(titulo)}</h1><p class="sub">{html.escape(sub)}</p>'
             f'{corpo}<div id="tip"></div></div>'
             f"<script>const DATA={_js_data(dados)};{_JS}</script></body></html>")
@@ -514,7 +537,7 @@ def _y_labels(marcas: Sequence[float], y, h: float, fmt_eixo) -> str:
 def outliers_page(facts: Facts) -> Optional[str]:
     """"Tem algo fora da curva?": cada valor é um ponto, do maior para o menor,
     com a faixa esperada (regra do IQR) pintada atrás. Os pontos fora dela
-    ficam em laranja e ganham um botão embaixo do gráfico com o nome e o
+    ficam no acento (#BE006E) e ganham um botão embaixo do gráfico com o nome e o
     valor — o rótulo ao lado do ponto encavalava quando dois maiores eram
     vizinhos (pedido de produto, 11/11/2026)."""
     fora, cercas = facts.outliers(), facts.fences()
@@ -582,8 +605,8 @@ def outliers_page(facts: Facts) -> Optional[str]:
     chips = "".join(f'<button type="button" class="chip" data-k="{html.escape(i["k"])}">'
                     f'{html.escape(i["nome"])} <b>{html.escape(i["txt"])}</b></button>'
                     for i in itens if i["k"] in marcados)
-    legenda = (f'<div class="leg"><span><i style="background:#f97316"></i>fora da curva ({len(fora)})</span>'
-               f'<span><i style="background:#c4b5fd"></i>dentro do esperado ({n - len(fora)})</span>'
+    legenda = (f'<div class="leg"><span><i style="background:#BE006E"></i>fora da curva ({len(fora)})</span>'
+               f'<span><i style="background:#B3A5FF"></i>dentro do esperado ({n - len(fora)})</span>'
                f'<span><i class="faixa"></i>faixa esperada: {html.escape(render.expected_range(facts))}</span></div>')
     corpo = (f'<div class="plot" style="padding-left:var(--yl,64px)">{svg}'
              f'{_y_labels(marcas, y, h, curto)}{rotulos_cerca}</div>{legenda}'
@@ -628,7 +651,7 @@ def distribution_page(facts: Facts) -> Optional[str]:
         f'height="{max(0.0, h - y(len(d))):.1f}" data-k="b{j}"/>'
         # Faixa vazia ainda responde ao toque (um alvo fino no pé do gráfico).
         if d else f'<rect class="bin" x="{j * largura + 1:.1f}" y="{h - 3}" width="{largura - 2:.1f}" '
-                  f'height="3" style="fill:#eceaf5" data-k="b{j}"/>'
+                  f'height="3" style="fill:#E6E4EE" data-k="b{j}"/>'
         for j, (_, _, d) in enumerate(faixas))
     grade = "".join(f'<line class="grade" x1="0" x2="{w}" y1="{y(m):.1f}" y2="{y(m):.1f}"/>' for m in marcas)
     mediana = facts.median()
@@ -653,7 +676,7 @@ def distribution_page(facts: Facts) -> Optional[str]:
              f'{_y_labels(marcas, y, h, lambda c: str(int(c)))}</div></div>'
              f'<div style="padding-left:34px">{eixo_x}</div>'
              f'<div class="leg"><span>quantidade de valores em cada faixa</span>'
-             f'<span><i style="background:#f97316;border-radius:0;width:12px;height:2px"></i>'
+             f'<span><i style="background:#BE006E;border-radius:0;width:12px;height:2px"></i>'
              f'mediana: {html.escape(f(mediana))}</span></div>'
              f'<div id="lista" style="display:none"></div>')
     sub = (f"{facts.n} valores de {facts.metric_label}. Cada barra junta os itens com valor naquela "
@@ -661,7 +684,7 @@ def distribution_page(facts: Facts) -> Optional[str]:
     return _html("Como os valores se distribuem?", sub, corpo, itens, lista=lista)
 
 
-_TONS_REGIAO = ("#4c1d95", "#7c3aed", "#9d7af0", "#b9a3f6", "#ddd3fb", "#f2eefe")
+_TONS_REGIAO = ("#0A005A", "#613EFF", "#8A72FF", "#B3A5FF", "#D6CCFF", "#F2F1F6")
 
 
 def regions_page(facts: Facts) -> Optional[str]:

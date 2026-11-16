@@ -19,6 +19,11 @@ services:
     volumes:
       - ./webui/custom.css:/app/build/static/custom.css:ro
       - ./webui/loader.js:/app/build/static/loader.js:ro
+      - ./webui/assets/fonts:/app/build/static/fonts:ro
+      - ./webui/assets/govhub-logomarca.svg:/app/build/static/govhub-logomarca.svg:ro
+      - ./webui/assets/govhub-logomarca-white.svg:/app/build/static/govhub-logomarca-white.svg:ro
+      - ./webui/assets/govhub-icone.svg:/app/build/static/govhub-icone.svg:ro
+      - ./webui/assets/govhub-icone-white.svg:/app/build/static/govhub-icone-white.svg:ro
       - ./webui/assets/govhub-mark-light.svg:/app/build/static/govhub-mark-light.svg:ro
       - ./webui/assets/govhub-horizontal.svg:/app/build/static/govhub-horizontal.svg:ro
       - ./webui/assets/govhub-horizontal-light.svg:/app/build/static/govhub-horizontal-light.svg:ro

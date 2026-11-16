@@ -484,15 +484,13 @@ class Settings(BaseSettings):
         "/app/reports", description="Diretório local onde o .docx é gerado antes do upload"
     )
     REPORT_TITLE: str = Field(
-        "Relatório de Consulta", description="Título exibido na capa do relatório"
-    )
-    REPORT_KICKER: str = Field(
-        "GovHub · Assistente de Dados",
-        description="Eyebrow (linha de contexto em maiúsculas) na capa",
+        "Relatório de consulta",
+        description="Título da capa (Reddit Sans 800, caixa alta e baixa, ~16 caracteres por linha)",
     )
     REPORT_FOOTER: str = Field(
-        "GovHub · Assistente de Dados · Metodologia GovHub",
-        description="Assinatura da marca (base da capa e rodapé)",
+        "Relatório de consulta · Assistente de Dados TAIS · Gov Hub · Lab Livre - UnB",
+        description="Texto do rodapé, depois do número da página (IDV: documento · frente · "
+                    "Gov Hub · Lab Livre - UnB)",
     )
     REPORT_PRESIGN_EXPIRY: int = Field(
         604800, description="Validade (s) do link de download do relatório (default 7 dias)"
