@@ -3,9 +3,13 @@
 Tema aplicado pelos **dois ganchos oficiais** do Open WebUI 0.11.0 — sem fork,
 sem rebuild do frontend, sem tocar no código do Open WebUI. Os arquivos abaixo
 são assados numa imagem própria (`webui/Dockerfile`, veja
-[Empacotamento](#empacotamento-webuidockerfile)). Referência estética:
-[`docs/graphrag-tais-overview.html`](../docs/graphrag-tais-overview.html) e a
-skill `govhub-visual-identity`. O estudo das alternativas está em
+[Empacotamento](#empacotamento-webuidockerfile)). Referência estética: o
+**modo sóbrio** da IDV do GovHub (30/09/2026), fonte da verdade em
+`GovHub-br/GovHub-skills` → `01-govhub/govhub-visual-identity`: roxo `#613EFF`,
+navy `#0A005A`, claro `#F2F1F6`, `#BE006E` só em detalhe, **Reddit Sans** e
+**sem gradiente**. Até 13/11/2026 o tema seguia a paleta anterior (roxo
+`#7c3aed` em gradiente, laranja, Inter), descontinuada pela equipe de design.
+⚠️ A cópia local `govhub-visual-identity/` fora do repo é a paleta antiga. O estudo das alternativas está em
 [`docs/20260820-estudo-identidade-visual-na-ui.md`](../docs/20260820-estudo-identidade-visual-na-ui.md).
 
 ```
@@ -14,7 +18,8 @@ webui/
 ├── custom.css     → /static/custom.css   (link no <head>, CSS livre)
 ├── loader.js      → /static/loader.js    (script defer: tema fixo + INTRO da marca)
 ├── functions/     → Functions do Open WebUI (instaladas no banco pelo setup, não copiadas)
-└── assets/        → ícone, favicon, splash e avatares dos modelos
+└── assets/        → ícone, favicon, splash, avatares, logos oficiais (govhub-logomarca*,
+                     govhub-icone*) e a Reddit Sans em fonts/ (OFL)
 ```
 
 ## Como funciona
@@ -34,33 +39,36 @@ layer, independente de ordem e especificidade. Logo, basta redefinir os design
 tokens — nada de caçar classe utilitária.
 
 **2. A alavanca central é a escala `--color-gray-*`.** Quase toda superfície,
-borda e texto do app sai dela. Trocada por neutros levemente arroxeados, o app
-inteiro muda de uma vez, nos dois modos.
+borda e texto do app sai dela. Trocada por neutros que partem do `#F2F1F6` da
+marca e terminam perto do navy, o app inteiro muda de uma vez, nos dois modos.
 
 **3. Markdown via `--tw-prose-*`.** O conteúdo gerado usa Tailwind Typography, então
 retematizar tabela, código, link e citação é redefinir essas variáveis — vale para
 as tabelas de dicionário de dados e o SQL do `Indicador` sem regra específica.
 
-**4. A Inter já vem embarcada** no Open WebUI (`@font-face` própria); o tema só a
-promove a primeira do stack.
+**4. A Reddit Sans é servida pelo próprio app** (`assets/fonts/`, variável
+200–900, recortes latin e latin-ext, licença OFL ao lado). Não vem do Google Fonts
+de propósito: rede de governo, requisição a terceiro em toda página e nada de
+fonte offline. O `@font-face` está na seção 0 do `custom.css`.
 
 **5. ⚠️ Em telas estreitas (< 768px) o `#sidebar` é OUTRO elemento** — um drawer com
 árvore e classes próprias. Regra que dependa de herança de cor funciona no desktop e
-falha no mobile (foi o que deixou os rótulos pretos sobre o roxo). Por isso a cor do
-rail é aplicada de forma ampla: `#sidebar, #sidebar *:not([role="menu"]) *`.
-Menus flutuantes são renderizados **fora** do `#sidebar` (portal), então escapam.
+falha no mobile. Enquanto o rail era roxo, isso exigia forçar branco em tudo que
+estivesse dentro dele; com a barra clara do modo sóbrio, os tokens de cinza pintam
+os dois layouts e essa regra deixou de existir.
 
 ## Onde a marca aparece
 
 | Lugar | Como |
 |---|---|
-| **Intro** (entrada) | tela cheia no gradiente da marca: o símbolo entra pela esquerda, cai, quica três vezes no chão até a direita, volta ao centro e revela a mensagem de boas-vindas com o botão **Começar**. Ver "A intro" abaixo |
-| **Barra lateral** | gradiente roxo + símbolo em branco no topo, ao lado do nome do produto |
-| **Tela inicial** | lockup "Gov Hub" acima do nome da persona + símbolo gigante a 2,8% de opacidade como marca-d'água. Logo abaixo do nome vem a **mensagem de boas-vindas** — que não é arquivo daqui, é a `description` do modelo (ver "Camada de conteúdo") |
+| **Intro** (entrada) | tela navy em duas metades: à esquerda o texto alinhado à esquerda (logomarca, rótulo, chamada "Dados públicos, respostas verificáveis.", parágrafo, três garantias e o botão **Começar**); à direita os elementos gráficos oficiais (semicírculo e quarto de círculo roxos, anel e pílula `#F2F1F6`, ponto `#BE006E`). No celular as formas viram moldura. **Uma vez por sessão.** Ver "A intro" abaixo |
+| **Barra lateral** | fundo no claro da marca `#F2F1F6` (separa do canvas branco), fio à direita, símbolo oficial em cor no topo e o nome do produto numa linha só; conversa ativa = cartão branco com sombra curta e um marcador roxo em pílula dentro dele (`::before`, não `inset`: em canto arredondado o inset vira parêntese) |
+| **Tela inicial** | logomarca oficial (`govhub-logomarca.svg`) acima do nome da persona. Logo abaixo do nome vem a **mensagem de boas-vindas** — que não é arquivo daqui, é a `description` do modelo (ver "Camada de conteúdo"). A marca-d'água gigante que ficava atrás saiu em 13/11: lia como mancha |
+| **Downloads** | cartão de arquivo (ícone num quadrado `#F2F1F6`, rótulo navy, seta), largura cheia e 56 px de altura — era uma barra roxa em gradiente |
 | **Carregando** | o ponto que pulsava virou o símbolo GovHub — as respostas do Indicador levam de 30 s a 1 min, é onde a pessoa mais olha. ⚠️ Dois detalhes: o componente tem três tamanhos (a resposta usa o `md`), então a regra **não** pode se prender a uma classe de tamanho; e o ponto é um `<span>` dentro de outro `<span>` `flex` — redimensionar só o de dentro deixa a marca achatada, porque como item flex ele é espremido de volta. Precisa dos dois + `flex: none` |
 | **Aba / favicon / PWA** | símbolo GovHub — ⚠️ inclui o **`favicon.ico`**, não só o `.png`/`.svg`: o `index.html` declara `rel="shortcut icon"` apontando para o `.ico`, e é ele que o navegador costuma usar na aba. Sem trocar o `.ico`, a aba continua com o ícone do Open WebUI mesmo com os outros três substituídos. Os ícones são gerados **quadrados** (o símbolo é 176×202): sem isso ele sai achatado nas caixas `rounded-full` |
 | **Avatar das personas** | ícones do kit (`charts`, `database`, `open-folder`) e o balão do **Assistente** (`govhub-icon-assistente.png`, no mesmo traço roxo + laranja) |
-| **Gráfico** | roxo `#7c3aed` + Inter, no chat e no `.docx` |
+| **Gráfico** | modo sóbrio + Reddit Sans no chat, no interativo e no `.docx` (15/11): rampa claro → roxo → navy, `#BE006E` como único acento (fora da curva, mediana, referência). Desenhados no RAG (`components/charts/`, `journey/interactive.py`), não aqui; o interativo leva um recorte da Reddit Sans em base64, porque o iframe não tem rede. No chat, cada PNG ganha só um fio de 1 px (sem padding nem fundo), para não virar cartão dentro de cartão |
 
 ## Botões da jornada (ADR-0020)
 
@@ -116,37 +124,40 @@ pessoa passa o mouse ou toca para ler o valor exato.
 
 ## A intro
 
-A tela roxa de entrada é **elemento nosso** (`#gh-intro`, montado pelo `loader.js`),
+A tela navy de entrada é **elemento nosso** (`#gh-intro`, montado pelo `loader.js`),
 não o `#splash-screen` do Open WebUI. Motivo: o splash nativo é removido pelo
 próprio app (`+layout.svelte`: `getElementById('splash-screen')?.remove()`) assim
 que o carregamento termina — meio segundo — e não há gancho para segurá-lo. Quem
 decide quando a intro sai é o **clique em "Começar"**.
 
-O splash nativo **continua tematizado** e é o plano B: a intro só o esconde
+O splash nativo **continua tematizado** (navy) e é o plano B: a intro só o esconde
 (`html.gh-intro-on #splash-screen { visibility: hidden }`) depois de conseguir se
 montar, então JS quebrado cai na tela antiga em vez de numa tela branca.
 
-**O quique é a barra de progresso.** Enquanto o app sobe, o botão fica desabilitado
-como "Preparando…"; ele vira "Começar" quando o `#splash-screen` nativo some do DOM
-— que é a última coisa que o `+layout.svelte` faz ao terminar de carregar. Ou seja,
-a espera é real e clicar leva mesmo a um app pronto. Um teto de 20 s arma o botão de
-qualquer jeito para ninguém ficar preso numa rota de erro.
+**O botão espera o app de verdade.** Enquanto o app sobe, ele fica desabilitado
+como "Preparando…" (com um anel girando); vira "Começar" quando o `#splash-screen`
+nativo some do DOM — a última coisa que o `+layout.svelte` faz ao terminar de
+carregar. Um teto de 20 s arma o botão de qualquer jeito para ninguém ficar preso
+numa rota de erro.
 
-Três coisas que essa animação ensinou, e que valem para qualquer outra aqui:
+**Uma vez por sessão** (13/11). A intro aparecia a cada carregamento — a cada F5 e
+ao abrir o link de uma conversa —, e quem trabalhava o dia todo no app pagava o
+pedágio sempre. A marca `gh-intro-vista` vai para o `sessionStorage` no clique de
+"Começar" e vale até fechar a aba. Sem storage, ela volta a cada carregamento, como
+antes. Para ver de novo: abrir outra aba, ou `sessionStorage.removeItem('gh-intro-vista')`.
 
-- 🔴 **Aba em segundo plano não tem layout.** O navegador congela a animação de uma
-  aba escondida, mas o `setTimeout` continua correndo no relógio de parede — e
-  `getBoundingClientRect()`/`innerWidth` voltam **zerados**. A primeira versão
-  cronometrava o fim do percurso por `setTimeout` e calculava o pouso do símbolo a
-  partir dessas medidas: quem abrisse o app numa aba de fundo (Cmd+clique, sessão
-  restaurada) voltava para a mensagem **sem a marca**, atirada a milhares de pixels
-  dali. Agora quem manda no fim é o `animationend` (relógio da própria animação) e o
-  cálculo tem guarda: geometria zerada → tenta de novo no `requestAnimationFrame`,
-  que por definição não roda em aba escondida e espera sozinho a aba aparecer.
-- ⚠️ **`img` dentro de caixa de posicionamento some.** O preflight do Tailwind põe
-  `max-width: 100%` em toda `<img>`, e os 100% aqui são de um nó de posicionamento
-  **0×0** — o símbolo era espremido a zero de largura e a intro rodava vazia. Daí o
-  `max-width: none` explícito.
+**Entrada, não espetáculo.** Até 13/11 o símbolo atravessava a tela quicando três
+vezes num percurso de 3,6 s; em 13/11 virou um bloco centrado; em 15/11, a
+composição em duas metades (texto à esquerda, formas oficiais à direita), porque
+o parágrafo centrado lia como aviso e não como produto. O movimento é curto
+(~1,4 s): cada forma vem do lado em que está presa e o texto sobe em cascata. O
+texto é de uso geral (o anterior falava com o datathon) e as três garantias são
+fatos do sistema: se uma deixar de valer, sai da lista. Todo o tempo mora no `custom.css` (seção 10.1); o
+`loader.js` não cronometra animação nenhuma, o que também tirou do caminho os
+problemas de aba em segundo plano que o percurso calculado tinha.
+
+O que continua valendo:
+
 - 🔴 **`role="dialog"` + `aria-modal` não prendem foco nenhum.** Eles só
   DECLARAM que a tela é modal; não mexem na ordem de tabulação nem impedem o app
   de chamar `focus()` em algo atrás. E o Open WebUI faz exatamente isso: o
@@ -159,24 +170,19 @@ Três coisas que essa animação ensinou, e que valem para qualquer outra aqui:
   caminhos de uma vez (Tab, clique e `focus()` programático). Ela é solta no
   `sair()`, que então devolve o foco ao `#chat-input` — restaurando o estado que
   existiria se a intro não estivesse ali.
-- ⚠️ **Com o eixo X em `linear`, tempo é distância.** Para o primeiro baque cair no
-  meio da tela, a queda tem de ocupar a mesma fração do tempo que a metade esquerda
-  ocupa do percurso — por isso a queda é longa (0→40%) e os quiques, curtos.
-  Encurtar a queda joga o baque para a esquerda.
+- ⚠️ **A intro também é `role="dialog"`**, e o `custom.css` tem uma regra de raio
+  para modais (`[role="dialog"] > div`). Sem o `:not(#gh-intro)` nela, os círculos
+  viravam quadrados de canto arredondado.
 
-**Onde mexer**: o texto da mensagem, a assinatura ("ASSISTENTE DE DADOS TAIS") e
-os tempos de espera estão no `loader.js` (`MENSAGEM`, o HTML de `montar()`,
-`MS_REDE`, `MS_SOCORRO`); a duração do percurso e a trajetória, no `custom.css`
-(`--gh-salto` e as keyframes `gh-intro-*`). A duração vive **só** no CSS — o JS
-espera o evento, não cronometra.
+**Onde mexer**: chamada, parágrafo, garantias, assinatura, chave da sessão e teto de
+espera estão no `loader.js` (`TITULO`, `MENSAGEM`, `GARANTIAS`, o HTML de `montar()`,
+`CHAVE`, `MS_REDE`); formas, tempos e cascata, no `custom.css` (`--gh-semi`,
+`--gh-anel`, `--gh-quarto`, `--gh-margem` e as keyframes `gh-intro-*`).
 
 ⚠️ A mensagem é um parágrafo **centrado** e usa `text-wrap: balance`, não
 `pretty`: `pretty` só cuida da última linha e deixava "Vamos começar?" sozinha no
 pé. Texto muito mais longo que o atual estoura a tela baixa — a quebra
-`@media (max-height: 700px)` já encolhe símbolo e espaçamentos, mas não o texto.
-
-⚠️ A intro aparece a **cada carregamento de página**. Para mostrá-la uma vez por
-sessão do navegador, o gancho é um `sessionStorage` em volta da chamada de `montar()`.
+`@media (max-height: 700px)` já encolhe logo e espaçamentos, mas não o texto.
 
 ## Empacotamento (`webui/Dockerfile`)
 
@@ -316,7 +322,10 @@ para deployments de **até 50 pessoas em 30 dias**. O que está aqui é
 A imagem está **pinada em `v0.11.0`**. O tema depende dos tokens desta build;
 em `:main` um `pull` silencioso pode trocar o CSS por baixo. Ao subir de versão:
 conferir `--color-gray-*`, `--tw-prose-*`, `#sidebar`, `#message-input-container`
-e `button.waterfall`, que são os pontos de apoio do tema. Na 0.11.0 os dois ganchos
+e `button.waterfall`, que são os pontos de apoio do tema. ⚠️ A lista de
+sugestões da tela inicial tem altura fixa com a rolagem ESCONDIDA (`h-36` na
+0.11.0, `h-40` na 0.10): quando a classe mudou, a regra que a solta parou de casar
+em silêncio e só duas das quatro sugestões apareciam. Confira com quatro cards. Na 0.11.0 os dois ganchos
 (`<script src="/static/loader.js" defer>` e `<link href="/static/custom.css">`)
 seguem no `<head>`, e o `custom.css` usa só `:has()` — nada de `oklch`/`color-mix`,
 então não há piso de versão de navegador além de Safari 15.4.

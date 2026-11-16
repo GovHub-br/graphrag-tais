@@ -341,10 +341,15 @@ dos DOIS backends, para um trace antigo continuar legível.
 ### Relatório .docx editável (ADR-0010 item d) ✅
 
 A **resposta completa** do chat (o Markdown final, já com o gráfico base64) vira um
-`.docx` **editável no Word** no **estilo editorial GovHub** (o dos PDFs de dicionário de
-dados / livro do projeto: capa roxa full-bleed com logo branca + kicker + título, tabelas
-sem grade com header roxo + zebra, badges de tipo Texto/Número/Data, chips de código,
-callout boxes, rodapé com o símbolo). O **link de download** é anexado à resposta.
+`.docx` **editável no Word** no **relatório sóbrio da IDV** (15/11; receitas `print-*` da
+skill `govhub-visual-identity`): capa BRANCA com formas oficiais e parceiros (Lab Livre +
+UnB) num fundo ancorado atrás do texto e título/pergunta editáveis; página
+"Identificação" (ficha + sumário) quando a pergunta é conhecida; um capítulo numerado por
+`## Título` (numeral, eyebrow de `render.REPORT_EYEBROWS`, título roxo, página nova);
+tabela com legenda numerada acima, header navy repetido por página, número à direita;
+figura com legenda numerada; rodapé com número de página (campo PAGE). **Reddit Sans
+embutida** no arquivo (`theme.embed_fonts`, ofuscação ECMA-376): só Regular e Bold — os
+pesos 600/800 são famílias separadas que o LibreOffice não acha. O **link de download** é anexado à resposta.
 `_attach_report` (em `pipelines/query/pipeline_wrapper.py`) é **aditivo/defensivo**
 (MinIO fora → devolve só o texto). Mecanismo: **python-docx + tema por código**
 (`components/report/theme.py`). O corpo é montado do **`answer` ESTRUTURADO** do motor
@@ -353,9 +358,9 @@ Markdown do chat — isso eliminou marcação crua (crases/underscores) e dá co
 (badges do tipo real da coluna, descrição em itálico, espaçamento enxuto). `docx_writer.py`
 (conversor Markdown→docx) vira **fallback**. `_with_delivery` devolve `(markdown_chat, delivery)`
 onde `delivery={chart_image, sql_final, exec_ok, exec_error}`.
-**Capa** = **imagem A4 de página inteira** (PIL + fonte Inter em `assets/fonts/`), inserida
-full-page numa seção de margem 0. Isso garante **1 página** (a versão anterior em tabela
-transbordava p/ uma 2ª página fantasma) e rende a borda arredondada + Inter exatas. ⚠️ Para
+**Capa** = formas + logos numa imagem A4 (PIL) **ancorada atrás do texto**
+(`theme.float_behind`, `wp:anchor behindDoc`), com título e subtítulo como parágrafos
+editáveis por cima. ⚠️ Para
 verificar `.docx`, **use LibreOffice** (`soffice --headless --convert-to pdf`) + poppler — o
 **QuickLook do macOS NÃO pagina** (renderiza contínuo) e esconde bugs de quebra de página. **Não usa docxtpl** (o ADR previa; a
 entrada é uma string Markdown única, mais simples converter direto). Armazenamento: **MinIO**

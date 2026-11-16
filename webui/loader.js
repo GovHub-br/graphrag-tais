@@ -7,8 +7,8 @@
 
    Três coisas moram aqui:
      1. tema claro fixo + locale pt-BR (abaixo);
-     2. a INTRO da marca — a tela roxa com o símbolo quicando, a mensagem de
-        boas-vindas e o botão "Começar";
+     2. a INTRO da marca — a tela navy com a logomarca, a mensagem de
+        boas-vindas e o botão "Começar", uma vez por sessão;
      3. a resposta nova aparece pelo COMEÇO, não pelo fim (último bloco).
    ========================================================================= */
 (function () {
@@ -24,7 +24,7 @@
     root.classList.add('light');
 
     var meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', '#7c3aed'); // roxo GovHub na barra do mobile
+    if (meta) meta.setAttribute('content', '#ffffff'); // barra do mobile = a superfície do app
 
     // 2. Português como idioma inicial (só na primeira visita — respeita quem trocar).
     if (!localStorage.locale) localStorage.locale = 'pt-BR';
@@ -55,9 +55,18 @@
 
    O que o carregamento controla é só o ESTADO DO BOTÃO: enquanto o app não
    terminou de subir (o `#splash-screen` nativo ainda está no DOM), o botão fica
-   desabilitado como "Preparando…". Ou seja, o quique não é enfeite em cima de
-   uma espera falsa — ele cobre a espera real, e o botão só arma quando clicar
-   leva mesmo para um app pronto.
+   desabilitado como "Preparando…". O botão só arma quando clicar leva mesmo
+   para um app pronto.
+
+   UMA VEZ POR SESSÃO. A intro é apresentação, e apresentação se faz uma vez:
+   ela aparecia a cada carregamento de página — a cada F5 e ao abrir o link de
+   uma conversa —, e quem trabalhava o dia todo no app pagava o pedágio sempre.
+   A marca fica no `sessionStorage` (vale até fechar a aba). Sem storage
+   (navegação privada antiga, bloqueio), a intro só volta a aparecer a cada
+   carregamento, como antes — nada quebra.
+
+   O movimento mora todo no custom.css (seção 10.1); aqui não há relógio de
+   animação nenhum.
 
    DEGRADAÇÃO: se qualquer coisa aqui falhar, o `catch` deixa o boot seguir e o
    usuário cai no splash nativo (que o custom.css já tematiza). A intro só
@@ -66,20 +75,29 @@
    ========================================================================= */
 (function () {
   var MS_REDE = 20000;      // teto de espera pelo app antes de armar o botão assim mesmo
-  var MS_SOCORRO = 16000;   // teto absoluto do percurso, se o animationend nunca vier
+  var CHAVE = 'gh-intro-vista';
 
+  // Texto de produto de uso geral (15/11): o de antes falava com o datathon.
+  // As três garantias são fatos do sistema, não promessa — a resposta cita a
+  // tabela de origem, o SQL roda em modo somente leitura (ADR-0016/0019) e o
+  // .docx é gerado do que a pessoa viu. Se uma delas deixar de ser verdade,
+  // sai daqui.
+  var TITULO = 'Dados públicos, respostas verificáveis.';
   var MENSAGEM =
-    'Olá, eu sou a chatbot Tais! Vou te acompanhar nessa jornada do datathon: ' +
-    'te ajudo a explorar as bases de dados, tabelas e informações disponíveis, ' +
-    'além de montar indicadores, relatórios e gráficos a partir deles. ' +
-    'É só me contar o que você precisa. Vamos começar?';
+    'Pergunte em português. O assistente localiza as bases no catálogo, ' +
+    'consulta os dados e devolve a resposta com fonte, método de cálculo e ' +
+    'gráficos, pronta para virar relatório.';
+  var GARANTIAS = [
+    'Fonte citada em cada resposta',
+    'Consulta somente leitura, sem alterar dados',
+    'Relatório editável em Word'
+  ];
 
-  function pouparMovimento() {
-    try {
-      return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    } catch (e) {
-      return false;
-    }
+  function jaVista() {
+    try { return window.sessionStorage.getItem(CHAVE) === '1'; } catch (e) { return false; }
+  }
+  function marcarVista() {
+    try { window.sessionStorage.setItem(CHAVE, '1'); } catch (e) { /* sem storage, volta no próximo load */ }
   }
 
   function montar() {
@@ -91,34 +109,36 @@
     intro.setAttribute('aria-modal', 'true');
     intro.setAttribute('aria-label', 'TAIS GovHub — Assistente de Dados');
     intro.innerHTML = [
-      '<div class="gh-intro-halo"></div>',
-      '<div class="gh-intro-chao"></div>',
-      '<div class="gh-intro-x">',
-      '  <div class="gh-intro-sombra"></div>',
-      '  <div class="gh-intro-y">',
-      '    <img class="gh-intro-marca" src="/static/govhub-mark-light.svg" alt="" aria-hidden="true">',
-      '  </div>',
-      '</div>',
+      '<div class="gh-intro-forma gh-intro-semi" aria-hidden="true"></div>',
+      '<div class="gh-intro-forma gh-intro-anel" aria-hidden="true"></div>',
+      '<div class="gh-intro-forma gh-intro-pilula" aria-hidden="true"></div>',
+      '<div class="gh-intro-forma gh-intro-quarto" aria-hidden="true"></div>',
+      '<div class="gh-intro-forma gh-intro-ponto" aria-hidden="true"></div>',
       '<div class="gh-intro-final">',
-      '  <div class="gh-intro-vaga" aria-hidden="true"></div>',
+      '  <img class="gh-intro-logo" src="/static/govhub-logomarca-white.svg" alt="Gov Hub">',
       '  <p class="gh-intro-assinatura">Assistente de Dados TAIS</p>',
+      '  <h1 class="gh-intro-titulo"></h1>',
       '  <p class="gh-intro-msg"></p>',
+      '  <ul class="gh-intro-garantias"></ul>',
       '  <button type="button" class="gh-intro-cta" disabled>Preparando…</button>',
       '</div>'
     ].join('');
 
-    // textContent, não innerHTML: a mensagem é texto, e assim ela nunca vira
-    // marcação por descuido de quem for editá-la depois.
+    // textContent, não innerHTML: os textos são texto, e assim nunca viram
+    // marcação por descuido de quem for editá-los depois.
+    intro.querySelector('.gh-intro-titulo').textContent = TITULO;
     intro.querySelector('.gh-intro-msg').textContent = MENSAGEM;
+    var lista = intro.querySelector('.gh-intro-garantias');
+    GARANTIAS.forEach(function (texto) {
+      var item = document.createElement('li');
+      item.textContent = texto;
+      lista.appendChild(item);
+    });
 
     document.body.appendChild(intro);
     document.documentElement.classList.add('gh-intro-on');
 
     var botao = intro.querySelector('.gh-intro-cta');
-    var eixoX = intro.querySelector('.gh-intro-x');
-    var eixoY = intro.querySelector('.gh-intro-y');
-    var marca = intro.querySelector('.gh-intro-marca');
-    var vaga = intro.querySelector('.gh-intro-vaga');
 
     // ---- foco preso dentro da intro ---------------------------------------
     // 🔴 ISTO NÃO É SÓ ACESSIBILIDADE. `role="dialog"` + `aria-modal` apenas
@@ -149,55 +169,11 @@
     document.addEventListener('focusin', guardaDeFoco, true);
     focoParaDentro();
 
-    // ---- fim do percurso: o símbolo assenta na vaga do bloco final ---------
-    // O pouso é CALCULADO, não medido no símbolo em movimento. O CSS garante que
-    // as keyframes terminam com o símbolo centrado na viewport, então o ponto de
-    // partida é (innerWidth/2, innerHeight/2) e o tamanho de partida é a largura
-    // COMPUTADA (que ignora os transforms do quique). Medir a caixa animada daria
-    // um valor diferente a cada quadro em que a função caísse.
-    // O destino continua sendo medido, porque depende do texto: a mensagem quebra
-    // em mais ou menos linhas conforme a tela e a vaga desce junto.
-    var assentado = false;
-    function assentar() {
-      if (assentado) return;
-      var alvo = vaga.getBoundingClientRect();
-      var base = parseFloat(window.getComputedStyle(marca).width);
-      // ⚠️ ABA EM SEGUNDO PLANO NÃO TEM LAYOUT: rects e innerWidth vêm ZERADOS.
-      // Sem esta guarda o pouso é calculado sobre lixo e o símbolo é atirado
-      // para milhares de pixels fora da tela — quem abriu o app numa aba de
-      // fundo (Cmd+clique, sessão restaurada) voltava para a mensagem SEM a
-      // marca. requestAnimationFrame não roda em aba escondida, então este
-      // caminho espera sozinho até a aba aparecer.
-      if (!alvo.width || !base || !window.innerWidth) {
-        window.requestAnimationFrame(assentar);
-        return;
-      }
-      assentado = true;
-      var escala = alvo.width / base;
-      var dx = alvo.left + alvo.width / 2 - window.innerWidth / 2;
-      var dy = alvo.top + alvo.height / 2 - window.innerHeight / 2;
-      // As animações precisam MORRER antes: animação com fill:forwards ganha
-      // de style inline, então o transform novo seria simplesmente ignorado.
-      // Como elas terminam em translate(0,0)/scale(1), matá-las não salta.
-      eixoX.style.animation = 'none';
-      eixoY.style.animation = 'none';
-      marca.style.animation = 'none';
-      void eixoY.offsetWidth; // reflow: sem isto o browser agrupa e não transiciona
-      // translate + scale VÃO JUNTOS no eixoY, e não separados no <img>: o
-      // <img> é achatado no impacto com origem no pé (transform-origin 50%
-      // 100%), então crescer por ele empurraria o símbolo para cima e o pouso
-      // sairia do lugar calculado. O eixoY é uma caixa 0x0 no centro exato do
-      // símbolo — escalar por ali mantém o centro parado.
-      eixoY.style.transform =
-        'translate(' + dx + 'px,' + dy + 'px) scale(' + escala + ')';
-      intro.classList.add('gh-fase-final');
-      focoParaDentro();   // a outra ponta do par acima: botão se já armou, container se não
-    }
-
     // ---- saída -------------------------------------------------------------
     function sair() {
-      if (saindo) return;
+      if (saindo || botao.disabled) return;
       saindo = true;
+      marcarVista();
       document.removeEventListener('focusin', guardaDeFoco, true);
       intro.classList.add('gh-fase-saida');
       document.documentElement.classList.remove('gh-intro-on');
@@ -210,7 +186,7 @@
       if (entrada) focar(entrada);
       window.setTimeout(function () {
         if (intro.parentNode) intro.parentNode.removeChild(intro);
-      }, 520);
+      }, 480);
     }
     botao.addEventListener('click', sair);
 
@@ -223,13 +199,7 @@
       armado = true;
       botao.disabled = false;
       botao.textContent = 'Começar';
-      intro.classList.add('gh-pronto');
-      // ⚠️ Armar e revelar terminam em ordem imprevisível: no caminho comum o
-      // app sobe em ~1 s e o percurso leva 3,6 s, então `armar` chega PRIMEIRO,
-      // com o botão ainda invisível. Por isso as duas pontas chamam o foco — a
-      // que terminar por último é que efetivamente move. Antes, só esta ponta
-      // chamava, e com a condição falsa: o botão nunca recebia foco.
-      if (intro.classList.contains('gh-fase-final')) focoParaDentro();
+      focoParaDentro();
     }
     var vigia = window.setInterval(function () {
       if (!document.getElementById('splash-screen')) {
@@ -242,33 +212,13 @@
       window.clearInterval(vigia);
       armar();
     }, MS_REDE);
-
-    // ---- linha do tempo ----------------------------------------------------
-    if (pouparMovimento()) {
-      // Quem pediu menos movimento não leva quique nenhum: vai direto ao fim.
-      intro.classList.add('gh-sem-movimento');
-      assentar();
-    } else {
-      intro.classList.add('gh-fase-salto');
-      // ⚠️ Quem manda no fim do percurso é o `animationend`, NÃO um setTimeout.
-      // O navegador congela animação de aba escondida, mas o setTimeout segue
-      // correndo: cronometrar por relógio de parede fazia o pouso acontecer no
-      // meio de um quique que nem tinha começado. O evento vem do relógio da
-      // própria animação, então aba de fundo apenas adia — e quem chega vê o
-      // percurso inteiro, do começo.
-      eixoX.addEventListener('animationend', function (ev) {
-        if (ev.target === eixoX) assentar();
-      });
-      // Rede de segurança para o caso de o evento nunca vir (animação desligada
-      // por extensão, motor sem suporte). Folgada de propósito: apertada, ela
-      // roubaria o percurso de quem está numa aba de fundo.
-      window.setTimeout(assentar, MS_SOCORRO);
-    }
   }
 
   try {
-    if (document.body) montar();
-    else document.addEventListener('DOMContentLoaded', montar);
+    if (!jaVista()) {
+      if (document.body) montar();
+      else document.addEventListener('DOMContentLoaded', montar);
+    }
   } catch (e) {
     // Sem intro, o splash nativo tematizado assume — a classe gh-intro-on só é
     // ligada em caso de sucesso, então nada fica escondido por engano.

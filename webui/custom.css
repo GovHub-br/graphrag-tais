@@ -1,8 +1,13 @@
 /* ============================================================================
-   GovHub — tema para Open WebUI 0.10.2
+   GovHub — tema para Open WebUI 0.11.0 (modo sóbrio)
    ----------------------------------------------------------------------------
    Servido em /static/custom.css (gancho oficial, linkado no <head> do index.html).
-   Fidelidade: docs/graphrag-tais-overview.html  ·  skill govhub-visual-identity.
+   Fidelidade: IDV vigente do GovHub, o MODO SÓBRIO de 30/09/2026
+   (GovHub-br/GovHub-skills → 01-govhub/govhub-visual-identity): roxo #613EFF
+   como assinatura, navy #0A005A para título e contraste, claro #F2F1F6 para
+   bloco e respiro, #BE006E só em detalhe, Reddit Sans em tudo e SEM GRADIENTE.
+   A paleta anterior (roxo #7c3aed em gradiente, laranja, Inter) foi
+   descontinuada pela equipe de design — era ela que vestia este tema até 13/11.
 
    COMO ISSO FUNCIONA (e por que não precisa de !important):
    o CSS do Open WebUI é Tailwind v4 e vive inteiro dentro de @layer
@@ -17,235 +22,285 @@
    ========================================================================= */
 
 /* ---------------------------------------------------------------------------
-   1. Paleta GovHub — os mesmos valores do overview.html
+   0. Reddit Sans, servida daqui (assets/fonts, OFL)
+   Não vem do Google Fonts de propósito: o app roda em rede de governo, e fonte
+   de CDN externa é uma requisição a terceiro em toda página — e some offline.
+   Variável (200–900), dois recortes: latin cobre o português; latin-ext fica
+   para nome próprio com diacrítico fora do Latin-1.
+   ------------------------------------------------------------------------ */
+@font-face {
+  font-family: "Reddit Sans";
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("/static/fonts/reddit-sans-latin.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+                 U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+                 U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Reddit Sans";
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  src: url("/static/fonts/reddit-sans-latin-ext.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+                 U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF,
+                 U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* ---------------------------------------------------------------------------
+   1. Paleta GovHub — modo sóbrio
    ------------------------------------------------------------------------ */
 :root {
-  --gh-purple:    #7c3aed;
-  --gh-purple-d:  #6d28d9;
-  --gh-violet:    #8b5cf6;
-  --gh-orange:    #f97316;
-  --gh-amber:     #f59e0b;
+  --gh-purple:     #613EFF;   /* assinatura: botão primário, foco, marcador */
+  --gh-purple-600: #5235D9;   /* hover */
+  --gh-purple-700: #3F28A6;   /* active, e roxo de TEXTO pequeno sobre branco */
+  --gh-navy:       #0A005A;   /* títulos, texto forte, fundo da intro */
+  --gh-rose:       #BE006E;   /* acento: só detalhe, nunca área grande */
 
-  --gh-ink:       #221f33;
-  --gh-muted:     #5b596f;
-  --gh-faint:     #8a889b;
+  --gh-ink:        #0A005A;   /* título e ênfase */
+  --gh-body:       #2D3748;   /* corpo de leitura longa (IDV: neutro) */
+  --gh-muted:      #5E5B72;
+  --gh-faint:      #8B889D;
 
-  --gh-bg:        #ffffff;
-  --gh-soft:      #f7f5fe;
-  --gh-soft-2:    #f2eefe;
-  --gh-code-bg:   #faf9ff;
-  --gh-border:    #eceaf5;
-  --gh-border-2:  #e2ddf1;
+  --gh-bg:         #ffffff;
+  --gh-soft:       #F2F1F6;   /* o claro da marca */
+  --gh-soft-2:     #F8F7FB;   /* meio-tom entre o branco e o claro: hover, cabeçalho */
+  --gh-line:       #E6E4EE;   /* borda de card e divisória */
+  --gh-line-2:     #D6D3E2;   /* borda de controle (input, pílula) */
 
-  --gh-good:      #0f9d58;
-  --gh-warn:      #c07a10;
+  --gh-good:       #10B981;
 
-  --gh-shadow:    0 1px 2px rgba(80,50,160,.05), 0 8px 26px rgba(95,60,175,.07);
-  --gh-shadow-lg: 0 10px 34px rgba(95,60,175,.12);
-  --gh-nav:       linear-gradient(180deg, #6d28d9 0%, #7c3aed 55%, #8b5cf6 100%);
+  /* Sombras em navy, curtas: profundidade de papel, não de neon. */
+  --gh-shadow-sm:  0 1px 2px rgba(10, 0, 90, .05);
+  --gh-shadow:     0 1px 2px rgba(10, 0, 90, .04), 0 4px 16px -6px rgba(10, 0, 90, .10);
+  --gh-shadow-lg:  0 2px 4px rgba(10, 0, 90, .04), 0 12px 32px -10px rgba(10, 0, 90, .18);
+  --gh-ring:       0 0 0 4px rgba(97, 62, 255, .12);
 
+  --gh-ease:       cubic-bezier(.2, .7, .2, 1);
+
+  --gh-sans: "Reddit Sans", "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
+             Roboto, Helvetica, Arial, sans-serif;
   --gh-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
 }
 
 /* ---------------------------------------------------------------------------
-   2. Escala de cinza → neutros levemente arroxeados
+   2. Escala de cinza → neutros do claro da marca
    É a alavanca central: quase toda superfície, borda e texto do app sai daqui.
+   A ponta clara parte do #F2F1F6 da IDV; a escura termina perto do navy.
    ------------------------------------------------------------------------ */
 :root, :host {
-  --color-gray-50:  #f7f5fe;
-  --color-gray-100: #f2eefe;
-  --color-gray-200: #eceaf5;
-  --color-gray-300: #e2ddf1;
-  --color-gray-400: #a9a6bd;
-  --color-gray-500: #8a889b;
-  --color-gray-600: #5b596f;
-  --color-gray-700: #221f33;
-  --color-gray-800: #2b2740;
-  --color-gray-850: #241f36;
-  --color-gray-900: #1c182c;
-  --color-gray-950: #141021;
+  --color-gray-50:  #F8F7FB;
+  --color-gray-100: #F2F1F6;
+  --color-gray-200: #E6E4EE;
+  --color-gray-300: #D6D3E2;
+  --color-gray-400: #A9A6BA;
+  --color-gray-500: #8B889D;
+  --color-gray-600: #5E5B72;
+  --color-gray-700: #2D2B45;
+  --color-gray-800: #1E1B3A;
+  --color-gray-850: #17143A;
+  --color-gray-900: #110D3F;
+  --color-gray-950: #0A005A;
 
-  /* Tipografia da marca — a Inter já vem embarcada no Open WebUI. */
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-               Helvetica, Arial, sans-serif;
+  --font-sans: var(--gh-sans);
   --font-mono: var(--gh-mono);
 }
 
 html, body, .font-primary, .font-secondary {
-  font-family: var(--font-sans);
+  font-family: var(--gh-sans);
 }
 html { color-scheme: light; }
-body { background: var(--gh-bg); color: var(--gh-ink); -webkit-font-smoothing: antialiased; }
+body {
+  background: var(--gh-bg);
+  color: var(--gh-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
 
 /* Identidade GovHub = tema claro. Se algo escapar para o modo escuro, a
    superfície continua branca em vez de piscar preto. */
-html.dark body { background: var(--gh-bg); color: var(--gh-ink); }
+html.dark body { background: var(--gh-bg); color: var(--gh-body); }
 
 /* ---------------------------------------------------------------------------
-   3. Barra lateral = a navbar do GovHub, de pé
-   O overview.html tem uma navbar horizontal em gradiente roxo com a logo
-   branca. Aqui o mesmo gradiente veste o rail vertical.
+   3. Barra lateral — clara, como papel
+   Até 13/11 ela era o gradiente roxo da navbar antiga, com TODO texto forçado
+   a branco por uma regra ampla (o drawer do celular é outro elemento e não
+   herdava cor). No modo sóbrio ela volta a ser superfície clara: os tokens de
+   cinza acima já pintam fundo, texto e hover nos dois layouts, e as regras de
+   "branco sobre roxo" deixaram de existir — menos regra, menos coisa a
+   conferir quando o Open WebUI subir de versão.
    ------------------------------------------------------------------------ */
+/* Fundo no claro da marca (#F2F1F6), não no quase-branco: a barra se separa
+   do canvas branco da conversa sem precisar de cor forte, e o item ativo — um
+   cartão branco — passa a ter contra o que se destacar. */
 #sidebar {
-  background: var(--gh-nav);
-  color: #ffffff;
-  border-inline-end: 0;
-  box-shadow: 2px 0 14px rgba(90, 40, 180, .22);
+  background: var(--gh-soft);
+  border-inline-end: 1px solid var(--gh-line);
 }
-#sidebar:hover { background: var(--gh-nav); }
+/* As máscaras de fade do topo/base da lista partem de gray-50; refeitas no
+   mesmo claro do fundo, senão desenham uma faixa mais clara sobre ele. */
+#sidebar .sidebar-bg-gradient-to-b { background-image: linear-gradient(to bottom, var(--gh-soft) 50%, transparent); }
+#sidebar .sidebar-bg-gradient-to-t { background-image: linear-gradient(to top, var(--gh-soft) 50%, transparent); }
+#sidebar a:hover:not(.selected), #sidebar button:hover { background: rgba(10, 0, 90, .05); }
 
-/* Tudo que está dentro do rail é branco. A regra é ampla de propósito: no
-   layout estreito (< 768px) o #sidebar é OUTRO elemento — um drawer com árvore
-   própria — e depender de herança deixava os rótulos pretos sobre o roxo.
-   Menus flutuantes são renderizados fora do #sidebar (portal), então escapam. */
-#sidebar, #sidebar *:not([role="menu"]):not([role="menu"] *) { color: #ffffff; }
-#sidebar a:hover, #sidebar button:hover { background: rgba(255, 255, 255, .16); }
-
-/* Hierarquia dentro do branco: rótulo de seção e carimbo de tempo rebaixados. */
-#sidebar .text-gray-400, #sidebar .text-gray-500, #sidebar .text-gray-600 {
-  color: rgba(255, 255, 255, .62);
-}
-
-/* O ícone do produto no topo do rail: versão branca da marca GovHub,
-   porque o fundo aqui é roxo. */
+/* O ícone do produto no topo do rail: o símbolo oficial em cor. */
 #sidebar img.sidebar-new-chat-icon {
-  content: url("/static/govhub-mark-light.svg");
+  content: url("/static/govhub-icone.svg");
   border-radius: 0;
-  width: 1.55rem;
-  height: 1.55rem;
+  width: 1.45rem;
+  height: 1.45rem;
+  object-fit: contain;
 }
 
-/* Avatar do usuário no pé do rail: anel branco em vez de cinza. */
-#sidebar .border-white, #sidebar .dark\:border-gray-900 { border-color: #ffffff; }
-
-/* Lista de conversas (rail expandido): as superfícies claras do tema padrão
-   ficariam brancas sobre branco no gradiente — viram véus translúcidos. */
-#sidebar .bg-gray-50, #sidebar .bg-gray-100, #sidebar .bg-gray-200 {
-  background: rgba(255, 255, 255, .14);
-  color: #ffffff;
-}
-/* Conversa ativa: véu mais forte + marcador âmbar, o mesmo acento que o
-   overview.html usa no item de menu ativo. */
-#sidebar a.selected, #sidebar .selected {
-  background: rgba(255, 255, 255, .20);
-  color: #ffffff;
-  box-shadow: inset 3px 0 0 var(--gh-amber);
-}
-#sidebar hr, #sidebar .border-gray-50, #sidebar .border-gray-100 {
-  border-color: rgba(255, 255, 255, .18);
-}
-/* As máscaras de fade do topo/base da lista partem de gray-50 (branco) e
-   deixavam uma mancha clara sobre o gradiente — refeitas nas cores do rail. */
-#sidebar .sidebar-bg-gradient-to-b { background-image: linear-gradient(to bottom, #6d28d9 45%, transparent); }
-#sidebar .sidebar-bg-gradient-to-t { background-image: linear-gradient(to top, #8b5cf6 45%, transparent); }
-/* Mesma coisa no fade que revela os botões de ação da conversa no hover. */
-#sidebar [class*="from-gray-100"] {
-  background-image: linear-gradient(to left, rgba(124, 58, 237, .96) 78%, rgba(124, 58, 237, 0));
+/* Nome do produto: "TAIS GovHub (Open WebUI)" quebrava em duas linhas no rail
+   expandido. Numa linha só, menor e mais firme. O sufixo continua visível
+   (co-branding — ver LICENÇA no topo). */
+#sidebar a.flex-1 > .self-center {
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: -.01em;
+  color: var(--gh-ink);
 }
 
-/* Nome do produto no topo do rail expandido. */
-#sidebar .font-primary { letter-spacing: -.01em; font-weight: 600; }
+/* Conversa ativa: cartão branco com fio e sombra curta sobre o claro, título
+   em navy e um marcador roxo em pílula DENTRO do cartão. Só o <a>: o botão
+   "…" da mesma linha também leva a classe `selected` (um div absoluto), e
+   pintar os dois desenhava uma barra solta no meio do item. O marcador é um
+   ::before próprio, e não um `inset` de box-shadow: em canto arredondado o
+   inset vira um parêntese. */
+#sidebar a.selected {
+  position: relative;
+  padding-left: 16px;
+  background: var(--gh-bg);
+  color: var(--gh-ink);
+  font-weight: 650;
+  box-shadow: 0 0 0 1px var(--gh-line), 0 1px 2px rgba(10, 0, 90, .06),
+              0 4px 12px -6px rgba(10, 0, 90, .14);
+}
+#sidebar a.selected::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  width: 3px;
+  height: 16px;
+  margin-top: -8px;
+  border-radius: 3px;
+  background: var(--gh-purple);
+}
 
 /* ---------------------------------------------------------------------------
    4. Topo da conversa
    ------------------------------------------------------------------------ */
 #navbar-bg-gradient-to-b {
-  background: linear-gradient(to bottom, #ffffff 35%, rgba(255, 255, 255, 0));
+  background: linear-gradient(to bottom, #ffffff 40%, rgba(255, 255, 255, 0));
 }
 #model-selector-0-button {
-  font-weight: 600;
+  font-weight: 650;
   letter-spacing: -.01em;
   color: var(--gh-ink);
 }
-#model-selector-0-button:hover { background: var(--gh-soft-2); }
+#model-selector-0-button:hover { background: var(--gh-soft); }
 
 /* ---------------------------------------------------------------------------
-   5. Caixa de mensagem — o card branco do overview.html
+   5. Caixa de mensagem
    ------------------------------------------------------------------------ */
 /* Só o container externo vira card — #chat-input-container é a própria
    textarea, dentro dele; estilizar os dois desenha caixa dentro de caixa. */
 #message-input-container {
-  border-radius: 18px;
-  border: 1px solid var(--gh-border-2);
+  border-radius: 22px;
+  border: 1px solid var(--gh-line-2);
   background: var(--gh-bg);
   box-shadow: var(--gh-shadow);
-  transition: box-shadow .18s ease, border-color .18s ease;
+  transition: box-shadow .2s var(--gh-ease), border-color .2s var(--gh-ease);
 }
-#message-input-container:hover { border-color: #d6cdf0; }
+#message-input-container:hover { border-color: #C5C0D8; }
 #message-input-container:focus-within {
-  border-color: var(--gh-violet);
-  box-shadow: var(--gh-shadow-lg), 0 0 0 3px rgba(124, 58, 237, .12);
+  border-color: rgba(97, 62, 255, .55);
+  box-shadow: var(--gh-shadow-lg), var(--gh-ring);
 }
 #chat-input-container { border: 0; background: transparent; box-shadow: none; }
+#chat-input, #chat-input-container { color: var(--gh-ink); }
 #chat-input::placeholder, #chat-input-container::placeholder { color: var(--gh-faint); }
 
-/* Botão de enviar / voz: o gradiente da marca. */
+/* Botão de enviar / voz: roxo sólido, sem brilho. */
 #message-input-container button.bg-black,
 #chat-input-container button.bg-black,
 button#send-message-button,
 #voice-input-button.bg-black {
-  background: linear-gradient(135deg, var(--gh-purple-d), var(--gh-violet));
+  background: var(--gh-purple);
   color: #ffffff;
-  box-shadow: 0 3px 10px rgba(109, 40, 217, .32);
+  box-shadow: none;
+  transition: background-color .15s ease, transform .15s ease;
 }
 #message-input-container button.bg-black:hover,
 #chat-input-container button.bg-black:hover,
 button#send-message-button:hover {
-  background: linear-gradient(135deg, #5b21b6, var(--gh-purple));
+  background: var(--gh-purple-600);
 }
+#message-input-container button.bg-black:active,
+button#send-message-button:active { transform: scale(.94); }
 
 /* ---------------------------------------------------------------------------
-   6. Tela inicial e sugestões — cards do overview.html
+   6. Tela inicial e sugestões
    ------------------------------------------------------------------------ */
-/* As sugestões viram os cards do overview.html (borda fina + sombra roxa). */
 button.waterfall {
-  border: 1px solid var(--gh-border);
+  border: 1px solid var(--gh-line);
   border-radius: 14px;
   background: var(--gh-bg);
-  box-shadow: var(--gh-shadow);
-  padding: .7rem .95rem;
+  box-shadow: var(--gh-shadow-sm);
+  padding: .72rem 1rem;
   margin-bottom: .5rem;
-  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
 }
-button.waterfall:hover {
-  border-color: var(--gh-border-2);
-  box-shadow: var(--gh-shadow-lg);
-  transform: translateY(-1px);
-  background: var(--gh-bg);
+@media (hover: hover) {
+  button.waterfall:hover {
+    border-color: var(--gh-line-2);
+    background: var(--gh-soft-2);
+    box-shadow: var(--gh-shadow);
+  }
 }
-/* Título do card em ink, subtítulo no mono/uppercase discreto do overview. */
-button.waterfall > div > div:first-child { color: var(--gh-ink); font-weight: 600; }
+button.waterfall > div > div:first-child { color: var(--gh-ink); font-weight: 650; }
 button.waterfall > div > div:last-child  { color: var(--gh-faint); }
 
-/* O Open WebUI limita a lista de sugestões a 10rem e o card (borda + sombra)
-   estoura essa altura, cortando o terceiro pela metade. :has() deixa o alvo
-   restrito a esta lista — h-40/max-h-40 são utilitários usados em outros lugares. */
-div.h-40:has(button.waterfall) { height: auto; }
-div.max-h-40:has(button.waterfall) { max-height: none; overflow: visible; }
+/* O Open WebUI limita a lista de sugestões a 9rem (h-36 na 0.11.0; era h-40
+   na 0.10) com a barra de rolagem ESCONDIDA: das quatro sugestões, a pessoa
+   via duas e um pedaço da terceira, sem saber que havia mais. :has() deixa o
+   alvo restrito a esta lista — h-36/h-40 são utilitários usados em outros
+   lugares. As duas versões ficam: a regra antiga não custa nada. */
+div:is(.h-36, .h-40):has(button.waterfall) { height: auto; }
+div:is(.max-h-36, .max-h-40):has(button.waterfall) { max-height: none; overflow: visible; }
 
-/* "Sugerido" — o eyebrow roxo em versalete do overview.html. */
+/* "Sugerido" — rótulo discreto, não chamada. */
 .font-primary .text-xs.text-gray-600:has(+ div button.waterfall) {
-  color: var(--gh-purple);
-  font-family: var(--gh-mono);
-  font-size: .7rem;
-  font-weight: 700;
-  letter-spacing: .16em;
+  color: var(--gh-muted);
+  font-size: .72rem;
+  font-weight: 650;
+  letter-spacing: .08em;
   text-transform: uppercase;
 }
 
-/* Nome do modelo na tela inicial, no aperto tipográfico do overview. */
-.font-primary .text-3xl, .font-primary .text-2xl { letter-spacing: -.025em; }
+/* Nome do modelo na tela inicial: chamada da IDV (peso alto, aperto negativo). */
+.font-primary .text-3xl, .font-primary .text-2xl {
+  color: var(--gh-ink);
+  font-weight: 750;
+  letter-spacing: -.025em;
+}
 
 /* ---------------------------------------------------------------------------
    7. Mensagens
    ------------------------------------------------------------------------ */
-/* Balão do usuário: o roxo suave (--soft-2) do overview. */
+/* Balão do usuário: o claro da marca, texto navy. */
 .chat-user .bg-gray-50,
 .chat-user .rounded-3xl,
 [dir] .user-message .bg-gray-50 {
-  background: var(--gh-soft-2);
+  background: var(--gh-soft);
   color: var(--gh-ink);
-  border-radius: 16px;
+  border-radius: 18px;
 }
 
 /* ---------------------------------------------------------------------------
@@ -255,39 +310,46 @@ div.max-h-40:has(button.waterfall) { max-height: none; overflow: visible; }
    dicionário de dados e o SQL do modelo Indicador.
    ------------------------------------------------------------------------ */
 .markdown-prose, .markdown-prose-sm, .markdown-prose-xs {
-  --tw-prose-body:          var(--gh-ink);
+  --tw-prose-body:          var(--gh-body);
   --tw-prose-headings:      var(--gh-ink);
   --tw-prose-lead:          var(--gh-muted);
-  --tw-prose-links:         var(--gh-purple);
+  --tw-prose-links:         var(--gh-purple-700);
   --tw-prose-bold:          var(--gh-ink);
   --tw-prose-counters:      var(--gh-purple);
-  --tw-prose-bullets:       var(--gh-border-2);
-  --tw-prose-hr:            var(--gh-border);
+  --tw-prose-bullets:       var(--gh-line-2);
+  --tw-prose-hr:            var(--gh-line);
   --tw-prose-quotes:        var(--gh-muted);
   --tw-prose-quote-borders: var(--gh-purple);
   --tw-prose-captions:      var(--gh-faint);
-  --tw-prose-code:          var(--gh-purple-d);
+  --tw-prose-code:          var(--gh-purple-700);
   --tw-prose-pre-code:      var(--gh-ink);
-  --tw-prose-pre-bg:        var(--gh-code-bg);
-  --tw-prose-th-borders:    var(--gh-border-2);
-  --tw-prose-td-borders:    var(--gh-border);
-  line-height: 1.62;
+  --tw-prose-pre-bg:        var(--gh-soft-2);
+  --tw-prose-th-borders:    var(--gh-line);
+  --tw-prose-td-borders:    var(--gh-line);
+  line-height: 1.65;
 }
 
-.markdown-prose h1, .markdown-prose h2 { letter-spacing: -.02em; }
-.markdown-prose h2 { color: var(--gh-ink); }
-.markdown-prose h3 { color: var(--gh-purple-d); font-weight: 650; }
-.markdown-prose a:hover { color: var(--gh-purple-d); }
+.markdown-prose h1, .markdown-prose h2 { color: var(--gh-ink); font-weight: 750; letter-spacing: -.02em; }
+/* h3 era roxo: com cinco ou seis seções por resposta, a página virava uma
+   sequência de títulos coloridos competindo com o número. Navy, como a IDV
+   pede para título; o roxo fica para o que é ação. */
+.markdown-prose h3 { color: var(--gh-ink); font-weight: 700; letter-spacing: -.01em; }
+.markdown-prose a {
+  text-decoration-color: rgba(63, 40, 166, .35);
+  text-underline-offset: 3px;
+}
+.markdown-prose a:hover { color: var(--gh-purple); text-decoration-color: currentColor; }
 
-/* Código inline: o "chip" roxo do overview.html. */
+/* Código inline (nome de tabela, de coluna): chip no claro da marca, sem
+   borda — aparece muito por resposta, e borda em cada um vira ruído. */
 .markdown-prose :not(pre) > code {
   background: var(--gh-soft);
-  border: 1px solid var(--gh-border-2);
-  border-radius: 5px;
-  padding: .05em .38em;
-  color: var(--gh-purple-d);
+  border: 0;
+  border-radius: 6px;
+  padding: .12em .42em;
+  color: var(--gh-purple-700);
   font-family: var(--gh-mono);
-  font-size: .85em;
+  font-size: .82em;
   font-weight: 500;
   white-space: nowrap;
 }
@@ -297,8 +359,8 @@ div.max-h-40:has(button.waterfall) { max-height: none; overflow: visible; }
 /* Blocos de código / SQL. O Open WebUI não usa <pre> aqui: monta um
    CodeMirror dentro de um container .rounded-2xl.border. */
 .markdown-prose pre, pre.shiki, .shiki {
-  background: var(--gh-code-bg);
-  border: 1px solid var(--gh-border-2);
+  background: var(--gh-soft-2);
+  border: 1px solid var(--gh-line);
   border-radius: 12px;
   color: var(--gh-ink);
   font-family: var(--gh-mono);
@@ -306,21 +368,18 @@ div.max-h-40:has(button.waterfall) { max-height: none; overflow: visible; }
   line-height: 1.6;
 }
 .markdown-prose div.rounded-2xl.border {
-  border-color: var(--gh-border-2);
-  background: var(--gh-code-bg);
+  border-color: var(--gh-line);
+  background: var(--gh-soft-2);
 }
-.markdown-prose .cm-editor, .markdown-prose .cm-gutters { background: var(--gh-code-bg); }
-.markdown-prose .cm-gutters { border-right-color: var(--gh-border); color: var(--gh-faint); }
+.markdown-prose .cm-editor, .markdown-prose .cm-gutters { background: var(--gh-soft-2); }
+.markdown-prose .cm-gutters { border-right-color: var(--gh-line); color: var(--gh-faint); }
 .markdown-prose .cm-activeLine, .markdown-prose .cm-activeLineGutter { background: transparent; }
 
-/* Tabelas: a mesma moldura arredondada com header suave do overview.html —
-   é onde a resposta do Indicador (dicionário de dados) mais aparece. */
-/* A moldura fica no wrapper rolável (é ele que corta a sombra da tabela) —
-   mesmo arranjo do .tw do overview.html. */
+/* Tabelas. A moldura fica no wrapper rolável (é ele que corta a sombra da
+   tabela). Números em largura fixa: coluna de valor alinha dígito com dígito. */
 .markdown-prose div.overflow-x-auto:has(> table) {
-  border: 1px solid var(--gh-border);
-  border-radius: 14px;
-  box-shadow: var(--gh-shadow);
+  border: 1px solid var(--gh-line);
+  border-radius: 12px;
   background: var(--gh-bg);
 }
 .markdown-prose table {
@@ -331,31 +390,32 @@ div.max-h-40:has(button.waterfall) { max-height: none; overflow: visible; }
   box-shadow: none;
   font-size: .9em;
   width: 100%;
-  color: var(--gh-ink);
+  color: var(--gh-body);
+  font-variant-numeric: tabular-nums;
 }
 .markdown-prose thead th {
-  background: var(--gh-soft);
-  color: var(--gh-faint);
-  font-size: .7em;
+  background: var(--gh-soft-2);
+  color: var(--gh-ink);
+  font-size: .72em;
   font-weight: 700;
-  letter-spacing: .06em;
+  letter-spacing: .05em;
   text-transform: uppercase;
-  border-bottom: 1px solid var(--gh-border);
-  padding: .62rem .9rem;
+  border-bottom: 1px solid var(--gh-line);
+  padding: .65rem .9rem;
   text-align: left;
 }
 .markdown-prose tbody td {
-  border-bottom: 1px solid var(--gh-border);
-  padding: .62rem .9rem;
+  border-bottom: 1px solid var(--gh-line);
+  padding: .6rem .9rem;
   vertical-align: top;
-  color: var(--gh-ink);
+  color: var(--gh-body);
 }
 .markdown-prose tbody tr:last-child td { border-bottom: 0; }
-.markdown-prose tbody tr:hover td { background: var(--gh-soft); }
+.markdown-prose tbody tr:hover td { background: var(--gh-soft-2); }
 
-/* Citações → o callout de nota do overview. */
+/* Citações → callout de nota. */
 .markdown-prose blockquote {
-  background: var(--gh-soft);
+  background: var(--gh-soft-2);
   border-inline-start: 3px solid var(--gh-purple);
   border-radius: 0 10px 10px 0;
   padding: .8rem 1.05rem;
@@ -365,13 +425,19 @@ div.max-h-40:has(button.waterfall) { max-height: none; overflow: visible; }
 .markdown-prose blockquote p:first-of-type::before,
 .markdown-prose blockquote p:last-of-type::after { content: none; }
 
-/* Gráfico do Indicador (PNG base64): ganha a moldura de figura. */
+/* Imagens da resposta. Os gráficos do RAG (PNG base64) têm fundo branco e
+   margem própria, e alguns já desenham um cartão dentro. A moldura que esta
+   regra desenhava em volta (borda + padding + fundo lilás + sombra) virava
+   cartão dentro de cartão, que é o que mais dava cara de improviso à
+   resposta. Sem moldura nenhuma, os PNG brancos flutuam soltos na página.
+   O meio-termo: só um fio, sem padding — cada gráfico lê como uma figura. */
 .markdown-prose img {
-  border: 1px solid var(--gh-border-2);
+  border: 1px solid var(--gh-line);
   border-radius: 16px;
-  background: var(--gh-code-bg);
-  padding: .6rem;
-  box-shadow: var(--gh-shadow);
+  background: #ffffff;
+  padding: 0;
+  box-shadow: none;
+  max-width: 100%;
 }
 
 /* ---------------------------------------------------------------------------
@@ -381,371 +447,327 @@ button.bg-black, .bg-black.text-white {
   background: var(--gh-purple);
   color: #ffffff;
 }
-button.bg-black:hover { background: var(--gh-purple-d); }
+button.bg-black:hover { background: var(--gh-purple-600); }
 
-input:focus, textarea:focus, select:focus { outline-color: var(--gh-violet); }
-::selection { background: rgba(139, 92, 246, .25); }
+input:focus, textarea:focus, select:focus { outline-color: var(--gh-purple); }
+:focus-visible { outline-color: var(--gh-purple); }
+::selection { background: rgba(97, 62, 255, .18); }
 
-/* Barras de rolagem discretas, no tom da marca. */
+/* Barras de rolagem discretas. */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb {
-  background: var(--gh-border-2);
+  background: var(--gh-line-2);
   border-radius: 999px;
   border: 3px solid transparent;
   background-clip: content-box;
 }
-::-webkit-scrollbar-thumb:hover { background: #cfc6ea; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: #BDB8CF; background-clip: content-box; }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* Modais e menus flutuantes com o raio e a sombra da marca. A intro também é
+   `role="dialog"`, e sem o :not() as formas dela viravam quadrados de canto
+   arredondado. */
+[role="dialog"]:not(#gh-intro) > div, .modal-content { border-radius: 16px; box-shadow: var(--gh-shadow-lg); }
 
 /* ---------------------------------------------------------------------------
    10. Os outros lugares onde a marca aparece
    ------------------------------------------------------------------------ */
 
-/* 10.1 — INTRO DA MARCA. A tela roxa de entrada: o símbolo GovHub entra pela
-   esquerda na meia-altura, cai, quica três vezes no chão e sobe para a direita;
-   depois volta ao centro, assenta e revela a mensagem de boas-vindas com o
-   botão "Começar". Quem monta o elemento é o loader.js (`#gh-intro`) — ver lá o
-   porquê de não ser o `#splash-screen` nativo e como o botão espera o app.
+/* 10.1 — INTRO DA MARCA. Tela navy de entrada, montada pelo loader.js
+   (`#gh-intro`) — ver lá por que não é o `#splash-screen` nativo, como o
+   botão espera o app e por que ela só aparece uma vez por sessão.
 
-   O quique é a barra de progresso: enquanto ele corre, o app está subindo.
+   COMPOSIÇÃO EM DUAS METADES (15/11). À esquerda, o texto alinhado à esquerda
+   — logomarca, rótulo, chamada em Reddit Sans 800, parágrafo, três garantias e
+   o botão. À direita, os elementos gráficos oficiais da IDV (semicírculo,
+   anel, pílula, quarto de círculo, ponto), sólidos e na paleta, sangrando
+   pelas bordas. A versão de 13/11 tinha tudo centrado num parágrafo único,
+   que lia como aviso, não como produto.
 
-   ⚠️ Uma animação por EIXO, em elementos aninhados: `transform` é uma
-   propriedade só, então X e Y na mesma regra brigariam. `.gh-intro-x` anda de
-   lado, `.gh-intro-y` (filho) cai e sobe, e o <img> só é achatado no impacto.
-   Os quatro compartilham a duração (--gh-salto) e as porcentagens de impacto
-   (40% / 54% / 63%) — mexer numa exige mexer nas outras.
-
-   ⚠️ E as porcentagens não são soltas: com o X em `linear`, tempo é distância.
-   Para o PRIMEIRO baque cair no meio da tela, a queda tem de ocupar a mesma
-   fração do tempo que a metade esquerda ocupa do percurso. Daí a queda longa
-   (0→40%) e os quiques curtos: o X sai de -1,55·lado e chega a +1·lado em 66%,
-   então em 40% ele está em ≈0, ou seja, no centro. Encurtar a queda joga o
-   baque para a esquerda — foi o que aconteceu na primeira versão. */
+   O movimento é uma ENTRADA, não um espetáculo: cada forma vem do lado em que
+   está presa e o texto sobe em cascata, ~1,4 s no total. Nada de gradiente,
+   halo ou brilho; nada de tom derivado com branco translúcido. */
 #gh-intro {
-  /* Duração do percurso. É a ÚNICA fonte da verdade do tempo: o loader.js não
-     cronometra o fim por relógio, ele espera o `animationend` daqui. */
-  --gh-salto: 3600ms;
-  --gh-chao: clamp(8rem, 29vh, 17rem);         /* quanto o símbolo cai abaixo do meio */
-  --gh-lado: min(40vw, 32rem);                 /* meia-largura do percurso */
-  --gh-marca: 4.6rem;
-  --gh-marca-h: calc(var(--gh-marca) * 202 / 176);   /* o SVG é 176×202 */
-  --gh-vaga: 7.6rem;                           /* tamanho do símbolo já pousado */
+  --gh-semi: min(44vh, 30vw);            /* raio do semicírculo da direita */
+  --gh-anel: min(11vh, 8vw);             /* raio externo do anel */
+  --gh-quarto: min(20vh, 14vw);          /* raio do quarto de círculo */
+  --gh-margem: clamp(1.5rem, 8vw, 8.5rem);
 
   position: fixed;
   inset: 0;
   z-index: 9999;
   overflow: hidden;
-  background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 55%, #8b5cf6 100%);
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  transition: opacity .5s ease;
+  background: var(--gh-navy);
+  font-family: var(--gh-sans);
+  transition: opacity .45s ease;
 }
 /* A intro só apaga o splash nativo DEPOIS de existir: a classe é ligada pelo
    loader.js junto com o append. Se ele falhar, o splash tematizado assume. */
 html.gh-intro-on { overflow: hidden !important; }
 html.gh-intro-on #splash-screen { visibility: hidden; }
 
-.gh-intro-halo {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(58% 44% at 50% 46%, rgba(255, 255, 255, .18), transparent 70%);
-  pointer-events: none;
-}
-/* O chão. Sem uma linha o quique não tem em quê bater. */
-.gh-intro-chao {
-  position: absolute;
-  left: 50%;
-  top: calc(50% + var(--gh-chao) + var(--gh-marca-h) / 2);
-  width: min(78vw, 54rem);
-  height: 1px;
-  transform: translateX(-50%);
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .34), transparent);
-  opacity: 0;
-  animation: gh-intro-chao var(--gh-salto) both;
-}
+/* --- elementos gráficos (metade direita) --------------------------------- */
+.gh-intro-forma { position: absolute; pointer-events: none; }
 
-/* Eixo horizontal: atravessa a tela em velocidade constante (linear é o que faz
-   parecer um objeto lançado), espera um tempo na direita e volta ao centro. */
-.gh-intro-x {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 0;
-  height: 0;
-}
-.gh-fase-salto .gh-intro-x { animation: gh-intro-x var(--gh-salto) both; }
-
-/* Eixo vertical. Caixa 0×0 no centro exato do símbolo — é por ela que o pouso
-   escala (ver `assentar()` no loader.js). */
-.gh-intro-y {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 0;
-  height: 0;
-  transform-origin: 50% 50%;
-  transition: transform .8s cubic-bezier(.2, .8, .25, 1);
-}
-.gh-fase-salto .gh-intro-y { animation: gh-intro-y var(--gh-salto) both; }
-
-.gh-intro-marca {
-  position: absolute;
-  left: calc(var(--gh-marca) / -2);
-  top: calc(var(--gh-marca-h) / -2);
-  width: var(--gh-marca);
-  height: var(--gh-marca-h);
-  /* ⚠️ O preflight do Tailwind põe `max-width: 100%` em TODA <img>, e aqui os
-     100% são do `.gh-intro-y`, que é uma caixa 0×0 de posicionamento — sem esta
-     linha o símbolo é espremido a zero de largura e a intro roda vazia. */
-  max-width: none;
-  transform-origin: 50% 100%;    /* achata contra o chão, não contra o próprio meio */
-  filter: drop-shadow(0 10px 26px rgba(46, 16, 101, .38));
-}
-.gh-fase-salto .gh-intro-marca { animation: gh-intro-marca var(--gh-salto) both; }
-
-/* Sombra no chão: anda junto no eixo X, mas fica presa na altura do chão. É ela
-   que dá a leitura de distância — larga e fraca no alto, curta e forte no baque. */
-.gh-intro-sombra {
-  position: absolute;
-  left: 0;
-  top: calc(var(--gh-chao) + var(--gh-marca-h) / 2);
-  width: 5.4rem;
-  height: 1.1rem;
-  margin-left: -2.7rem;
+/* Semicírculo: um círculo inteiro com o centro na borda direita, a meia
+   altura — a tela corta a metade de fora. É a forma dominante. */
+.gh-intro-semi {
+  right: calc(var(--gh-semi) * -1);
+  top: calc(50% - var(--gh-semi));
+  width: calc(var(--gh-semi) * 2);
+  height: calc(var(--gh-semi) * 2);
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(46, 16, 101, .55), transparent 78%);
-  opacity: 0;
+  background: var(--gh-purple);
+  animation: gh-intro-da-direita 1.1s var(--gh-ease) both;
 }
-.gh-fase-salto .gh-intro-sombra { animation: gh-intro-sombra var(--gh-salto) both; }
+/* Anel claro no alto, meio por cima do semicírculo. */
+.gh-intro-anel {
+  right: calc(var(--gh-semi) * .62);
+  top: calc(50% - var(--gh-semi) - var(--gh-anel) * .35);
+  width: calc(var(--gh-anel) * 2);
+  height: calc(var(--gh-anel) * 2);
+  border-radius: 50%;
+  border: calc(var(--gh-anel) * .24) solid var(--gh-soft);
+  animation: gh-intro-cresce .9s .18s var(--gh-ease) both;
+}
+/* Pílula clara atravessando a base do semicírculo. */
+.gh-intro-pilula {
+  right: calc(var(--gh-semi) * .62);
+  top: calc(50% + var(--gh-semi) * .6);
+  width: calc(var(--gh-semi) * .7);
+  height: calc(var(--gh-semi) * .19);
+  border-radius: 999px;
+  background: var(--gh-soft);
+  animation: gh-intro-da-esquerda .9s .3s var(--gh-ease) both;
+}
+/* Quarto de círculo roxo preso no canto inferior esquerdo — o contrapeso da
+   composição, longe do texto. */
+.gh-intro-quarto {
+  left: calc(var(--gh-quarto) * -1);
+  bottom: calc(var(--gh-quarto) * -1);
+  width: calc(var(--gh-quarto) * 2);
+  height: calc(var(--gh-quarto) * 2);
+  border-radius: 50%;
+  background: var(--gh-purple);
+  animation: gh-intro-cresce 1s .1s var(--gh-ease) both;
+}
+/* O acento: um ponto, o único #BE006E da tela (forma, nunca texto, em navy). */
+.gh-intro-ponto {
+  right: calc(var(--gh-semi) * 1.18);
+  top: calc(50% - var(--gh-semi) * .55);
+  width: .95rem;
+  height: .95rem;
+  border-radius: 50%;
+  background: var(--gh-rose);
+  animation: gh-intro-ponto .6s .7s var(--gh-ease) both;
+}
 
-/* --- o bloco final: marca assentada, mensagem e botão --------------------- */
+/* --- o bloco de texto (metade esquerda) ---------------------------------- */
 .gh-intro-final {
   position: absolute;
-  left: 50%;
+  left: var(--gh-margem);
   top: 50%;
-  transform: translate(-50%, -50%);
-  width: min(34rem, 84vw);
+  transform: translateY(-50%);
+  width: min(33rem, calc(100vw - var(--gh-margem) * 2));
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
+  align-items: flex-start;
+  text-align: left;
+  transition: transform .45s var(--gh-ease);
 }
-/* Espaço vazio no topo da coluna: é o lugar onde o símbolo pousa. O loader.js
-   mede esta caixa em vez de cravar uma altura — a mensagem quebra em mais ou
-   menos linhas conforme a tela, e o pouso precisa acompanhar. */
-.gh-intro-vaga {
-  width: var(--gh-vaga);
-  height: calc(var(--gh-vaga) * 202 / 176);
-  flex: none;
-}
-.gh-intro-assinatura,
-.gh-intro-msg,
-.gh-intro-cta {
-  opacity: 0;
-  transform: translateY(10px);
-  transition: opacity .5s ease, transform .5s cubic-bezier(.2, .7, .3, 1);
-}
-.gh-fase-final .gh-intro-assinatura { transition-delay: .18s; }
-.gh-fase-final .gh-intro-msg        { transition-delay: .28s; }
-.gh-fase-final .gh-intro-cta        { transition-delay: .38s; }
-.gh-fase-final .gh-intro-assinatura,
-.gh-fase-final .gh-intro-msg,
-.gh-fase-final .gh-intro-cta {
-  opacity: 1;
-  transform: translateY(0);
-}
-/* O chão e a sombra não têm mais função depois do pouso. */
-.gh-fase-final .gh-intro-chao,
-.gh-fase-final .gh-intro-sombra {
-  opacity: 0;
-  transition: opacity .45s ease;
-}
+.gh-intro-final > * { animation: gh-intro-sobe .7s var(--gh-ease) both; }
+.gh-intro-logo        { animation-delay: .1s; }
+.gh-intro-assinatura  { animation-delay: .22s; }
+.gh-intro-titulo      { animation-delay: .3s; }
+.gh-intro-msg         { animation-delay: .4s; }
+.gh-intro-garantias   { animation-delay: .5s; }
+.gh-intro-cta         { animation-delay: .6s; }
 
+.gh-intro-logo {
+  width: 10.5rem;
+  height: auto;
+  max-width: 60vw;
+}
 .gh-intro-assinatura {
-  margin: 1.5rem 0 0;
-  color: rgba(255, 255, 255, .8);
-  font-family: var(--gh-mono);
-  font-size: .72rem;
+  margin: 2.6rem 0 0;
+  color: rgba(242, 241, 246, .7);
+  font-size: .75rem;
   font-weight: 700;
-  letter-spacing: .28em;
+  letter-spacing: .18em;
   text-transform: uppercase;
 }
-.gh-intro-msg {
-  margin: 1.15rem 0 0;
-  max-width: 31rem;
-  color: rgba(255, 255, 255, .95);
-  font-size: 1.02rem;
-  line-height: 1.62;
-  letter-spacing: -.005em;
-  /* `balance`, e não `pretty`: num bloco centrado e curto como este, `pretty` só
-     evita a viúva da ÚLTIMA linha e deixava "precisa. Vamos começar?" sozinha no
-     pé. `balance` iguala as linhas todas, que é o que um parágrafo centrado pede.
-     Onde não houver suporte, cai no quebra-linha normal — nada se perde. */
+.gh-intro-titulo {
+  margin: .75rem 0 0;
+  color: #ffffff;
+  font-size: clamp(2.1rem, 3.6vw, 3.25rem);
+  font-weight: 800;
+  line-height: 1.06;
+  letter-spacing: -.025em;
   text-wrap: balance;
 }
+.gh-intro-msg {
+  margin: 1.1rem 0 0;
+  max-width: 30rem;
+  color: var(--gh-soft);
+  font-size: 1.06rem;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+.gh-intro-garantias {
+  display: flex;
+  flex-direction: column;
+  gap: .45rem;
+  margin: 1.4rem 0 0;
+  padding: 0;
+  list-style: none;
+  color: rgba(242, 241, 246, .82);
+  font-size: .9rem;
+}
+.gh-intro-garantias li { display: flex; align-items: center; gap: .6rem; }
+/* Marcador: pequeno anel roxo, o mesmo vocabulário de forma da composição. */
+.gh-intro-garantias li::before {
+  content: "";
+  flex: none;
+  width: .55rem;
+  height: .55rem;
+  border-radius: 50%;
+  border: 2px solid var(--gh-purple);
+}
 .gh-intro-cta {
-  margin-top: 2rem;
-  padding: .78rem 2.4rem;
-  border: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: .6rem;
+  margin-top: 2.1rem;
+  padding: .85rem 2.3rem;
+  border: 1px solid transparent;
   border-radius: 999px;
   background: #ffffff;
-  color: var(--gh-purple-d);
+  color: var(--gh-navy);
   font-family: inherit;
   font-size: .95rem;
   font-weight: 700;
-  letter-spacing: .01em;
   cursor: pointer;
-  box-shadow: 0 10px 30px rgba(46, 16, 101, .3);
-  transition: opacity .5s ease, transform .5s cubic-bezier(.2, .7, .3, 1),
-              box-shadow .18s ease, background-color .18s ease;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease,
+              transform .15s ease;
 }
-.gh-fase-final .gh-intro-cta:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 16px 40px rgba(46, 16, 101, .38);
-}
-.gh-fase-final .gh-intro-cta:active:not(:disabled) { transform: translateY(0); }
+.gh-intro-cta:hover:not(:disabled) { background: var(--gh-soft); }
+.gh-intro-cta:active:not(:disabled) { transform: scale(.98); }
 .gh-intro-cta:focus-visible {
   outline: 2px solid #ffffff;
   outline-offset: 4px;
 }
 /* Estado "Preparando…": o app ainda não subiu, clicar não levaria a lugar
-   nenhum. O pulso baixo diz que é espera, não travamento. */
+   nenhum. O anel girando diz que é espera de verdade, não botão quebrado. */
 .gh-intro-cta:disabled {
-  background: rgba(255, 255, 255, .18);
-  color: rgba(255, 255, 255, .8);
-  box-shadow: none;
+  background: transparent;
+  border-color: rgba(242, 241, 246, .3);
+  color: rgba(242, 241, 246, .8);
   cursor: default;
 }
-.gh-fase-final .gh-intro-cta:disabled { animation: gh-intro-pulso 1.6s ease-in-out infinite; }
+.gh-intro-cta:disabled::before {
+  content: "";
+  width: .85rem;
+  height: .85rem;
+  border-radius: 50%;
+  border: 2px solid rgba(242, 241, 246, .3);
+  border-top-color: #ffffff;
+  animation: gh-gira .8s linear infinite;
+}
 
+/* Saída: a tela apaga e o bloco sobe um pouco, como quem abre caminho. */
 .gh-fase-saida { opacity: 0; pointer-events: none; }
+.gh-fase-saida .gh-intro-final { transform: translateY(calc(-50% - 12px)); }
 
-/* --- as keyframes -------------------------------------------------------- */
-/* Impactos em 22% / 45% / 56%. Os três conjuntos abaixo compartilham essas
-   marcas — o achatamento e a sombra só funcionam se baterem com a queda. */
-@keyframes gh-intro-x {
-  0%   { transform: translateX(calc(var(--gh-lado) * -1.55)); animation-timing-function: linear; }
-  66%  { transform: translateX(var(--gh-lado)); }
-  76%  { transform: translateX(var(--gh-lado)); animation-timing-function: cubic-bezier(.5, 0, .2, 1); }
-  100% { transform: translateX(0); }
+@keyframes gh-intro-cresce {
+  from { transform: scale(.55); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
 }
-@keyframes gh-intro-y {
-  /* queda longa da meia-altura até o chão, acelerando */
-  0%   { transform: translateY(0);                            animation-timing-function: cubic-bezier(.5, 0, .9, .55); }
-  40%  { transform: translateY(var(--gh-chao));               animation-timing-function: cubic-bezier(.1, .62, .4, 1); }
-  48%  { transform: translateY(calc(var(--gh-chao) * .34));   animation-timing-function: cubic-bezier(.5, 0, .9, .55); }
-  54%  { transform: translateY(var(--gh-chao));               animation-timing-function: cubic-bezier(.1, .62, .4, 1); }
-  59%  { transform: translateY(calc(var(--gh-chao) * .68));   animation-timing-function: cubic-bezier(.5, 0, .9, .55); }
-  63%  { transform: translateY(var(--gh-chao));               animation-timing-function: cubic-bezier(.18, .74, .3, 1); }
-  /* o último impulso é longo e desacelerado de propósito: lê como decolagem, e
-     não como um quique que inexplicavelmente subiu mais que os anteriores */
-  72%  { transform: translateY(0); }
-  100% { transform: translateY(0); }
+@keyframes gh-intro-da-direita {
+  from { transform: translateX(18%); opacity: 0; }
+  to   { transform: translateX(0);   opacity: 1; }
 }
-@keyframes gh-intro-marca {
-  0%        { transform: rotate(-14deg) scale(1, 1); }
-  34%       { transform: rotate(-4deg)  scale(1.05, .95); }
-  40%       { transform: rotate(0deg)   scale(1.28, .74); }   /* impacto 1 */
-  46%       { transform: rotate(3deg)   scale(.93, 1.07); }
-  52%       { transform: rotate(6deg)   scale(1, 1); }
-  54%       { transform: rotate(7deg)   scale(1.18, .84); }   /* impacto 2 */
-  58%       { transform: rotate(8deg)   scale(.96, 1.04); }
-  63%       { transform: rotate(10deg)  scale(1.12, .9); }    /* impacto 3 */
-  67%       { transform: rotate(6deg)   scale(1, 1); }
-  72%, 100% { transform: rotate(0deg)   scale(1, 1); }
+@keyframes gh-intro-da-esquerda {
+  from { transform: translateX(-24%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
 }
-@keyframes gh-intro-sombra {
-  0%        { opacity: 0;   transform: scale(.5, 1); }
-  16%       { opacity: .08; transform: scale(.58, 1); }
-  40%       { opacity: .38; transform: scale(1.2, 1); }
-  48%       { opacity: .12; transform: scale(.66, 1); }
-  54%       { opacity: .32; transform: scale(1.06, 1); }
-  59%       { opacity: .18; transform: scale(.8, 1); }
-  63%       { opacity: .3;  transform: scale(1, 1); }
-  68%       { opacity: .2;  transform: scale(.86, 1); }
-  72%, 100% { opacity: 0;   transform: scale(.5, 1); }
+@keyframes gh-intro-ponto {
+  from { transform: scale(0); }
+  70%  { transform: scale(1.25); }
+  to   { transform: scale(1); }
 }
-@keyframes gh-intro-chao {
-  0%        { opacity: 0; }
-  20%, 64%  { opacity: 1; }
-  78%, 100% { opacity: 0; }
+@keyframes gh-intro-sobe {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-@keyframes gh-intro-pulso {
-  0%, 100% { background: rgba(255, 255, 255, .18); }
-  50%      { background: rgba(255, 255, 255, .3); }
-}
+@keyframes gh-gira { to { transform: rotate(360deg); } }
 
-/* Quem pede menos movimento não leva quique: o loader.js pula direto para o
-   estado final e aqui as transições de entrada saem do caminho. */
+/* Quem pede menos movimento recebe a tela pronta, sem entrada. */
 @media (prefers-reduced-motion: reduce) {
-  .gh-intro-y,
-  .gh-intro-assinatura,
-  .gh-intro-msg,
-  .gh-intro-cta { transition: opacity .3s ease; transform: none; }
-  .gh-fase-final .gh-intro-cta:disabled { animation: none; }
+  .gh-intro-forma, .gh-intro-final > * { animation: none; }
+  .gh-intro-cta:disabled::before { animation-duration: 2.4s; }
+  .gh-intro-final { transition: none; }
 }
 
-/* Telas baixas (notebook de 13", navegador com muita barra): a coluna final não
-   pode encostar nas bordas nem empurrar o botão para fora. */
-@media (max-height: 700px) {
-  #gh-intro { --gh-vaga: 5.6rem; }
-  .gh-intro-msg { font-size: .94rem; margin-top: .9rem; }
-  .gh-intro-cta { margin-top: 1.4rem; }
-  .gh-intro-assinatura { margin-top: 1.1rem; }
+/* Telas baixas (notebook de 13", navegador com muita barra). */
+@media (max-height: 760px) {
+  .gh-intro-assinatura { margin-top: 1.6rem; }
+  .gh-intro-titulo { font-size: clamp(1.9rem, 3.2vw, 2.6rem); }
+  .gh-intro-msg { font-size: .98rem; }
+  .gh-intro-garantias { margin-top: 1rem; }
+  .gh-intro-cta { margin-top: 1.5rem; }
+}
+/* Tela estreita (celular, janela dividida): não cabem duas metades. As formas
+   viram moldura — semicírculo no alto à direita, quarto embaixo à esquerda — e
+   o texto ocupa a coluna inteira, ainda alinhado à esquerda, um pouco abaixo
+   do meio para não encostar no semicírculo. */
+@media (max-width: 900px) {
+  #gh-intro { --gh-semi: 7.5rem; --gh-anel: 2.6rem; --gh-quarto: 5.5rem; --gh-margem: 1.75rem; }
+  .gh-intro-semi { top: calc(var(--gh-semi) * -.45); }
+  .gh-intro-anel { right: calc(var(--gh-semi) * .95); top: 1.4rem; }
+  .gh-intro-pilula { display: none; }
+  .gh-intro-ponto { right: calc(var(--gh-semi) * 1.05); top: calc(var(--gh-semi) * 1.05); }
+  .gh-intro-final { top: 54%; }
+  .gh-intro-logo { width: 8.5rem; }
+  .gh-intro-assinatura { margin-top: 1.6rem; }
+  .gh-intro-titulo { font-size: 2rem; }
+  .gh-intro-msg { font-size: .98rem; }
 }
 
 /* --- splash nativo: o plano B --------------------------------------------
    Continua tematizado. Ele só aparece se a intro não subir (JS quebrado, erro
-   no append) — nesse caso `gh-intro-on` nunca é ligada e o `visibility:hidden`
-   lá em cima não vale. */
+   no append) ou no meio segundo de boot de quem já viu a intro na sessão —
+   nesse caso `gh-intro-on` nunca é ligada e o `visibility:hidden` lá em cima
+   não vale. */
 /* `html` na frente não é enfeite: o componente do splash injeta um <style>
    inline no fim do <body> com `#splash-screen{background:#fff}`. Empata em
    especificidade com o custom.css e, por vir depois no documento, ganharia. */
-html #splash-screen {
-  background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 55%, #8b5cf6 100%);
-}
+html #splash-screen { background: var(--gh-navy); }
 #splash-screen img#logo,
 #splash-screen img#logo-her {
   content: url("/static/splash-dark.png");   /* versão clara da logo vertical */
   height: 10rem !important;                  /* o script inline crava 6rem no style */
-  filter: drop-shadow(0 10px 30px rgba(46, 16, 101, .35));
 }
 
-/* 10.2 — TELA DE ENTRADA. A marca completa acima do nome da persona, com
-   uma marca-d'água gigante e discreta atrás — como papel timbrado. */
-#chat-pane .translate-y-6.py-24 {
-  position: relative;
-}
+/* 10.2 — TELA DE ENTRADA. A logomarca oficial acima do nome da persona.
+   A marca-d'água gigante que ficava atrás (o símbolo a 2,8%) saiu: com o
+   texto e as sugestões por cima, ela lia como mancha, não como timbre. */
 #chat-pane .translate-y-6.py-24::before {
   content: "";
   display: block;
-  width: 156px;
-  height: 38px;
-  margin: 0 auto 1.9rem;
-  background: url("/static/govhub-horizontal.svg") center / contain no-repeat;
-  opacity: .92;
-  animation: gh-rise .6s cubic-bezier(.2, .7, .3, 1) both;
-}
-#chat-pane .translate-y-6.py-24::after {
-  content: "";
-  position: absolute;
-  top: 30%;
-  left: 50%;
-  width: 480px;
-  height: 480px;
-  transform: translate(-50%, -50%);
-  background: url("/static/favicon.svg") center / contain no-repeat;
-  opacity: .028;
-  pointer-events: none;
-  z-index: -1;
+  width: 168px;
+  height: 40px;
+  margin: 0 auto 2rem;
+  background: url("/static/govhub-logomarca.svg") center / contain no-repeat;
+  animation: gh-rise .6s var(--gh-ease) both;
 }
 @keyframes gh-rise {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: .92; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* 10.3 — CARREGANDO. As perguntas do Indicador levam de 30 s a 1 min; o
-   ponto que pulsava vira a marca GovHub pulsando. É o lugar em que a pessoa
-   mais olha enquanto espera.
+   ponto que pulsava vira o símbolo GovHub pulsando. É o lugar em que a
+   pessoa mais olha enquanto espera.
 
    ⚠️ O esqueleto é um <span> de 8px DENTRO de outro <span> de 8px, e o de fora
    é `flex`. Redimensionar só o de dentro não resolve: como item flex ele é
@@ -762,23 +784,21 @@ span.animate-size {
 span.animate-size {
   flex: none;
   background-color: transparent;
-  background-image: url("/static/favicon.svg");
+  background-image: url("/static/govhub-icone.svg");
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
   border-radius: 0;
 }
 
-/* Texto "pensando" no roxo da marca, em vez do cinza padrão. */
+/* Texto "pensando": brilho que corre do navy para o roxo. */
 .shimmer {
-  color: #a78bfa;
-  background: linear-gradient(110deg, #a78bfa, #a78bfa 43%, #6d28d9, #a78bfa 57%, #a78bfa) 0 0 / 200% 100%;
+  color: var(--gh-faint);
+  background: linear-gradient(110deg, var(--gh-faint), var(--gh-faint) 43%, var(--gh-purple),
+                              var(--gh-faint) 57%, var(--gh-faint)) 0 0 / 200% 100%;
   -webkit-background-clip: text;
   background-clip: text;
 }
-
-/* Modais e menus flutuantes com o raio e a sombra da marca. */
-[role="dialog"] > div, .modal-content { border-radius: 16px; box-shadow: var(--gh-shadow-lg); }
 
 /* ---------------------------------------------------------------------------
    11. Botões da jornada (ADR-0020) — os follow-ups viram os caminhos
@@ -797,11 +817,11 @@ span.animate-size {
    pergunta) e sai preenchido. Os outros continuam visíveis e clicáveis: o
    sistema só sugere a ordem, quem decide é a pessoa. */
 .mt-4:has(button[aria-label^="Acompanhamento"], button[aria-label^="Follow up"]) {
-  margin-top: 1.1rem;
-  padding: 14px 14px 12px;
-  border: 1px solid var(--gh-border);
+  margin-top: 1.25rem;
+  padding: 16px 16px 14px;
+  border: 1px solid var(--gh-line);
   border-radius: 16px;
-  background: var(--gh-soft);
+  background: var(--gh-soft-2);
 }
 
 /* Título da seção: "Quer ir além?" no lugar de "Acompanhamento". */
@@ -812,12 +832,11 @@ span.animate-size {
 .mt-4:has(button[aria-label^="Acompanhamento"], button[aria-label^="Follow up"]) > .text-sm::before {
   content: "Quer ir além? Escolha um caminho";
   display: block;
-  font-size: 0.78rem;
-  line-height: 1.2;
+  font-size: .88rem;
+  line-height: 1.3;
   font-weight: 700;
-  letter-spacing: .04em;
-  text-transform: uppercase;
-  color: var(--gh-purple);
+  letter-spacing: -.005em;
+  color: var(--gh-ink);
 }
 
 /* A lista vira uma grade de pílulas que quebra linha; os <hr> somem. */
@@ -825,7 +844,7 @@ span.animate-size {
   flex-direction: row;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 12px;
 }
 .mt-4:has(button[aria-label^="Acompanhamento"], button[aria-label^="Follow up"]) hr { display: none; }
 
@@ -841,16 +860,16 @@ button[aria-label^="Acompanhamento"],
 button[aria-label^="Follow up"] {
   width: auto;
   padding: 9px 16px;
-  border: 1.5px solid var(--gh-border-2);
+  border: 1px solid var(--gh-line-2);
   border-radius: 999px;
   background: var(--gh-bg);
   color: var(--gh-ink);
-  font-size: 0.875rem;
+  font-size: .875rem;
   font-weight: 600;
   line-height: 1.25;
-  box-shadow: 0 1px 2px rgba(80, 50, 160, .06);
+  box-shadow: var(--gh-shadow-sm);
   transition: border-color .15s ease, background-color .15s ease, color .15s ease,
-              transform .15s ease, box-shadow .15s ease;
+              box-shadow .15s ease;
 }
 /* `:hover` só onde existe mouse: no toque o navegador "gruda" o hover no
    último botão tocado, e ele ficava com cara de selecionado. */
@@ -858,33 +877,32 @@ button[aria-label^="Follow up"] {
   button[aria-label^="Acompanhamento"]:hover,
   button[aria-label^="Follow up"]:hover {
     border-color: var(--gh-purple);
-    background: var(--gh-soft-2);
-    color: var(--gh-purple-d);
-    transform: translateY(-1px);
+    color: var(--gh-purple-700);
     box-shadow: var(--gh-shadow);
   }
 }
 button[aria-label^="Acompanhamento"]:focus-visible,
 button[aria-label^="Follow up"]:focus-visible {
   border-color: var(--gh-purple);
-  background: var(--gh-soft-2);
-  color: var(--gh-purple-d);
-  box-shadow: var(--gh-shadow);
+  color: var(--gh-purple-700);
+  box-shadow: var(--gh-ring);
   outline: none;
 }
+button[aria-label^="Acompanhamento"]:active,
+button[aria-label^="Follow up"]:active { background: var(--gh-soft); }
 
-/* O palpite: primeiro botão preenchido, no gradiente da marca. */
+/* O palpite: primeiro botão preenchido, roxo sólido. */
 .mt-4:has(button[aria-label^="Acompanhamento"], button[aria-label^="Follow up"]) > .flex-col
   > .line-clamp-1:first-of-type button {
-  border-color: transparent;
-  background: var(--gh-nav);
+  border-color: var(--gh-purple);
+  background: var(--gh-purple);
   color: #fff;
-  box-shadow: 0 4px 14px rgba(124, 58, 237, .28);
 }
 .mt-4:has(button[aria-label^="Acompanhamento"], button[aria-label^="Follow up"]) > .flex-col
   > .line-clamp-1:first-of-type button:hover {
+  border-color: var(--gh-purple-600);
+  background: var(--gh-purple-600);
   color: #fff;
-  filter: brightness(1.06);
 }
 
 /* Celular: um botão por linha, largura cheia — alvo de toque generoso. */
@@ -897,20 +915,8 @@ button[aria-label^="Follow up"]:focus-visible {
   button[aria-label^="Acompanhamento"],
   button[aria-label^="Follow up"] {
     padding: 12px 16px;
-    font-size: 0.95rem;
+    font-size: .95rem;
   }
-}
-
-/* Gráficos da jornada: o PNG já é um cartão — sem moldura dupla nem corte. */
-#chat-container .markdown-prose img[src^="data:image/png"],
-.markdown-prose img[src^="data:image/png"] {
-  border-radius: 14px;
-  max-width: 100%;
-}
-@media (max-width: 640px) {
-  /* No celular a moldura de figura come ~20 px de cada lado de um gráfico que
-     já é um cartão — e o texto dentro dele encolhe junto. */
-  .markdown-prose img[src^="data:image/png"] { padding: 2px; border-radius: 12px; }
 }
 
 /* ------------------------------------------------------------------------
@@ -918,27 +924,29 @@ button[aria-label^="Follow up"]:focus-visible {
    ------------------------------------------------------------------------ */
 /* Todo arquivo para baixar sai do RAG pela rota assinada `/files/…` (CSV,
    relatório .docx, amostra do Explorar). Como link de texto, o alvo de toque
-   tinha 18 px de altura — no celular a pessoa errava o dedo. Aqui ele vira
-   botão: largura cheia, 48 px, ícone de download desenhado em CSS (sem emoji,
-   ADR-0020). A âncora é o HREF, não o texto: vale para qualquer modelo e
-   qualquer rótulo. */
+   tinha 18 px de altura — no celular a pessoa errava o dedo. Aqui ele vira um
+   CARTÃO DE ARQUIVO: largura cheia, 56 px, ícone num quadrado do claro da
+   marca e seta à direita (sem emoji, ADR-0020). Antes era uma barra roxa em
+   gradiente; duas delas empilhadas dominavam a resposta mais que o conteúdo.
+   A âncora é o HREF, não o texto: vale para qualquer modelo e qualquer rótulo. */
 .markdown-prose a[href*="/files/relatorios/"],
 .markdown-prose a[href*="/files/amostras/"] {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
+  gap: 12px;
   box-sizing: border-box;
   width: 100%;
-  min-height: 48px;
-  margin: 6px 0 2px;
-  padding: 12px 18px;
+  min-height: 56px;
+  margin: 8px 0 4px;
+  padding: 10px 16px 10px 10px;
+  border: 1px solid var(--gh-line);
   border-radius: 14px;
-  background: var(--gh-nav);
-  color: #fff !important;
+  background: var(--gh-bg);
+  color: var(--gh-ink) !important;
   font-weight: 650;
   text-decoration: none !important;
-  box-shadow: 0 4px 14px rgba(124, 58, 237, .22);
+  box-shadow: var(--gh-shadow-sm);
+  transition: border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
@@ -946,17 +954,37 @@ button[aria-label^="Follow up"]:focus-visible {
 .markdown-prose a[href*="/files/amostras/"]::before {
   content: "";
   flex: none;
-  width: 18px;
-  height: 18px;
-  background: currentColor;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12'/%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3Cpath d='M5 21h14'/%3E%3C/svg%3E") center / contain no-repeat;
-          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12'/%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3Cpath d='M5 21h14'/%3E%3C/svg%3E") center / contain no-repeat;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--gh-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23613EFF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v11'/%3E%3Cpath d='m7.5 10.5 4.5 4.5 4.5-4.5'/%3E%3Cpath d='M5 20h14'/%3E%3C/svg%3E") center / 18px no-repeat;
+}
+.markdown-prose a[href*="/files/relatorios/"]::after,
+.markdown-prose a[href*="/files/amostras/"]::after {
+  content: "";
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  background: var(--gh-faint);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 6 6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 6 6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat;
+  transition: background-color .15s ease, transform .15s ease;
 }
 .markdown-prose a[href*="/files/relatorios/"]:active,
-.markdown-prose a[href*="/files/amostras/"]:active { filter: brightness(.94); }
+.markdown-prose a[href*="/files/amostras/"]:active { background: var(--gh-soft-2); }
 @media (hover: hover) {
   .markdown-prose a[href*="/files/relatorios/"]:hover,
-  .markdown-prose a[href*="/files/amostras/"]:hover { color: #fff !important; filter: brightness(1.06); }
+  .markdown-prose a[href*="/files/amostras/"]:hover {
+    color: var(--gh-ink) !important;
+    border-color: rgba(97, 62, 255, .45);
+    box-shadow: var(--gh-shadow);
+  }
+  .markdown-prose a[href*="/files/relatorios/"]:hover::after,
+  .markdown-prose a[href*="/files/amostras/"]:hover::after {
+    background: var(--gh-purple);
+    transform: translateX(2px);
+  }
 }
 
 /* Tooltip no toque: o do Open WebUI abre ao tocar o botão de caminho e fica

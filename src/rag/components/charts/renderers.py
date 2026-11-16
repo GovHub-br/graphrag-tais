@@ -20,25 +20,28 @@ import pandas as pd
 
 from pathlib import Path
 
-# Paleta GovHub (webui/custom.css e docs/graphrag-tais-overview.html são a
-# referência). O gráfico chega ao usuário embutido na resposta do chat e dentro
-# do .docx — usar a cor da marca nos dois é o que faz a entrega parecer UMA coisa.
-_ACCENT = "#7c3aed"   # roxo GovHub — linha/área da série temporal
-_BAR = "#7c3aed"      # roxo GovHub — barras
-_INK = "#221f33"
-_MUTED = "#5b596f"
-_GRID = "#eceaf5"
-_BORDER = "#e2ddf1"
+# Paleta GovHub, modo sóbrio (IDV de 30/09/2026; webui/custom.css é a mesma).
+# O gráfico chega ao usuário embutido na resposta do chat e dentro do .docx —
+# usar a cor da marca nos dois é o que faz a entrega parecer UMA coisa.
+_ACCENT = "#613EFF"   # roxo GovHub — linha/área da série temporal
+_BAR = "#613EFF"      # roxo GovHub — barras
+_INK = "#0A005A"      # navy — título e rótulo de valor
+_MUTED = "#5E5B72"
+_GRID = "#E6E4EE"
+_BORDER = "#E9DFFF"
 
-# A Inter já vem com o relatório (OFL); registrada aqui, o gráfico do chat e a
-# capa do .docx passam a usar a mesma tipografia.
-_INTER_DIR = Path(__file__).resolve().parents[1] / "report" / "assets" / "fonts"
+# A Reddit Sans (OFL) vem com o relatório; registrada aqui, o gráfico do chat,
+# a capa e o corpo do .docx usam a mesma tipografia do tema do Open WebUI.
+_FONT_DIR = Path(__file__).resolve().parents[1] / "report" / "assets" / "fonts"
 _FONT_FAMILY = "sans-serif"
 try:
-    for _ttf in _INTER_DIR.glob("Inter-*.ttf"):
+    for _ttf in _FONT_DIR.glob("RedditSans-*.ttf"):
         font_manager.fontManager.addfont(str(_ttf))
-    if any(_INTER_DIR.glob("Inter-*.ttf")):
-        _FONT_FAMILY = "Inter"
+    if any(_FONT_DIR.glob("RedditSans-*.ttf")):
+        # Lista, não nome: a Reddit Sans não tem ✓ nem seta, e o matplotlib
+        # (≥ 3.6) busca glifo a glifo na próxima da lista — sem ela, a legenda da
+        # jornada da política saía com um quadrado no lugar do ✓.
+        _FONT_FAMILY = ["Reddit Sans", "DejaVu Sans"]
 except Exception:  # noqa: BLE001 — fonte é cosmético, nunca derruba o gráfico
     pass
 

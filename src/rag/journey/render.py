@@ -503,14 +503,14 @@ def gestor(facts: Facts, *, charts, kpis, region_table: str, planned_text: str) 
         anomalias = [r for r, _ in facts.outliers()]
         png = safe_chart(charts.alerts, serie, anomalias, f, temporal=True,
                          title="Tendência com alerta",
-                         subtitle="Pontos fora da curva em laranja" if anomalias else metrica)
+                         subtitle="Pontos fora da curva em rosa" if anomalias else metrica)
         partes.append(image(png, f"Tendência de {metrica}"))
         partes.append(values_table(facts))
     elif facts.n >= 3:
         partes.append(image(safe_chart(charts.ranking, facts.values, f,
                                        title="Quem está melhor e pior?",
                                        subtitle=f"{cap(metrica)}: 3 primeiros em roxo, "
-                                                "3 últimos em laranja"),
+                                                "3 últimos em rosa"),
                             f"Ranking de {metrica}"))
         partes.append(values_table(facts, "Os valores do ranking"))
         fora = facts.outliers()
@@ -538,6 +538,17 @@ _LINHA_DE_LINK = re.compile(r"\]\([^)]*/files/[^)]*\)")      # link assinado de 
 _LINK_MD = re.compile(r"(?<!!)\[([^\]]+)\]\(([^)]+)\)")
 _SUMMARY = re.compile(r"^\s*<summary>(.*?)</summary>\s*$")
 _TAG_SOLTA = re.compile(r"^\s*</?\w+[^>]*>\s*$")
+
+
+#: Eyebrow de cada capítulo do `.docx` (o rótulo pequeno acima do título,
+#: print-header.md), pela chave do título `##` que a trilha escreve.
+REPORT_EYEBROWS = {
+    "Resposta": "Visão geral",
+    "Como esse dado foi calculado": "Metodologia",
+    "Contexto da política": "Política pública",
+    "Números para decisão": "Gestão",
+    "A história do dado": "Narrativa",
+}
 
 
 def report_markdown(sections: Sequence[Tuple[str, str]]) -> str:

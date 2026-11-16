@@ -2,7 +2,7 @@
 
 O board da jornada pede quatro gráficos por trilha. Aqui estão todos os que o
 dado disponível sustenta, desenhados com a mesma identidade dos gráficos da
-Persona 2 (`renderers.py`: roxo GovHub, Inter, grade suave) — o que muda é o
+Persona 2 (`renderers.py`: roxo GovHub, Reddit Sans, grade suave) — o que muda é o
 tamanho da letra, pensado para a tela do celular.
 
 | função                 | pergunta que responde              | trilha            |
@@ -42,21 +42,29 @@ from matplotlib.patches import Circle, FancyArrowPatch, FancyBboxPatch, Polygon
 
 from rag.components.charts.renderers import _FONT_FAMILY, _to_png
 
-# Paleta: a mesma de `renderers.py` + os tons do tema do OpenWebUI (custom.css).
-ROXO = "#7c3aed"
-ROXO_ESCURO = "#4c1d95"
-ROXO_CLARO = "#ddd3fb"
-LILAS = "#f2eefe"
-INK = "#221f33"
-MUTED = "#5b596f"
-FAINT = "#8a889b"
-GRID = "#eceaf5"
-BORDA = "#e2ddf1"
-LARANJA = "#f97316"
-VERDE = "#0f9d58"
-CINZA = "#e7e5ee"
+# Paleta: a mesma de `renderers.py` e do tema do Open WebUI (custom.css), no
+# modo sóbrio da IDV (30/09/2026): roxo #613EFF, navy #0A005A, claro #F2F1F6 e
+# #BE006E como o ÚNICO acento — é ele que marca "fora da curva", a referência e a
+# mediana (antes o laranja #f97316, que saiu da paleta).
+ROXO = "#613EFF"
+ROXO_ESCURO = "#0A005A"   # navy: ponta escura da rampa
+ROXO_MEDIO = "#8A72FF"
+ROXO_SUAVE = "#B3A5FF"
+ROXO_CLARO = "#D6CCFF"
+LILAS = "#F2F1F6"         # o claro da marca: fundo de cartão
+INK = "#0A005A"
+MUTED = "#5E5B72"
+FAINT = "#8B889D"
+GRID = "#E6E4EE"
+BORDA = "#E9DFFF"
+ACENTO = "#BE006E"
+VERDE = "#10B981"
+CINZA = "#E6E4EE"
+SEM_DADO = "#F8F7FB"      # município sem dado: quase branco, mas não o fundo
+LINHA_MUNICIPAL = "#D6D3E2"
 
-_MAPA_CORES = LinearSegmentedColormap.from_list("govhub", [LILAS, "#b9a3f6", ROXO, ROXO_ESCURO])
+# Rampa navy → roxo → claro, a única que a IDV aceita (palette.md, "rampa editorial").
+_MAPA_CORES = LinearSegmentedColormap.from_list("govhub", [LILAS, ROXO_SUAVE, ROXO, ROXO_ESCURO])
 
 Fmt = Callable[[float], str]
 
@@ -252,7 +260,7 @@ def municipal_map(values: Dict[str, float], ufs: Sequence[str], fmt: Fmt, *, tit
     patches, cores = [], []
     for uf in ufs:
         for cod, aneis in municipios.geometry(uf).items():
-            cor = _MAPA_CORES(tons[cod]) if cod in tons else "#f3f2f7"
+            cor = _MAPA_CORES(tons[cod]) if cod in tons else SEM_DADO
             for anel in aneis:
                 patches.append(Polygon(anel, closed=True))
                 cores.append(cor)
@@ -265,7 +273,7 @@ def municipal_map(values: Dict[str, float], ufs: Sequence[str], fmt: Fmt, *, tit
     lat = sum(y for p in patches[:200] for _, y in p.get_xy()) / max(1, sum(len(p.get_xy()) for p in patches[:200]))
     ax.set_aspect(1 / math.cos(math.radians(lat)))
     ax.set_axis_off()
-    ax.add_collection(PatchCollection(patches, facecolor=cores, edgecolor="#dcd8e8", linewidth=0.2))
+    ax.add_collection(PatchCollection(patches, facecolor=cores, edgecolor=LINHA_MUNICIPAL, linewidth=0.2))
     ax.autoscale_view()
     cax = fig.add_axes([0.2, 0.075, 0.6, 0.022])
     cax.imshow([[i / 255 for i in range(256)]], aspect="auto", cmap=_MAPA_CORES)
@@ -298,8 +306,8 @@ def comparison(items: Sequence[Tuple[str, float]], reference: float, reference_l
     for barra, valor in zip(barras, valores):
         ax.text(barra.get_width() + topo * 0.015, barra.get_y() + barra.get_height() / 2,
                 fmt(valor), va="center", fontsize=10.5, color=INK, fontfamily=_FONT_FAMILY)
-    ax.axvline(reference, color=LARANJA, lw=2, ls=(0, (4, 3)))
-    ax.text(reference, len(dados) - 0.35, f" {reference_label}: {fmt(reference)}", color=LARANJA,
+    ax.axvline(reference, color=ACENTO, lw=2, ls=(0, (4, 3)))
+    ax.text(reference, len(dados) - 0.35, f" {reference_label}: {fmt(reference)}", color=ACENTO,
             fontsize=10.5, fontfamily=_FONT_FAMILY, va="bottom", fontweight="bold")
     ax.set_xlim(0, topo * 1.22)
     ax.set_xticks([])
@@ -347,7 +355,7 @@ def kpi_cards(kpis: Sequence[Tuple[str, str, str]], *, title: str = "",
 def ranking(items: Sequence[Tuple[str, float]], fmt: Fmt, *, title: str = "",
             subtitle: str = "", highlight_n: int = 3, max_items: int = 27,
             dpi: Optional[int] = None) -> Optional[bytes]:
-    """Ranking completo: os primeiros em roxo, os últimos em laranja."""
+    """Ranking completo: os primeiros em roxo, os últimos no acento."""
     dados = sorted(items, key=lambda kv: kv[1], reverse=True)[:max_items]
     if len(dados) < 2:
         return None
@@ -362,7 +370,7 @@ def ranking(items: Sequence[Tuple[str, float]], fmt: Fmt, *, title: str = "",
         if i < marca:
             cores.append(ROXO)
         elif i >= n - marca:
-            cores.append(LARANJA)
+            cores.append(ACENTO)
         else:
             cores.append(ROXO_CLARO)
     ordem = dados[::-1]
@@ -408,12 +416,12 @@ def alerts(items: Sequence[Tuple[str, float]], flagged: Sequence[str], fmt: Fmt,
         dados = sorted(dados, key=lambda kv: kv[1], reverse=True)
         xs = list(range(len(dados)))
         ys = [v for _, v in dados]
-        ax.scatter(xs, ys, s=60, color=[LARANJA if r in marcados else ROXO_CLARO for r, _ in dados],
+        ax.scatter(xs, ys, s=60, color=[ACENTO if r in marcados else ROXO_CLARO for r, _ in dados],
                    zorder=3, edgecolor="white", linewidth=0.8)
         ax.set_xticks([])
     pontos = [(x, rotulo, valor) for x, (rotulo, valor) in zip(xs, dados) if rotulo in marcados]
     for x, _, valor in pontos:
-        ax.scatter([x], [valor], s=140, facecolor="none", edgecolor=LARANJA, lw=2.2, zorder=4)
+        ax.scatter([x], [valor], s=140, facecolor="none", edgecolor=ACENTO, lw=2.2, zorder=4)
     if not temporal and pontos:
         # Folga em cima e embaixo para o rótulo do ponto extremo não subir no
         # subtítulo nem descer abaixo do eixo.
@@ -435,7 +443,7 @@ def alerts(items: Sequence[Tuple[str, float]], flagged: Sequence[str], fmt: Fmt,
 
 
 #: Mais que isto, os rótulos viram uma coluna de texto sobre o gráfico: os
-#: demais pontos laranja seguem marcados, e a tabela embaixo lista todos.
+#: demais pontos no acento seguem marcados, e a tabela embaixo lista todos.
 _MAX_ROTULOS = 8
 
 
@@ -488,9 +496,9 @@ def _rotulos_sem_colisao(fig, ax, pontos: Sequence[Tuple[float, float, str]], n:
         for (x, y, texto), (tx, ty), yy in zip(grupo, tela, ys):
             ax.annotate(texto, (x, y), xycoords="data", textcoords="offset points",
                         xytext=((coluna - tx) * pt, (yy - ty) * pt), ha="left" if direita else "right",
-                        va="center", fontsize=10, color=LARANJA, fontfamily=_FONT_FAMILY,
+                        va="center", fontsize=10, color=ACENTO, fontfamily=_FONT_FAMILY,
                         fontweight="bold", zorder=5, annotation_clip=False,
-                        arrowprops=dict(arrowstyle="-", color=LARANJA, lw=0.9, alpha=0.7, connectionstyle="angle,angleA=0,angleB=90,rad=0",
+                        arrowprops=dict(arrowstyle="-", color=ACENTO, lw=0.9, alpha=0.7, connectionstyle="angle,angleA=0,angleB=90,rad=0",
                                         shrinkA=3, shrinkB=7))
 
 
@@ -515,9 +523,9 @@ def histogram(values: Sequence[float], fmt: Fmt, *, title: str = "", subtitle: s
            edgecolor="white", linewidth=1.2)
     mediana = sorted(vals)[len(vals) // 2] if len(vals) % 2 else \
         sum(sorted(vals)[len(vals) // 2 - 1: len(vals) // 2 + 1]) / 2
-    ax.axvline(mediana, color=LARANJA, lw=1.6, ls=(0, (4, 3)))
+    ax.axvline(mediana, color=ACENTO, lw=1.6, ls=(0, (4, 3)))
     ax.annotate(f"mediana {fmt(mediana)}", (mediana, 1), xycoords=("data", "axes fraction"),
-                xytext=(4, 2), textcoords="offset points", fontsize=10, color=LARANJA,
+                xytext=(4, 2), textcoords="offset points", fontsize=10, color=ACENTO,
                 fontfamily=_FONT_FAMILY, fontweight="bold", va="bottom")
     ax.yaxis.set_major_locator(mticker.MaxNLocator(integer=True, nbins=4))
     # Poucas marcas no eixo do valor: "R$ 150 mi" é largo e, com o passo
@@ -543,7 +551,7 @@ def coverage(fractions: Dict[str, float], *, title: str = "", subtitle: str = ""
     ax = fig.add_axes([0.32, 0.06, 0.58, 1 - (1.35 if subtitle else 1.0) / altura])
     nomes = [_curto(n, 22) for n, _ in itens]
     ax.barh(nomes, [1] * len(itens), color=CINZA, height=0.6)
-    ax.barh(nomes, [f for _, f in itens], color=[ROXO if f >= 0.95 else LARANJA for _, f in itens],
+    ax.barh(nomes, [f for _, f in itens], color=[ROXO if f >= 0.95 else ACENTO for _, f in itens],
             height=0.6)
     for i, (_, f) in enumerate(itens):
         ax.text(1.02, i, f"{f * 100:.0f}%".replace(".", ","), va="center", fontsize=10.5,
@@ -595,7 +603,7 @@ def lineage(steps: Sequence[Tuple[str, Sequence[str]]], *, title: str = "",
 # --------------------------------------------------------------------------- #
 # Especialista em políticas
 # --------------------------------------------------------------------------- #
-_ESTADO_COR = {"usado": ROXO, "catalogo": "#b9a3f6", "lacuna": "white"}
+_ESTADO_COR = {"usado": ROXO, "catalogo": ROXO_SUAVE, "lacuna": "white"}
 
 
 def policy_journey(steps: Sequence[Tuple[str, str, str]], *, title: str = "",
@@ -644,7 +652,7 @@ def regions_stacked(regions: Dict[str, Dict[str, float]], fmt: Fmt, *, title: st
     _titulo(fig, title, subtitle)
     ax = fig.add_axes([0.2, 0.06, 0.68, 1 - 1.35 / altura])
     topo = max(sum(v.values()) for _, v in ordem) or 1
-    tons = [ROXO_ESCURO, ROXO, "#9d7af0", "#b9a3f6", ROXO_CLARO, LILAS]
+    tons = [ROXO_ESCURO, ROXO, ROXO_MEDIO, ROXO_SUAVE, ROXO_CLARO, LILAS]
     for y, (regiao, ufs_) in enumerate(ordem):
         esquerda = 0.0
         for k, (sigla, valor) in enumerate(sorted(ufs_.items(), key=lambda kv: -kv[1])):

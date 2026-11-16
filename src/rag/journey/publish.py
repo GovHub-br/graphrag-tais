@@ -60,11 +60,12 @@ class Publisher:
         try:
             from rag.components.report import ReportBuilder
 
+            from rag.journey.render import REPORT_EYEBROWS
+
             if self._report_builder is None:
                 self._report_builder = ReportBuilder()
-            data = datetime.now().strftime("%d/%m/%Y")
             path = self._report_builder.build(
-                markdown, subtitle=f'Pergunta: "{question.strip()[:140]}"   ·   {data}')
+                markdown, question=question.strip()[:300], eyebrows=REPORT_EYEBROWS)
             return self._upload(path)
         except Exception as exc:  # noqa: BLE001
             logger.warning("[jornada/baixar] relatório indisponível: {}", exc)

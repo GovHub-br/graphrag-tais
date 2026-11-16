@@ -833,6 +833,6 @@ def _line_renderer(f: facts_mod.Facts) -> Optional[bytes]:
     return infographics.alerts(
         serie, fora, render.chart_fmt(f), temporal=True,
         title=f"{render.cap(f.metric_label)} ao longo do tempo",
-        subtitle="Pontos fora da curva em laranja" if fora else
+        subtitle="Pontos fora da curva em rosa" if fora else
         f"{fmt.period(serie[0][0])} a {fmt.period(serie[-1][0])}",
     )
