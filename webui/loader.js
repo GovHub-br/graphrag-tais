@@ -58,12 +58,13 @@
    desabilitado como "Preparando…". O botão só arma quando clicar leva mesmo
    para um app pronto.
 
-   UMA VEZ POR SESSÃO. A intro é apresentação, e apresentação se faz uma vez:
-   ela aparecia a cada carregamento de página — a cada F5 e ao abrir o link de
-   uma conversa —, e quem trabalhava o dia todo no app pagava o pedágio sempre.
-   A marca fica no `sessionStorage` (vale até fechar a aba). Sem storage
-   (navegação privada antiga, bloqueio), a intro só volta a aparecer a cada
-   carregamento, como antes — nada quebra.
+   A CADA CARREGAMENTO DE PÁGINA (decisão de produto, 16/11). Toda vez que a
+   página é carregada — F5, link de conversa aberto, aba nova — a intro sobe de
+   novo. Navegar DENTRO do app (trocar de conversa, novo chat) não recarrega a
+   página e não a mostra. Entre 13/11 e 16/11 ela aparecia uma vez por sessão
+   (marca no `sessionStorage`); voltou a ser por carregamento porque a tela é a
+   apresentação do produto e o pedido foi vê-la ao atualizar. Se um dia o
+   pedágio pesar, o gancho é uma guarda em volta da chamada de `montar()`.
 
    O movimento mora todo no custom.css (seção 10.1); aqui não há relógio de
    animação nenhum.
@@ -75,7 +76,6 @@
    ========================================================================= */
 (function () {
   var MS_REDE = 20000;      // teto de espera pelo app antes de armar o botão assim mesmo
-  var CHAVE = 'gh-intro-vista';
 
   // Texto de produto de uso geral (15/11): o de antes falava com o datathon.
   // As três garantias são fatos do sistema, não promessa — a resposta cita a
@@ -92,13 +92,6 @@
     'Consulta somente leitura, sem alterar dados',
     'Relatório editável em Word'
   ];
-
-  function jaVista() {
-    try { return window.sessionStorage.getItem(CHAVE) === '1'; } catch (e) { return false; }
-  }
-  function marcarVista() {
-    try { window.sessionStorage.setItem(CHAVE, '1'); } catch (e) { /* sem storage, volta no próximo load */ }
-  }
 
   function montar() {
     if (document.getElementById('gh-intro')) return;
@@ -173,7 +166,6 @@
     function sair() {
       if (saindo || botao.disabled) return;
       saindo = true;
-      marcarVista();
       document.removeEventListener('focusin', guardaDeFoco, true);
       intro.classList.add('gh-fase-saida');
       document.documentElement.classList.remove('gh-intro-on');
@@ -215,10 +207,8 @@
   }
 
   try {
-    if (!jaVista()) {
-      if (document.body) montar();
-      else document.addEventListener('DOMContentLoaded', montar);
-    }
+    if (document.body) montar();
+    else document.addEventListener('DOMContentLoaded', montar);
   } catch (e) {
     // Sem intro, o splash nativo tematizado assume — a classe gh-intro-on só é
     // ligada em caso de sucesso, então nada fica escondido por engano.

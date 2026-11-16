@@ -105,7 +105,7 @@ baixar. `Indicador` e `Explorar` seguem no seletor, intactos.
   **Um embed por gráfico** (11/11, Function v0.2.0): cada trilha tem os seus
   (`service._EMBEDS`): gestor = ranking + **fora da curva** (pontos com a
   faixa esperada do IQR e um botão por ponto fora; a série do gestor marca os
-  pontos fora em laranja), técnica = **distribuição** (histograma; toque na
+  pontos fora no acento #BE006E), técnica = **distribuição** (histograma; toque na
   barra lista quem está na faixa), política = **série histórica** (a consulta
   de série fica em `state["series"]`) + **regiões** empilhadas por UF. Só sai
   a linha do gráfico que existe (`interactive.available`), e `for_chat` tira
@@ -688,10 +688,10 @@ comportamento e pede o gate do ADR-0012, não é edição de formatação.
 - `src/rag/components/answer/result_explainer.py` — parágrafo do resultado + `build_digest`.
 - `src/rag/components/executors/mcp_sql_executor.py` — Agent + postgres-mcp.
 - `src/rag/components/charts/` — `chart_spec.py`, `renderers.py`, `chart_renderer.py`.
-- `src/rag/components/report/` — relatório `.docx` (estilo editorial): `theme.py` (capa
-  full-bleed, tabelas, callouts, rodapé), `docx_writer.py` (Markdown→docx + badges de tipo),
-  `report_content.py` (renderização estruturada), `report_builder.py`, `assets/`
-  (`logo_govhub_light.png`, `symbol_govhub.png`, `fonts/Inter-*.ttf`).
+- `src/rag/components/report/` — relatório `.docx` (modo sóbrio da IDV): `theme.py` (capa
+  branca ancorada, capítulo, tabelas, rodapé, fonte embutida), `docx_writer.py`
+  (Markdown→docx, capítulos e legendas numeradas), `report_content.py` (renderização
+  estruturada), `report_builder.py`, `assets/` (logos navy, parceiros, `fonts/RedditSans-*.ttf`).
 - `src/rag/components/storage/` — `minio_uploader.py` (upload no MinIO) e `download_links.py`
   (assina/valida o link `/files` que o RAG serve).
 - `src/rag/server/` — app do projeto: `app.py` (Hayhooks + rotas próprias) e `downloads.py`

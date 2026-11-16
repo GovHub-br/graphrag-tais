@@ -61,7 +61,7 @@ os dois layouts e essa regra deixou de existir.
 
 | Lugar | Como |
 |---|---|
-| **Intro** (entrada) | tela navy em duas metades: à esquerda o texto alinhado à esquerda (logomarca, rótulo, chamada "Dados públicos, respostas verificáveis.", parágrafo, três garantias e o botão **Começar**); à direita os elementos gráficos oficiais (semicírculo e quarto de círculo roxos, anel e pílula `#F2F1F6`, ponto `#BE006E`). No celular as formas viram moldura. **Uma vez por sessão.** Ver "A intro" abaixo |
+| **Intro** (entrada) | tela navy em duas metades: à esquerda o texto alinhado à esquerda (logomarca, rótulo, chamada "Dados públicos, respostas verificáveis.", parágrafo, três garantias e o botão **Começar**); à direita os elementos gráficos oficiais (semicírculo e quarto de círculo roxos, anel e pílula `#F2F1F6`, ponto `#BE006E`). No celular as formas viram moldura. **A cada carregamento de página** (F5 inclusive). Ver "A intro" abaixo |
 | **Barra lateral** | fundo no claro da marca `#F2F1F6` (separa do canvas branco), fio à direita, símbolo oficial em cor no topo e o nome do produto numa linha só; conversa ativa = cartão branco com sombra curta e um marcador roxo em pílula dentro dele (`::before`, não `inset`: em canto arredondado o inset vira parêntese) |
 | **Tela inicial** | logomarca oficial (`govhub-logomarca.svg`) acima do nome da persona. Logo abaixo do nome vem a **mensagem de boas-vindas** — que não é arquivo daqui, é a `description` do modelo (ver "Camada de conteúdo"). A marca-d'água gigante que ficava atrás saiu em 13/11: lia como mancha |
 | **Downloads** | cartão de arquivo (ícone num quadrado `#F2F1F6`, rótulo navy, seta), largura cheia e 56 px de altura — era uma barra roxa em gradiente |
@@ -140,11 +140,12 @@ nativo some do DOM — a última coisa que o `+layout.svelte` faz ao terminar de
 carregar. Um teto de 20 s arma o botão de qualquer jeito para ninguém ficar preso
 numa rota de erro.
 
-**Uma vez por sessão** (13/11). A intro aparecia a cada carregamento — a cada F5 e
-ao abrir o link de uma conversa —, e quem trabalhava o dia todo no app pagava o
-pedágio sempre. A marca `gh-intro-vista` vai para o `sessionStorage` no clique de
-"Começar" e vale até fechar a aba. Sem storage, ela volta a cada carregamento, como
-antes. Para ver de novo: abrir outra aba, ou `sessionStorage.removeItem('gh-intro-vista')`.
+**A cada carregamento de página** (decisão de produto, 16/11). F5, link de conversa
+aberto, aba nova: a intro sobe de novo. Navegar DENTRO do app (trocar de conversa,
+novo chat) não recarrega a página e não a mostra. Entre 13/11 e 16/11 ela aparecia
+uma vez por sessão (marca no `sessionStorage`); voltou a ser por carregamento porque
+a tela é a apresentação do produto e o pedido foi vê-la ao atualizar. Se o pedágio
+pesar, o gancho é uma guarda em volta da chamada de `montar()`.
 
 **Entrada, não espetáculo.** Até 13/11 o símbolo atravessava a tela quicando três
 vezes num percurso de 3,6 s; em 13/11 virou um bloco centrado; em 15/11, a
@@ -174,9 +175,8 @@ O que continua valendo:
   para modais (`[role="dialog"] > div`). Sem o `:not(#gh-intro)` nela, os círculos
   viravam quadrados de canto arredondado.
 
-**Onde mexer**: chamada, parágrafo, garantias, assinatura, chave da sessão e teto de
-espera estão no `loader.js` (`TITULO`, `MENSAGEM`, `GARANTIAS`, o HTML de `montar()`,
-`CHAVE`, `MS_REDE`); formas, tempos e cascata, no `custom.css` (`--gh-semi`,
+**Onde mexer**: chamada, parágrafo, garantias, assinatura e teto de espera estão no
+`loader.js` (`TITULO`, `MENSAGEM`, `GARANTIAS`, o HTML de `montar()`, `MS_REDE`); formas, tempos e cascata, no `custom.css` (`--gh-semi`,
 `--gh-anel`, `--gh-quarto`, `--gh-margem` e as keyframes `gh-intro-*`).
 
 ⚠️ A mensagem é um parágrafo **centrado** e usa `text-wrap: balance`, não
